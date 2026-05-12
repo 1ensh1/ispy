@@ -7,7 +7,14 @@ use App\Http\Controllers\TeacherDashboardController;
 use App\Http\Controllers\StudentController;
 use App\Http\Controllers\ClassController;
 use App\Http\Controllers\VocabularyController;
+use App\Http\Controllers\Admin\VocabularySuggestionsController;
 use App\Http\Controllers\AssetController;
+use App\Http\Controllers\ParentPortal\DashboardController as ParentDashboardController;
+use App\Http\Controllers\ParentPortal\ProgressController as ParentProgressController;
+use App\Http\Controllers\ParentPortal\ProficiencyController as ParentProficiencyController;
+use App\Http\Controllers\ParentPortal\MessagingController as ParentMessagingController;
+use App\Http\Controllers\ParentPortal\ConsultationsController as ParentConsultationsController;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -15,8 +22,13 @@ Route::get('/', function () {
 });
 
 Route::get('/dashboard', function () {
-    return view('dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
+    return match (Auth::user()->role) {
+        'Admin'   => redirect()->route('admin.dashboard'),
+        'Teacher' => redirect()->route('teacher.dashboard'),
+        'Parent'  => redirect()->route('parent.dashboard'),
+        default   => redirect()->route('login'),
+    };
+})->middleware('auth')->name('dashboard');
 
 // Default Breeze Profile Routes
 Route::middleware('auth')->group(function () {
@@ -48,6 +60,11 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
     Route::post('/teachers', [TeacherController::class, 'store'])->name('admin.teachers.store');
     Route::put('/teachers/{teacher}', [TeacherController::class, 'update'])->name('admin.teachers.update');
     Route::delete('/teachers/{teacher}', [TeacherController::class, 'destroy'])->name('admin.teachers.destroy');
+
+    // Vocabulary Suggestions
+    Route::get('/vocabulary-suggestions', [VocabularySuggestionsController::class, 'index'])->name('admin.vocabulary-suggestions.index');
+    Route::post('/vocabulary-suggestions/{suggestion}/approve', [VocabularySuggestionsController::class, 'approve'])->name('admin.vocabulary-suggestions.approve');
+    Route::post('/vocabulary-suggestions/{suggestion}/reject', [VocabularySuggestionsController::class, 'reject'])->name('admin.vocabulary-suggestions.reject');
 
     // Vocabulary Library
     Route::get('/vocabulary', [VocabularyController::class, 'index'])->name('admin.vocabulary');
@@ -81,6 +98,20 @@ Route::prefix('teacher')->middleware(['auth', 'teacher'])->group(function () {
     Route::get('/enrollment', [TeacherDashboardController::class, 'enrollment'])->name('teacher.enrollment');
     Route::get('/pin', [TeacherDashboardController::class, 'pin'])->name('teacher.pin');
     Route::post('/logout', [TeacherDashboardController::class, 'logout'])->name('teacher.logout');
+});
+
+
+// --- PARENT PORTAL ROUTES ---
+Route::prefix('parent')->middleware(['auth', 'parent'])->name('parent.')->group(function () {
+    Route::get('/dashboard',              [ParentDashboardController::class,     'index'])->name('dashboard');
+    Route::post('/password/change',       [ParentDashboardController::class,     'changePassword'])->name('password.change');
+    Route::get('/progress',               [ParentProgressController::class,      'index'])->name('progress');
+    Route::get('/proficiency',            [ParentProficiencyController::class,   'index'])->name('proficiency');
+    Route::get('/messaging',              [ParentMessagingController::class,     'index'])->name('messaging');
+    Route::post('/messaging',             [ParentMessagingController::class,     'store'])->name('messaging.store');
+    Route::get('/consultations',          [ParentConsultationsController::class, 'index'])->name('consultations');
+    Route::post('/consultations',         [ParentConsultationsController::class, 'store'])->name('consultations.store');
+    Route::get('/consultations/slots',    [ParentConsultationsController::class, 'slots'])->name('consultations.slots');
 });
 
 
