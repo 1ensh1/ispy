@@ -17,4 +17,24 @@ class Student extends Model
     {
         return $this->belongsTo(ClassList::class, 'class_list_id');
     }
+
+    public function parentProfile()
+    {
+        return $this->belongsTo(ParentProfile::class, 'parent_id');
+    }
+
+    public function masteryScores()
+    {
+        return $this->hasMany(MasteryScore::class);
+    }
+
+    public function studentProgress()
+    {
+        return $this->hasMany(StudentProgress::class);
+    }
+
+    public function capturedObjects()
+    {
+        return $this->hasMany(CapturedObject::class);
+    }
 }

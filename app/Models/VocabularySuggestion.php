@@ -11,7 +11,7 @@ class VocabularySuggestion extends Model
 
     protected $fillable = [
         'teacher_id', 'english_label', 'filipino_label',
-        'category', 'status', 'submitted_at',
+        'category', 'status', 'submitted_at', 'reviewed_at',
     ];
 
     protected $casts = [

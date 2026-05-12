@@ -7,7 +7,8 @@
         'admin' => [
             ['label' => 'Dashboard',          'icon' => 'layout-dashboard', 'path' => 'admin/dashboard'],
             ['label' => 'User Accounts',      'icon' => 'users',            'path' => 'admin/users'],
-            ['label' => 'Vocabulary Library', 'icon' => 'book-open',        'path' => 'admin/vocabulary'],
+            ['label' => 'Vocabulary Library',    'icon' => 'book-open',    'path' => 'admin/vocabulary'],
+            ['label' => 'Vocab Suggestions',     'icon' => 'lightbulb',    'path' => 'admin/vocabulary-suggestions'],
             ['label' => 'Bilingual Assets',   'icon' => 'file-audio',       'path' => 'admin/assets'],
             ['label' => 'Data Sync',          'icon' => 'refresh-cw',       'path' => 'admin/sync'],
             ['label' => 'System Snapshots',   'icon' => 'camera',           'path' => 'admin/snapshots'],
