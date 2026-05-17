@@ -8,6 +8,15 @@ use App\Http\Controllers\StudentController;
 use App\Http\Controllers\ClassController;
 use App\Http\Controllers\VocabularyController;
 use App\Http\Controllers\Admin\VocabularySuggestionsController;
+use App\Http\Controllers\Admin\ProfileController as AdminProfileController;
+use App\Http\Controllers\Admin\NotificationController as AdminNotificationController;
+use App\Http\Controllers\Admin\ReportController as AdminReportController;
+use App\Http\Controllers\Teacher\ProfileController as TeacherProfileController;
+use App\Http\Controllers\Teacher\MessagingController as TeacherMessagingController;
+use App\Http\Controllers\Teacher\ConsultationController as TeacherConsultationController;
+use App\Http\Controllers\Teacher\NotificationController as TeacherNotificationController;
+use App\Http\Controllers\ParentPortal\ProfileController as ParentProfileController;
+use App\Http\Controllers\ParentPortal\NotificationController as ParentNotificationController;
 use App\Http\Controllers\AssetController;
 use App\Http\Controllers\ParentPortal\DashboardController as ParentDashboardController;
 use App\Http\Controllers\ParentPortal\ProgressController as ParentProgressController;
@@ -85,7 +94,34 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
     Route::get('/consultations', fn() => view('admin.consultations'))->name('admin.consultations');
     Route::get('/sync', fn() => view('admin.sync'))->name('admin.sync');
     Route::get('/snapshots', fn() => view('admin.snapshots'))->name('admin.snapshots');
-    Route::get('/reports', fn() => view('admin.reports'))->name('admin.reports');
+    Route::get('/reports',           [AdminReportController::class, 'index'])->name('admin.reports');
+    Route::get('/reports/{student}', [AdminReportController::class, 'show'])->name('admin.reports.show');
+
+    // Profile & Password
+    Route::get('/profile',          [AdminProfileController::class, 'index'])->name('admin.profile');
+    Route::post('/profile',         [AdminProfileController::class, 'update'])->name('admin.profile.update');
+    Route::get('/password',         [AdminProfileController::class, 'passwordForm'])->name('admin.password');
+    Route::post('/password',        [AdminProfileController::class, 'changePassword'])->name('admin.password.change');
+
+    // Notification actions
+    Route::post('/notifications/read-all', function () {
+        \Illuminate\Support\Facades\DB::table('notifications')
+            ->where('recipient_id', auth()->id())
+            ->where('recipient_role', 'Admin')
+            ->update(['is_read' => true]);
+        return response()->noContent();
+    })->name('admin.notifications.read-all');
+
+    Route::post('/notifications/{id}/read', function ($id) {
+        \Illuminate\Support\Facades\DB::table('notifications')
+            ->where('id', $id)
+            ->where('recipient_id', auth()->id())
+            ->where('recipient_role', 'Admin')
+            ->update(['is_read' => true]);
+        return response()->noContent();
+    })->name('admin.notifications.read');
+
+    Route::get('/notifications/redirect/{id}', [AdminNotificationController::class, 'redirect'])->name('admin.notifications.redirect');
 });
 
 
@@ -95,9 +131,64 @@ Route::prefix('teacher')->middleware(['auth', 'teacher'])->group(function () {
     Route::get('/students', [TeacherDashboardController::class, 'students'])->name('teacher.students');
     Route::get('/vocabulary', [TeacherDashboardController::class, 'vocabulary'])->name('teacher.vocabulary');
     Route::post('/vocabulary/suggest', [TeacherDashboardController::class, 'suggest'])->name('teacher.vocabulary.suggest');
-    Route::get('/enrollment', [TeacherDashboardController::class, 'enrollment'])->name('teacher.enrollment');
+    Route::get('/enrollment',  [TeacherDashboardController::class, 'enrollment'])->name('teacher.enrollment');
+    Route::post('/enrollment', [TeacherDashboardController::class, 'enrollmentStore'])->name('teacher.enrollment.store');
     Route::get('/pin', [TeacherDashboardController::class, 'pin'])->name('teacher.pin');
+    Route::get('/student-progress', [\App\Http\Controllers\Teacher\StudentProgressController::class, 'index'])->name('teacher.student-progress');
+    Route::get('/spelling-analysis', [\App\Http\Controllers\Teacher\SpellingAnalysisController::class, 'index'])->name('teacher.spelling-analysis');
+    Route::get('/milestones', [\App\Http\Controllers\Teacher\MilestonesController::class, 'index'])->name('teacher.milestones');
+    Route::get('/reports',                 [\App\Http\Controllers\Teacher\ReportController::class, 'index'])->name('teacher.reports');
+    Route::get('/reports/{student}',       [\App\Http\Controllers\Teacher\ReportController::class, 'show'])->name('teacher.reports.show');
+    Route::post('/reports/{student}/send', [\App\Http\Controllers\Teacher\ReportController::class, 'send'])->name('teacher.reports.send');
+    Route::get('/word-sets',         [\App\Http\Controllers\Teacher\WordSetsController::class, 'index'])->name('teacher.word-sets');
+    Route::post('/word-sets/toggle', [\App\Http\Controllers\Teacher\WordSetsController::class, 'toggle'])->name('teacher.word-sets.toggle');
+    Route::get('/annotations',       [\App\Http\Controllers\Teacher\AnnotationsController::class, 'index'])->name('teacher.annotations');
+    Route::post('/annotations',      [\App\Http\Controllers\Teacher\AnnotationsController::class, 'store'])->name('teacher.annotations.store');
+    Route::get('/mobile-sync',       [\App\Http\Controllers\Teacher\MobileSyncController::class,  'index'])->name('teacher.mobile-sync');
     Route::post('/logout', [TeacherDashboardController::class, 'logout'])->name('teacher.logout');
+
+    // Messaging
+    Route::get('/messaging',  [TeacherMessagingController::class,   'index'])->name('teacher.messaging');
+    Route::post('/messaging', [TeacherMessagingController::class,   'store'])->name('teacher.messaging.store');
+
+    // Consultation Availability
+    Route::get('/consultation-availability',              [TeacherConsultationController::class, 'index'])->name('teacher.consultation');
+    Route::post('/consultation-availability',             [TeacherConsultationController::class, 'store'])->name('teacher.consultation.store');
+    Route::post('/consultation-availability/save',        [TeacherConsultationController::class, 'saveSchedule'])->name('teacher.consultation.save');
+    Route::post('/consultation-availability/status',      [TeacherConsultationController::class, 'updateStatus'])->name('teacher.consultation.updateStatus');
+    Route::delete('/consultation-availability/{slot}',    [TeacherConsultationController::class, 'destroy'])->name('teacher.consultation.destroy');
+
+    // Profile & Password
+    Route::get('/profile',   [TeacherProfileController::class, 'index'])->name('teacher.profile');
+    Route::post('/profile',  [TeacherProfileController::class, 'update'])->name('teacher.profile.update');
+    Route::get('/password',  [TeacherProfileController::class, 'passwordForm'])->name('teacher.password');
+    Route::post('/password', [TeacherProfileController::class, 'changePassword'])->name('teacher.password.change');
+
+    // Notification actions
+    Route::post('/notifications/read-all', function () {
+        $teacher = \App\Models\Teacher::where('user_id', auth()->id())->first();
+        if ($teacher) {
+            \Illuminate\Support\Facades\DB::table('notifications')
+                ->where('recipient_id', $teacher->id)
+                ->where('recipient_role', 'Teacher')
+                ->update(['is_read' => true]);
+        }
+        return response()->noContent();
+    })->name('teacher.notifications.read-all');
+
+    Route::post('/notifications/{id}/read', function ($id) {
+        $teacher = \App\Models\Teacher::where('user_id', auth()->id())->first();
+        if ($teacher) {
+            \Illuminate\Support\Facades\DB::table('notifications')
+                ->where('id', $id)
+                ->where('recipient_id', $teacher->id)
+                ->where('recipient_role', 'Teacher')
+                ->update(['is_read' => true]);
+        }
+        return response()->noContent();
+    })->name('teacher.notifications.read');
+
+    Route::get('/notifications/redirect/{id}', [TeacherNotificationController::class, 'redirect'])->name('teacher.notifications.redirect');
 });
 
 
@@ -112,6 +203,39 @@ Route::prefix('parent')->middleware(['auth', 'parent'])->name('parent.')->group(
     Route::get('/consultations',          [ParentConsultationsController::class, 'index'])->name('consultations');
     Route::post('/consultations',         [ParentConsultationsController::class, 'store'])->name('consultations.store');
     Route::get('/consultations/slots',    [ParentConsultationsController::class, 'slots'])->name('consultations.slots');
+    Route::post('/consultations/{booking}/cancel', [ParentConsultationsController::class, 'cancel'])->name('consultations.cancel');
+
+    // Profile & Portal Password (web login — separate from mobile app password on dashboard)
+    Route::get('/profile',   [ParentProfileController::class, 'index'])->name('profile');
+    Route::post('/profile',  [ParentProfileController::class, 'update'])->name('profile.update');
+    Route::get('/password',  [ParentProfileController::class, 'passwordForm'])->name('portal.password');
+    Route::post('/password', [ParentProfileController::class, 'changePassword'])->name('portal.password.change');
+
+    // Notification actions
+    Route::post('/notifications/read-all', function () {
+        $parent = \App\Models\ParentProfile::where('user_id', auth()->id())->first();
+        if ($parent) {
+            \Illuminate\Support\Facades\DB::table('notifications')
+                ->where('recipient_id', $parent->id)
+                ->where('recipient_role', 'Parent')
+                ->update(['is_read' => true]);
+        }
+        return response()->noContent();
+    })->name('notifications.read-all');
+
+    Route::post('/notifications/{id}/read', function ($id) {
+        $parent = \App\Models\ParentProfile::where('user_id', auth()->id())->first();
+        if ($parent) {
+            \Illuminate\Support\Facades\DB::table('notifications')
+                ->where('id', $id)
+                ->where('recipient_id', $parent->id)
+                ->where('recipient_role', 'Parent')
+                ->update(['is_read' => true]);
+        }
+        return response()->noContent();
+    })->name('notifications.read');
+
+    Route::get('/notifications/redirect/{id}', [ParentNotificationController::class, 'redirect'])->name('notifications.redirect');
 });
 
 

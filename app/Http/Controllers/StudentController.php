@@ -49,11 +49,13 @@ class StudentController extends Controller
         $validated = $request->validate([
             'parent_id'     => 'nullable|exists:parents,id',
             'class_list_id' => 'nullable|exists:class_lists,id',
+            'profile_icon'  => 'required|string|in:cat,dog,bear,rabbit,fox,frog,penguin,lion',
         ]);
 
         $student->update([
             'parent_id'     => $validated['parent_id']     ?: null,
             'class_list_id' => $validated['class_list_id'] ?: null,
+            'profile_icon'  => $validated['profile_icon'],
         ]);
 
         return redirect()->route('admin.students')

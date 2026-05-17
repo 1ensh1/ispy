@@ -3,20 +3,31 @@
 namespace App\Http\Controllers\ParentPortal;
 
 use App\Http\Controllers\Controller;
+use App\Models\MasteryScore;
 use App\Models\ParentProfile;
+use App\Models\Student;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class ProgressController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $parent  = ParentProfile::where('user_id', auth()->id())->firstOrFail();
-        $student = $parent->students()->first();
+        $parent = ParentProfile::where('user_id', auth()->id())->firstOrFail();
+
+        if ($request->filled('student_id')) {
+            $student = Student::findOrFail($request->query('student_id'));
+            abort_if($student->parent_id !== $parent->id, 403, 'You are not authorized to view this page.');
+        } else {
+            $student = $parent->students()->first();
+        }
 
         $snapshots      = collect();
         $recentActivity = collect();
+        $hasMasteryScores = false;
 
         if ($student) {
+            $hasMasteryScores = MasteryScore::where('student_id', $student->id)->exists();
             $progressRows = DB::table('student_progress')
                 ->where('student_id', $student->id)
                 ->where('attempted_at', '>=', now()->subDays(13)->startOfDay())
@@ -58,6 +69,6 @@ class ProgressController extends Controller
                 ->get();
         }
 
-        return view('parent.progress', compact('parent', 'student', 'snapshots', 'recentActivity'));
+        return view('parent.progress', compact('parent', 'student', 'snapshots', 'recentActivity', 'hasMasteryScores'));
     }
 }

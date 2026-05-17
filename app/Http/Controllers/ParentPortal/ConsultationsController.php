@@ -63,6 +63,45 @@ class ConsultationsController extends Controller
         return response()->json($slots);
     }
 
+    public function cancel($booking)
+    {
+        $parent  = ParentProfile::where('user_id', auth()->id())->firstOrFail();
+        $booking = DB::table('face_to_face_bookings')
+            ->where('id', $booking)
+            ->where('parent_id', $parent->id)
+            ->first();
+
+        abort_if(!$booking, 403);
+
+        if (!in_array($booking->status, ['Pending', 'Confirmed'])) {
+            return back()->with('error', 'Only pending or confirmed bookings can be cancelled.');
+        }
+
+        DB::table('face_to_face_bookings')
+            ->where('id', $booking->id)
+            ->update(['status' => 'Cancelled', 'updated_at' => now()]);
+
+        DB::table('consultation_slots')
+            ->where('id', $booking->slot_id)
+            ->update(['is_available' => true]);
+
+        $slot = DB::table('consultation_slots')->where('id', $booking->slot_id)->first();
+
+        DB::table('notifications')->insert([
+            'recipient_id'      => $booking->teacher_id,
+            'recipient_role'    => 'Teacher',
+            'notification_type' => 'Availability',
+            'action_url'        => route('teacher.consultation'),
+            'title'             => 'Consultation Cancelled',
+            'message'           => $parent->name . ' cancelled their consultation on '
+                . date('M d, Y', strtotime($slot->scheduled_date)) . '.',
+            'is_read'           => false,
+            'created_at'        => now(),
+        ]);
+
+        return back()->with('success', 'Booking cancelled successfully.');
+    }
+
     public function store(Request $request)
     {
         $request->validate([
@@ -109,6 +148,7 @@ class ConsultationsController extends Controller
                 'recipient_id'      => $teacher->id,
                 'recipient_role'    => 'Teacher',
                 'notification_type' => 'Availability',
+                'action_url'        => route('teacher.consultation'),
                 'title'             => 'New Consultation Request',
                 'message'           => "{$parent->name} booked a consultation on {$dateFormatted} at {$timeFormatted} for {$student->name}.",
                 'is_read'           => false,

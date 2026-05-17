@@ -170,7 +170,8 @@
                                         {{ $student->id }},
                                         @js($student->name),
                                         {{ $student->parent_id ?? 'null' }},
-                                        {{ $student->class_list_id ?? 'null' }}
+                                        {{ $student->class_list_id ?? 'null' }},
+                                        @js($student->profile_icon ?? 'cat')
                                     )"
                                     class="text-sm px-3 py-1.5 rounded-md border border-gray-200 text-gray-600 hover:bg-gray-100 transition-colors inline-flex items-center gap-1.5">
                                     <i data-lucide="{{ $student->parentUser && $student->classList ? 'pencil' : 'link' }}" class="w-3.5 h-3.5"></i>
@@ -325,6 +326,33 @@
                 @csrf
                 <input type="hidden" name="_method" value="PATCH">
 
+                {{-- Profile Icon Picker --}}
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Profile Icon</label>
+                    <input type="hidden" id="assign-profile-icon" name="profile_icon" value="cat">
+                    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.5rem;">
+                        @foreach([
+                            'cat'     => '🐱',
+                            'dog'     => '🐶',
+                            'bear'    => '🐻',
+                            'rabbit'  => '🐰',
+                            'fox'     => '🦊',
+                            'frog'    => '🐸',
+                            'penguin' => '🐧',
+                            'lion'    => '🦁',
+                        ] as $iconName => $emoji)
+                            <button type="button"
+                                    onclick="selectAssignIcon('{{ $iconName }}')"
+                                    id="assign-icon-btn-{{ $iconName }}"
+                                    class="assign-icon-btn flex flex-col items-center gap-1 p-3 rounded-lg border-2 border-gray-200 hover:border-[#2f5597] transition-colors cursor-pointer"
+                                    data-icon="{{ $iconName }}">
+                                <span class="text-2xl leading-none">{{ $emoji }}</span>
+                                <span class="text-[10px] text-gray-500 capitalize">{{ $iconName }}</span>
+                            </button>
+                        @endforeach
+                    </div>
+                </div>
+
                 {{-- Parent dropdown --}}
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Parent</label>
@@ -408,11 +436,25 @@
         @endif
 
         // ---- Assign modal ----
-        function openAssignModal(studentId, studentName, parentId, classListId) {
+        function selectAssignIcon(name) {
+            document.getElementById('assign-profile-icon').value = name;
+            document.querySelectorAll('.assign-icon-btn').forEach(function (btn) {
+                if (btn.dataset.icon === name) {
+                    btn.classList.add('border-[#2f5597]', 'bg-[#2f5597]/5');
+                    btn.classList.remove('border-gray-200');
+                } else {
+                    btn.classList.remove('border-[#2f5597]', 'bg-[#2f5597]/5');
+                    btn.classList.add('border-gray-200');
+                }
+            });
+        }
+
+        function openAssignModal(studentId, studentName, parentId, classListId, profileIcon) {
             document.getElementById('assign-student-name').textContent = studentName;
             document.getElementById('assign-form').action = '/admin/students/' + studentId;
             document.getElementById('assign-parent').value = parentId  ?? '';
             document.getElementById('assign-class').value  = classListId ?? '';
+            selectAssignIcon(profileIcon || 'cat');
             document.getElementById('assign-modal').style.display = 'flex';
         }
 

@@ -47,7 +47,11 @@
                 @empty
                     <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-8 text-center text-gray-400 text-sm">
                         <i data-lucide="inbox" class="w-8 h-8 mx-auto mb-2 opacity-30"></i>
-                        No learning activity in the last 14 days.
+                        @if(!$hasMasteryScores)
+                            Your child has not started any learning activities yet.
+                        @else
+                            No learning activity in the last 14 days.
+                        @endif
                     </div>
                 @endforelse
             </div>

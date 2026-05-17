@@ -116,6 +116,21 @@ class TeacherDashboardController extends Controller
             'submitted_at'   => now(),
         ]);
 
+        $admins = DB::table('administrators')->pluck('user_id');
+        $now    = now();
+        foreach ($admins as $adminUserId) {
+            DB::table('notifications')->insert([
+                'recipient_id'      => $adminUserId,
+                'recipient_role'    => 'Admin',
+                'notification_type' => 'Suggestion',
+                'action_url'        => route('admin.vocabulary-suggestions.index'),
+                'title'             => 'New Vocabulary Suggestion',
+                'message'           => "{$teacher->name} suggested a new word: \"{$validated['english_label']}\".",
+                'is_read'           => false,
+                'created_at'        => $now,
+            ]);
+        }
+
         return back()->with('success', 'Word suggestion submitted successfully!');
     }
 
@@ -123,11 +138,36 @@ class TeacherDashboardController extends Controller
     {
         [$teacher, $classList] = $this->getTeacherAndClass();
 
-        $students = $classList
-            ? Student::where('class_list_id', $classList->id)->with('parentUser')->get()
+        $classLists = $teacher
+            ? ClassList::where('teacher_id', $teacher->id)->orderBy('class_name')->get()
             : collect();
 
-        return view('teacher.enrollment', compact('teacher', 'classList', 'students'));
+        $students = $classLists->isNotEmpty()
+            ? Student::whereIn('class_list_id', $classLists->pluck('id'))->with('parentUser', 'classList')->get()
+            : collect();
+
+        return view('teacher.enrollment', compact('teacher', 'classList', 'classLists', 'students'));
+    }
+
+    public function enrollmentStore(Request $request)
+    {
+        $teacher = Teacher::where('user_id', auth()->id())->firstOrFail();
+
+        $teacherClassIds = ClassList::where('teacher_id', $teacher->id)->pluck('id');
+
+        $validated = $request->validate([
+            'name'          => 'required|string|max:255',
+            'class_list_id' => ['required', 'integer', \Illuminate\Validation\Rule::in($teacherClassIds)],
+            'profile_icon'  => 'nullable|string|in:cat,dog,bear,rabbit,fox,frog,penguin,lion',
+        ]);
+
+        Student::create([
+            'name'          => $validated['name'],
+            'class_list_id' => $validated['class_list_id'],
+            'profile_icon'  => $validated['profile_icon'] ?? 'cat',
+        ]);
+
+        return back()->with('success', 'Student added to the roster.');
     }
 
     public function pin()
