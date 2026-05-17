@@ -94,14 +94,15 @@
                             <th class="px-6 py-4 font-medium">Time</th>
                             <th class="px-6 py-4 font-medium">Purpose</th>
                             <th class="px-6 py-4 font-medium">Status</th>
+                            <th class="px-6 py-4 font-medium">Action</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100">
                         @forelse($bookings as $booking)
                         <tr class="hover:bg-gray-50">
                             <td class="px-6 py-4 font-medium text-gray-900">{{ $booking->teacher_name }}</td>
-                            <td class="px-6 py-4 text-gray-600">{{ date('M d, Y', strtotime($booking->scheduled_date)) }}</td>
-                            <td class="px-6 py-4 text-gray-600">
+                            <td class="px-6 py-4 text-gray-600 whitespace-nowrap">{{ date('M d, Y', strtotime($booking->scheduled_date)) }}</td>
+                            <td class="px-6 py-4 text-gray-600 whitespace-nowrap">
                                 {{ date('g:i A', strtotime($booking->time_start)) }}
                                 – {{ date('g:i A', strtotime($booking->time_end)) }}
                             </td>
@@ -111,14 +112,31 @@
                                     <span class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700 border border-green-200">Confirmed</span>
                                 @elseif($booking->status === 'Pending')
                                     <span class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700 border border-amber-200">Pending</span>
+                                @elseif($booking->status === 'Cancelled')
+                                    <span class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-rose-100 text-rose-700 border border-rose-200">Cancelled</span>
                                 @else
                                     <span class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500 border border-gray-200">{{ $booking->status }}</span>
+                                @endif
+                            </td>
+                            <td class="px-6 py-4">
+                                @if(in_array($booking->status, ['Pending', 'Confirmed']))
+                                    <form method="POST"
+                                          action="{{ route('parent.consultations.cancel', $booking->id) }}"
+                                          onsubmit="return confirm('Cancel this booking? The slot will be released for others to book.')">
+                                        @csrf
+                                        <button type="submit"
+                                                class="px-3 py-1 text-xs font-medium text-rose-600 border border-rose-200 bg-rose-50 rounded-lg hover:bg-rose-100 transition-colors">
+                                            Cancel
+                                        </button>
+                                    </form>
+                                @else
+                                    <span class="text-gray-300 text-xs">—</span>
                                 @endif
                             </td>
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="5" class="px-6 py-12 text-center text-gray-400 text-sm">
+                            <td colspan="6" class="px-6 py-12 text-center text-gray-400 text-sm">
                                 <i data-lucide="calendar" class="w-7 h-7 mx-auto mb-2 opacity-30"></i>
                                 No appointments booked yet.
                             </td>

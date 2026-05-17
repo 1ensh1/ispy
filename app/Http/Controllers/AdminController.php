@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -10,21 +11,38 @@ class AdminController extends Controller
 {
     public function dashboard()
     {
-        // 1. Pull REAL counts from the database
-        $totalUsers = User::count();
-        $teacherCount = User::where('role', 'teacher')->count();
-        $parentCount = User::where('role', 'parent')->count();
-        $studentCount = DB::table('students')->count();
+        $totalUsers     = User::count();
+        $teacherCount   = DB::table('teachers')->count();
+        $parentCount    = DB::table('parents')->count();
+        $studentCount   = DB::table('students')->count();
+        $activeStudents = DB::table('students')->whereNotNull('parent_id')->count();
+        $vocabCount     = DB::table('vocabulary_library')->where('is_active', true)->count();
 
-        $vocabCount = 100; 
+        $weekStart    = Carbon::now()->startOfWeek(Carbon::MONDAY);
+        $activityRows = DB::table('student_progress')
+            ->selectRaw('DATE(attempted_at) as day, SUM(attempts) as total')
+            ->where('attempted_at', '>=', $weekStart)
+            ->where('attempted_at', '<', $weekStart->copy()->addDays(7))
+            ->groupBy('day')
+            ->get()
+            ->keyBy('day');
 
-        $recentLogs = [
-            ['user' => auth()->user()->name, 'action' => 'Accessed Admin Portal', 'time' => 'Just now'],
-            ['user' => 'System', 'action' => 'Database connection active', 'time' => '1 min ago'],
-        ];
+        $weeklyData = [];
+        for ($i = 0; $i < 7; $i++) {
+            $date         = $weekStart->copy()->addDays($i)->toDateString();
+            $weeklyData[] = $activityRows->has($date) ? (int) $activityRows->get($date)->total : 0;
+        }
+        $weeklyActivityJson = json_encode($weeklyData);
+
+        $recentActivity = DB::table('notifications')
+            ->where('recipient_role', 'Admin')
+            ->orderByDesc('created_at')
+            ->limit(10)
+            ->get();
 
         return view('admin.dashboard', compact(
-            'totalUsers', 'teacherCount', 'parentCount', 'studentCount', 'vocabCount', 'recentLogs'
+            'totalUsers', 'teacherCount', 'parentCount', 'studentCount',
+            'activeStudents', 'vocabCount', 'weeklyActivityJson', 'recentActivity'
         ));
     }
 

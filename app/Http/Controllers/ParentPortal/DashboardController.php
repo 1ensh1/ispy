@@ -8,7 +8,6 @@ use App\Models\FaceToFaceBooking;
 use App\Models\MasteryScore;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
 
 class DashboardController extends Controller
 {
@@ -103,21 +102,28 @@ class DashboardController extends Controller
 
     public function changePassword(Request $request)
     {
-        $request->validate([
-            'current_password'          => 'required',
-            'new_password'              => 'required|min:8|confirmed|different:current_password',
-            'new_password_confirmation' => 'required',
-        ]);
+        $parent  = ParentProfile::where('user_id', auth()->id())->firstOrFail();
+        $student = \App\Models\Student::where('parent_id', $parent->id)->first();
 
-        $user = auth()->user();
-
-        if (!Hash::check($request->current_password, $user->password)) {
-            return back()->with('password_error', 'Current password is incorrect.');
+        if (!$student) {
+            return back()->withErrors(['current_password' => 'No linked student found for your account.'])->withInput();
         }
 
-        $user->password = Hash::make($request->new_password);
-        $user->save();
+        if ($request->current_password !== $student->parent_password) {
+            return back()->withErrors(['current_password' => 'Current password is incorrect.'])->withInput();
+        }
 
-        return back()->with('password_success', 'Parent password updated successfully.');
+        if ($request->new_password !== $request->new_password_confirmation) {
+            return back()->withErrors(['new_password' => 'Passwords do not match.'])->withInput();
+        }
+
+        if ($request->new_password === $request->current_password) {
+            return back()->withErrors(['new_password' => 'New password must be different from the current password.'])->withInput();
+        }
+
+        $student->parent_password = $request->new_password;
+        $student->save();
+
+        return back()->with('success', 'Parent password updated successfully.');
     }
 }

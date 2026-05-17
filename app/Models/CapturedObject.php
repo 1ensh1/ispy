@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class CapturedObject extends Model
 {
@@ -19,8 +20,13 @@ class CapturedObject extends Model
         'captured_at'         => 'datetime',
     ];
 
-    public function student()
+    public function student(): BelongsTo
     {
         return $this->belongsTo(Student::class);
+    }
+
+    public function vocabulary(): BelongsTo
+    {
+        return $this->belongsTo(VocabularyLibrary::class, 'vocabulary_id');
     }
 }

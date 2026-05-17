@@ -26,7 +26,7 @@ class MessagingController extends Controller
 
             $messages = DB::table('messages')
                 ->where('engagement_id', $engagement->id)
-                ->orderBy('sent_at')
+                ->orderBy('id', 'asc')
                 ->get();
 
             DB::table('messages')
@@ -70,6 +70,7 @@ class MessagingController extends Controller
                 'recipient_id'      => $teacher->id,
                 'recipient_role'    => 'Teacher',
                 'notification_type' => 'Availability',
+                'action_url'        => route('teacher.messaging', ['engagement_id' => $engagement->id]),
                 'title'             => 'New Message from Parent',
                 'message'           => "{$parent->name} sent you a message regarding {$student->name}.",
                 'is_read'           => false,
