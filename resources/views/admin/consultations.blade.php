@@ -2,39 +2,26 @@
     <div x-data="{
             searchQuery: '',
             teacherFilter: 'all',
-            appointments: [
-                { teacher: 'Ms. Reyes',  parent: 'Juan dela Cruz', student: 'Sofia',    date: 'Feb 25, 2026', time: '2:00 PM',  status: 'scheduled' },
-                { teacher: 'Mr. Santos', parent: 'Maria Garcia',   student: 'Carlos',   date: 'Feb 24, 2026', time: '10:00 AM', status: 'scheduled' },
-                { teacher: 'Ms. Reyes',  parent: 'Rosa Lim',       student: 'Mia',      date: 'Feb 21, 2026', time: '3:00 PM',  status: 'completed' },
-                { teacher: 'Ms. Cruz',   parent: 'Pedro Reyes',    student: 'Luis',     date: 'Feb 20, 2026', time: '1:00 PM',  status: 'completed' },
-                { teacher: 'Mr. Santos', parent: 'Ana Torres',     student: 'Miguel',   date: 'Feb 19, 2026', time: '11:00 AM', status: 'cancelled' },
-                { teacher: 'Ms. Reyes',  parent: 'Jose Ramos',     student: 'Isabella', date: 'Feb 18, 2026', time: '2:30 PM',  status: 'no-show'   },
-            ],
+            appointments: @json($rows),
             get filtered() {
                 const q = this.searchQuery.toLowerCase();
                 return this.appointments.filter(a => {
-                    const matchSearch = !q || a.parent.toLowerCase().includes(q) || a.student.toLowerCase().includes(q);
-                    const matchTeacher = this.teacherFilter === 'all' || a.teacher === this.teacherFilter;
+                    const matchSearch  = !q || a.parent.toLowerCase().includes(q) || a.student.toLowerCase().includes(q);
+                    const matchTeacher = this.teacherFilter === 'all' || a.teacher_id === parseInt(this.teacherFilter);
                     return matchSearch && matchTeacher;
                 });
             },
-            get totalScheduled() { return this.appointments.filter(a => a.status === 'scheduled').length; },
-            get totalCompleted()  { return this.appointments.filter(a => a.status === 'completed').length; },
-            get totalCancelled()  { return this.appointments.filter(a => a.status === 'cancelled').length; },
-            get totalNoShow()     { return this.appointments.filter(a => a.status === 'no-show').length; },
             statusBadge(status) {
                 const map = {
-                    scheduled: 'bg-blue-100 text-blue-700',
-                    completed: 'bg-teal-100 text-teal-700',
-                    cancelled: 'bg-gray-100 text-gray-600',
-                    'no-show': 'bg-red-100 text-red-700',
+                    'Pending':   'bg-blue-100 text-blue-700',
+                    'Confirmed': 'bg-green-100 text-green-700',
+                    'Completed': 'bg-teal-100 text-teal-700',
+                    'Cancelled': 'bg-gray-100 text-gray-600',
+                    'No-show':   'bg-red-100 text-red-700',
                 };
                 return map[status] || 'bg-gray-100 text-gray-600';
             },
-            statusLabel(status) {
-                const map = { scheduled: 'Scheduled', completed: 'Completed', cancelled: 'Cancelled', 'no-show': 'No-show' };
-                return map[status] || status;
-            }
+            statusLabel(status) { return status; }
          }"
          class="p-6 max-w-7xl mx-auto">
 
@@ -44,9 +31,10 @@
                 <h1 class="text-3xl font-bold text-gray-900 mb-1">Face-to-Face Consultations</h1>
                 <p class="text-sm text-gray-500">Track and manage scheduled consultation appointments between teachers and parents</p>
             </div>
-            <button class="flex items-center gap-2 px-4 py-2 text-sm font-medium border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors">
+            <a :href="`{{ url('/admin/consultations/export') }}` + (teacherFilter !== 'all' ? `?teacher_id=${teacherFilter}` : '')"
+               class="flex items-center gap-2 px-4 py-2 text-sm font-medium border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors">
                 <i data-lucide="download" class="w-4 h-4"></i> Export Records
-            </button>
+            </a>
         </div>
 
         {{-- Stat Cards --}}
@@ -57,7 +45,7 @@
                         <i data-lucide="calendar-check" class="w-5 h-5 text-blue-500"></i>
                     </div>
                     <div>
-                        <p class="text-2xl font-bold text-gray-900" x-text="totalScheduled"></p>
+                        <p class="text-2xl font-bold text-gray-900">{{ $upcoming }}</p>
                         <p class="text-xs text-gray-500">Upcoming</p>
                     </div>
                 </div>
@@ -68,7 +56,7 @@
                         <i data-lucide="check-circle" class="w-5 h-5 text-teal-500"></i>
                     </div>
                     <div>
-                        <p class="text-2xl font-bold text-gray-900" x-text="totalCompleted"></p>
+                        <p class="text-2xl font-bold text-gray-900">{{ $completed }}</p>
                         <p class="text-xs text-gray-500">Completed</p>
                     </div>
                 </div>
@@ -79,7 +67,7 @@
                         <i data-lucide="x-circle" class="w-5 h-5 text-gray-500"></i>
                     </div>
                     <div>
-                        <p class="text-2xl font-bold text-gray-900" x-text="totalCancelled"></p>
+                        <p class="text-2xl font-bold text-gray-900">{{ $cancelled }}</p>
                         <p class="text-xs text-gray-500">Cancelled</p>
                     </div>
                 </div>
@@ -90,7 +78,7 @@
                         <i data-lucide="alert-triangle" class="w-5 h-5 text-red-500"></i>
                     </div>
                     <div>
-                        <p class="text-2xl font-bold text-gray-900" x-text="totalNoShow"></p>
+                        <p class="text-2xl font-bold text-gray-900">{{ $noshow }}</p>
                         <p class="text-xs text-gray-500">No-show</p>
                     </div>
                 </div>
@@ -107,9 +95,9 @@
             <select x-model="teacherFilter"
                     class="px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#2f5597]/30 focus:border-[#2f5597]">
                 <option value="all">All Teachers</option>
-                <option value="Ms. Reyes">Ms. Reyes</option>
-                <option value="Mr. Santos">Mr. Santos</option>
-                <option value="Ms. Cruz">Ms. Cruz</option>
+                @foreach($teachers as $t)
+                    <option value="{{ $t->id }}">{{ $t->name }}</option>
+                @endforeach
             </select>
         </div>
 

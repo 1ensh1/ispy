@@ -451,7 +451,7 @@
 
         function openAssignModal(studentId, studentName, parentId, classListId, profileIcon) {
             document.getElementById('assign-student-name').textContent = studentName;
-            document.getElementById('assign-form').action = '/admin/students/' + studentId;
+            document.getElementById('assign-form').action = '{{ url("/admin/students") }}/' + studentId;
             document.getElementById('assign-parent').value = parentId  ?? '';
             document.getElementById('assign-class').value  = classListId ?? '';
             selectAssignIcon(profileIcon || 'cat');
