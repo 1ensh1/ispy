@@ -11,6 +11,7 @@ use App\Http\Controllers\Admin\VocabularySuggestionsController;
 use App\Http\Controllers\Admin\ProfileController as AdminProfileController;
 use App\Http\Controllers\Admin\NotificationController as AdminNotificationController;
 use App\Http\Controllers\Admin\ReportController as AdminReportController;
+use App\Http\Controllers\Admin\ConsultationController as AdminConsultationController;
 use App\Http\Controllers\Teacher\ProfileController as TeacherProfileController;
 use App\Http\Controllers\Teacher\MessagingController as TeacherMessagingController;
 use App\Http\Controllers\Teacher\ConsultationController as TeacherConsultationController;
@@ -91,7 +92,8 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
 
     // Static admin views
     Route::get('/logs', fn() => view('admin.logs'))->name('admin.logs');
-    Route::get('/consultations', fn() => view('admin.consultations'))->name('admin.consultations');
+    Route::get('/consultations',        [AdminConsultationController::class, 'index'])->name('admin.consultations');
+    Route::get('/consultations/export', [AdminConsultationController::class, 'export'])->name('admin.consultations.export');
     Route::get('/sync', fn() => view('admin.sync'))->name('admin.sync');
     Route::get('/snapshots', fn() => view('admin.snapshots'))->name('admin.snapshots');
     Route::get('/reports',           [AdminReportController::class, 'index'])->name('admin.reports');

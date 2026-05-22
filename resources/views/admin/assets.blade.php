@@ -186,7 +186,7 @@
                 </div>
 
                 <form method="POST"
-                      :action="`/admin/assets/${upload.id}/upload`"
+                      :action="`{{ url('/admin/assets') }}/${upload.id}/upload`"
                       enctype="multipart/form-data"
                       class="p-6 space-y-4">
                     @csrf

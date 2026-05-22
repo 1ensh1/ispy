@@ -273,7 +273,7 @@
                 </div>
 
                 <form method="POST"
-                      :action="`/admin/vocabulary/${word.id}`"
+                      :action="`{{ url('/admin/vocabulary') }}/${word.id}`"
                       enctype="multipart/form-data"
                       class="p-6 space-y-4">
                     @csrf

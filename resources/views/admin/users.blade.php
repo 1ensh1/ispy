@@ -157,7 +157,7 @@
                         <i data-lucide="x" class="w-5 h-5"></i>
                     </button>
                 </div>
-                <form method="POST" :action="'/admin/teachers/' + editUser.id" class="p-6 space-y-4">
+                <form method="POST" :action="`{{ url('/admin/teachers') }}/` + editUser.id" class="p-6 space-y-4">
                     @csrf
                     <input type="hidden" name="_method" value="PUT">
                     <div>
@@ -261,7 +261,7 @@
                         <i data-lucide="x" class="w-5 h-5"></i>
                     </button>
                 </div>
-                <form method="POST" :action="'/admin/users/' + editUser.id" class="p-6 space-y-4">
+                <form method="POST" :action="`{{ url('/admin/users') }}/` + editUser.id" class="p-6 space-y-4">
                     @csrf
                     <input type="hidden" name="_method" value="PUT">
                     <div>
