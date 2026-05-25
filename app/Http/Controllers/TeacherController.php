@@ -71,15 +71,20 @@ class TeacherController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'name'       => 'required|string|max:255',
-            'class_name' => 'required|string|max:100',
-            'email'      => 'required|email|max:255|unique:users',
+            'first_name'  => 'required|string|max:255',
+            'middle_name' => 'required|string|max:255',
+            'last_name'   => 'required|string|max:255',
+            'class_name'  => 'required|string|max:100',
+            'email'       => 'required|email|max:255|unique:users',
         ]);
+
+        // Combine into full name: "FirstName MiddleName LastName"
+        $fullName = $validated['first_name'] . ' ' . $validated['middle_name'] . ' ' . $validated['last_name'];
 
         $tempPassword = Str::random(8);
 
         $user = User::create([
-            'name'     => $validated['name'],
+            'name'     => $fullName,
             'email'    => $validated['email'],
             'password' => bcrypt($tempPassword),
             'role'     => 'teacher',
@@ -87,7 +92,7 @@ class TeacherController extends Controller
 
         $teacherId = DB::table('teachers')->insertGetId([
             'user_id'    => $user->id,
-            'name'       => $validated['name'],
+            'name'       => $fullName,
             'created_at' => now(),
             'updated_at' => now(),
         ]);

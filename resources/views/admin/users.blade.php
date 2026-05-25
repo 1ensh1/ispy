@@ -104,23 +104,46 @@
                         <i data-lucide="x" class="w-5 h-5"></i>
                     </button>
                 </div>
-                <form method="POST" action="{{ route('admin.teachers.store') }}" class="p-6 space-y-4">
+                <form method="POST" action="{{ route('admin.teachers.store') }}" class="p-6 space-y-4"
+                      x-data="{
+                          firstName: '',
+                          middleName: '',
+                          lastName: '',
+                          get autoEmail() {
+                              if (!this.firstName || !this.middleName || !this.lastName) return '';
+                              return (this.firstName.charAt(0) + this.middleName.charAt(0) + this.lastName).toLowerCase().replace(/\s+/g, '') + '@ispyworld.com';
+                          }
+                      }">
                     @csrf
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
-                        <input type="text" name="name" required
-                               class="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#2f5597] outline-none">
+                    <div class="grid grid-cols-3 gap-3">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">First Name <span class="text-red-500">*</span></label>
+                            <input type="text" name="first_name" x-model="firstName" required
+                                   class="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#2f5597] outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Middle Name <span class="text-red-500">*</span></label>
+                            <input type="text" name="middle_name" x-model="middleName" required
+                                   class="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#2f5597] outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Last Name <span class="text-red-500">*</span></label>
+                            <input type="text" name="last_name" x-model="lastName" required
+                                   class="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#2f5597] outline-none">
+                        </div>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Class Name</label>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Class Name <span class="text-red-500">*</span></label>
                         <input type="text" name="class_name" required
                                placeholder="e.g. Kinder A, Grade 1 - Sampaguita"
                                class="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#2f5597] outline-none">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
-                        <input type="email" name="email" required
-                               class="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#2f5597] outline-none">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Email Address <span class="text-red-500">*</span></label>
+                        <input type="email" name="email" required readonly
+                               :value="autoEmail"
+                               class="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm bg-gray-50 text-gray-600 focus:ring-2 focus:ring-[#2f5597] outline-none cursor-not-allowed">
+                        <p class="text-xs text-gray-400 mt-1" x-show="autoEmail">Auto-generated from name</p>
                     </div>
                     <div class="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
                         <i data-lucide="info" class="w-4 h-4 text-amber-600 shrink-0 mt-0.5"></i>
