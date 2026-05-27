@@ -5,11 +5,27 @@
 <div class="max-w-6xl mx-auto space-y-6">
 
     {{-- Page heading --}}
-    <div>
-        <h1 class="text-2xl font-bold text-gray-900">Welcome, {{ explode(' ', $parent->name)[0] }}</h1>
-        <p class="text-sm text-gray-500 mt-0.5">
-            {{ $student ? $student->name."'s learning progress overview" : 'No student linked yet.' }}
-        </p>
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900">Welcome, {{ explode(' ', $parent->name)[0] }}</h1>
+            <p class="text-sm text-gray-500 mt-0.5">
+                {{ $student ? $student->name."'s learning progress overview" : 'No student linked yet.' }}
+            </p>
+        </div>
+        @if($students->count() > 1)
+        <div class="flex items-center gap-2 shrink-0">
+            <span class="text-sm font-medium text-gray-600">Viewing:</span>
+            <select onchange="window.location.href=this.value"
+                    class="px-3 py-1.5 border border-gray-200 rounded-lg text-sm bg-white text-gray-700 focus:ring-2 focus:ring-teal-500 outline-none">
+                @foreach($students as $s)
+                    <option value="{{ request()->fullUrlWithQuery(['student_id' => $s->id]) }}"
+                            {{ $student?->id == $s->id ? 'selected' : '' }}>
+                        {{ $s->name }}
+                    </option>
+                @endforeach
+            </select>
+        </div>
+        @endif
     </div>
 
     {{-- Stat cards --}}
@@ -127,6 +143,7 @@
         <form method="POST" action="{{ route('parent.password.change') }}"
               id="pw-form" class="{{ $errors->any() ? '' : 'hidden' }} mt-4 space-y-3 max-w-sm">
             @csrf
+            <input type="hidden" name="student_id" value="{{ $student->id }}">
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Current Mobile App Password</label>
                 <input type="password" name="current_password" required

@@ -4,14 +4,22 @@ namespace App\Http\Controllers\ParentPortal;
 
 use App\Http\Controllers\Controller;
 use App\Models\ParentProfile;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class ProficiencyController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $parent  = ParentProfile::where('user_id', auth()->id())->firstOrFail();
-        $student = $parent->students()->first();
+        $parent   = ParentProfile::where('user_id', auth()->id())->firstOrFail();
+        $students = $parent->students()->get();
+
+        if ($request->filled('student_id')) {
+            $student = $students->firstWhere('id', (int) $request->query('student_id'));
+            abort_if(!$student, 403);
+        } else {
+            $student = $students->first();
+        }
 
         $overallPercent = 0;
         $overallLevel   = 'Beginner';
@@ -77,7 +85,7 @@ class ProficiencyController extends Controller
         }
 
         return view('parent.proficiency', compact(
-            'parent', 'student', 'overallPercent', 'overallLevel', 'categories'
+            'parent', 'students', 'student', 'overallPercent', 'overallLevel', 'categories'
         ));
     }
 

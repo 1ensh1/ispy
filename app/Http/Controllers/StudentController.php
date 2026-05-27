@@ -47,16 +47,23 @@ class StudentController extends Controller
     public function update(Request $request, Student $student)
     {
         $validated = $request->validate([
-            'parent_id'     => 'nullable|exists:parents,id',
-            'class_list_id' => 'nullable|exists:class_lists,id',
-            'profile_icon'  => 'required|string|in:cat,dog,bear,rabbit,fox,frog,penguin,lion',
+            'parent_id'       => 'nullable|exists:parents,id',
+            'class_list_id'   => 'nullable|exists:class_lists,id',
+            'profile_icon'    => 'required|string|in:cat,dog,bear,rabbit,fox,frog,penguin,lion',
+            'parent_password' => 'nullable|string|max:255',
         ]);
 
-        $student->update([
+        $updateData = [
             'parent_id'     => $validated['parent_id']     ?: null,
             'class_list_id' => $validated['class_list_id'] ?: null,
             'profile_icon'  => $validated['profile_icon'],
-        ]);
+        ];
+
+        if (!empty($validated['parent_password'])) {
+            $updateData['parent_password'] = $validated['parent_password'];
+        }
+
+        $student->update($updateData);
 
         return redirect()->route('admin.students')
             ->with('success', "Assignments for \"{$student->name}\" saved successfully.");

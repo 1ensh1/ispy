@@ -11,10 +11,17 @@ use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $parent  = ParentProfile::where('user_id', auth()->id())->firstOrFail();
-        $student = $parent->students()->with('classList.teacher')->first();
+        $parent   = ParentProfile::where('user_id', auth()->id())->firstOrFail();
+        $students = $parent->students()->with('classList.teacher')->get();
+
+        if ($request->filled('student_id')) {
+            $student = $students->firstWhere('id', (int) $request->query('student_id'));
+            abort_if(!$student, 403);
+        } else {
+            $student = $students->first();
+        }
 
         $wordsMastered  = 0;
         $wordsThisWeek  = 0;
@@ -94,7 +101,7 @@ class DashboardController extends Controller
             ->count();
 
         return view('parent.dashboard', compact(
-            'parent', 'student', 'wordsMastered', 'wordsThisWeek',
+            'parent', 'students', 'student', 'wordsMastered', 'wordsThisWeek',
             'pronunciationScore', 'nextConsultation', 'activityData',
             'recentWords', 'unreadCount'
         ));
@@ -102,8 +109,14 @@ class DashboardController extends Controller
 
     public function changePassword(Request $request)
     {
-        $parent  = ParentProfile::where('user_id', auth()->id())->firstOrFail();
-        $student = \App\Models\Student::where('parent_id', $parent->id)->first();
+        $parent = ParentProfile::where('user_id', auth()->id())->firstOrFail();
+
+        if ($request->filled('student_id')) {
+            $student = \App\Models\Student::findOrFail($request->input('student_id'));
+            abort_if($student->parent_id !== $parent->id, 403);
+        } else {
+            $student = \App\Models\Student::where('parent_id', $parent->id)->first();
+        }
 
         if (!$student) {
             return back()->withErrors(['current_password' => 'No linked student found for your account.'])->withInput();

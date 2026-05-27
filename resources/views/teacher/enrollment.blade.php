@@ -179,6 +179,24 @@
                     </select>
                 </div>
 
+                {{-- Parent Password --}}
+                <div>
+                    <label style="display:block; font-size:0.8125rem; font-weight:600; color:#374151; margin-bottom:0.5rem;">
+                        Parent Password
+                    </label>
+                    <div style="display:flex; gap:0.5rem;">
+                        <input type="text" id="enroll-parent-password" name="parent_password"
+                               style="flex:1; padding:0.625rem 0.875rem; border:1px solid #d1d5db; border-radius:0.5rem;
+                                      font-size:0.875rem; font-family:monospace; color:#111827; outline:none; box-sizing:border-box;">
+                        <button type="button" onclick="generateEnrollPassword()"
+                                style="padding:0.625rem 0.875rem; border:none; border-radius:0.5rem;
+                                       background:#1e3a5f; color:#ffffff; font-size:0.8125rem; font-weight:600; cursor:pointer; white-space:nowrap;">
+                            Generate
+                        </button>
+                    </div>
+                    <p style="margin:0.375rem 0 0; font-size:0.75rem; color:#9ca3af;">This password is used by the student's mobile app at home.</p>
+                </div>
+
             </div>
 
             {{-- Modal footer --}}
@@ -208,7 +226,15 @@
 (function () {
     var modal = document.getElementById('enroll-modal');
 
+    window.generateEnrollPassword = function () {
+        var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+        var pw = '';
+        for (var i = 0; i < 8; i++) pw += chars.charAt(Math.floor(Math.random() * chars.length));
+        document.getElementById('enroll-parent-password').value = pw;
+    };
+
     window.openEnrollModal = function () {
+        generateEnrollPassword();
         modal.style.display = 'flex';
     };
 

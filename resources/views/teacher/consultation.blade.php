@@ -8,11 +8,22 @@
     $hours = [8, 9, 10, 11, 12, 13, 14, 15, 16];
     $days  = [1 => 'Mon', 2 => 'Tue', 3 => 'Wed', 4 => 'Thu', 5 => 'Fri'];
 
-    $grid = [];
+    // Bug 3: deduplicate by exact date+time so slots from different weeks
+    // with the same dow+hour don't stack into the same cell.
+    $grid     = [];
+    $seenSlot = [];
     foreach ($slots as $slot) {
+        $slotKey = $slot->scheduled_date . '_' . $slot->time_start;
+        if (isset($seenSlot[$slotKey])) continue;
+        $seenSlot[$slotKey] = true;
+
         $dow  = (int) Carbon::parse($slot->scheduled_date)->dayOfWeek;
         $hour = (int) substr($slot->time_start, 0, 2);
         if ($dow >= 1 && $dow <= 5 && $hour >= 8 && $hour <= 16) {
+            $cellKey = "{$dow}_{$hour}";
+            if (!isset($grid[$dow][$hour])) {
+                $grid[$dow][$hour] = [];
+            }
             $grid[$dow][$hour][] = $slot;
         }
     }
@@ -49,13 +60,17 @@
 
         <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
             <label class="block text-xs font-medium text-gray-500 mb-2">Max Appointments / Day</label>
-            <select class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm
-                           focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-gray-700">
-                <option>2</option>
-                <option>4</option>
-                <option selected>6</option>
-                <option>8</option>
-            </select>
+            <form method="POST" action="{{ route('teacher.consultation.maxAppointments') }}" id="max-appt-form">
+                @csrf
+                <select name="max_per_day"
+                        onchange="document.getElementById('max-appt-form').submit()"
+                        class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm
+                               focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-gray-700">
+                    @foreach([2, 4, 6, 8] as $opt)
+                        <option value="{{ $opt }}" {{ $maxPerDay == $opt ? 'selected' : '' }}>{{ $opt }}</option>
+                    @endforeach
+                </select>
+            </form>
         </div>
 
         <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
@@ -408,7 +423,10 @@ function renderCalendar() {
 
     for (let d = 1; d <= daysInMon; d++) {
         const dateObj = new Date(currentYear, currentMonth, d);
-        const dateStr = dateObj.toISOString().slice(0, 10);
+        const yyyy    = dateObj.getFullYear();
+        const mm      = String(dateObj.getMonth() + 1).padStart(2, '0');
+        const dd      = String(dateObj.getDate()).padStart(2, '0');
+        const dateStr = `${yyyy}-${mm}-${dd}`;
         const hasSlot = slotDates.has(dateStr);
         const isPast  = dateObj < today;
 
