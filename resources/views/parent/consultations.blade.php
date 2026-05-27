@@ -181,7 +181,10 @@ function renderCalendar() {
 
     for (let d = 1; d <= daysInMon; d++) {
         const dateObj  = new Date(currentYear, currentMonth, d);
-        const dateStr  = dateObj.toISOString().slice(0, 10);
+        const yyyy     = dateObj.getFullYear();
+        const mm       = String(dateObj.getMonth() + 1).padStart(2, '0');
+        const dd       = String(dateObj.getDate()).padStart(2, '0');
+        const dateStr  = `${yyyy}-${mm}-${dd}`;
         const isPast   = dateObj < today;
         const hasSlot  = availableDates.has(dateStr);
         const isSelect = dateStr === selectedDate;

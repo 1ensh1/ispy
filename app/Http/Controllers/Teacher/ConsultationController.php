@@ -21,7 +21,15 @@ class ConsultationController extends Controller
             ->where('consultation_slots.scheduled_date', '>=', today()->format('Y-m-d'))
             ->count();
 
+        $maxPref   = DB::table('teacher_word_set_preferences')
+            ->where('teacher_id', $teacher->id)
+            ->where('category', 'like', 'max_appointments_per_day:%')
+            ->value('category');
+        $maxPerDay = $maxPref ? (int) explode(':', $maxPref)[1] : 6;
+
+        // Bug 3: only upcoming slots so past weeks don't inflate the weekly grid
         $slots = ConsultationSlot::where('teacher_id', $teacher->id)
+            ->where('scheduled_date', '>=', today()->format('Y-m-d'))
             ->orderBy('scheduled_date')
             ->orderBy('time_start')
             ->get();
@@ -47,7 +55,7 @@ class ConsultationController extends Controller
             )
             ->get();
 
-        return view('teacher.consultation', compact('upcomingCount', 'slots', 'slotDates', 'bookings'));
+        return view('teacher.consultation', compact('upcomingCount', 'slots', 'slotDates', 'bookings', 'maxPerDay'));
     }
 
     public function store(Request $request)
@@ -60,6 +68,33 @@ class ConsultationController extends Controller
 
         $teacher = Teacher::where('user_id', auth()->id())->firstOrFail();
 
+        // Bug 1: prevent duplicate slots
+        $duplicate = DB::table('consultation_slots')
+            ->where('teacher_id', $teacher->id)
+            ->where('scheduled_date', $request->scheduled_date)
+            ->where('time_start', $request->time_start)
+            ->exists();
+
+        if ($duplicate) {
+            return back()->withInput()->with('error', 'A slot already exists for that date and time.');
+        }
+
+        // Bug 2: enforce max appointments per day
+        $maxPref   = DB::table('teacher_word_set_preferences')
+            ->where('teacher_id', $teacher->id)
+            ->where('category', 'like', 'max_appointments_per_day:%')
+            ->value('category');
+        $maxPerDay = $maxPref ? (int) explode(':', $maxPref)[1] : 6;
+
+        $slotsOnDay = DB::table('consultation_slots')
+            ->where('teacher_id', $teacher->id)
+            ->where('scheduled_date', $request->scheduled_date)
+            ->count();
+
+        if ($slotsOnDay >= $maxPerDay) {
+            return back()->withInput()->with('error', 'You have reached the maximum number of slots for this day.');
+        }
+
         ConsultationSlot::create([
             'teacher_id'     => $teacher->id,
             'scheduled_date' => $request->scheduled_date,
@@ -69,6 +104,30 @@ class ConsultationController extends Controller
         ]);
 
         return back()->with('success', 'Consultation slot added.');
+    }
+
+    public function saveMaxAppointments(Request $request)
+    {
+        $request->validate(['max_per_day' => 'required|in:2,4,6,8']);
+
+        $teacher = Teacher::where('user_id', auth()->id())->firstOrFail();
+
+        // Delete any existing max_appointments_per_day entry (any value variant),
+        // then insert fresh — avoids updating a boolean column with an integer.
+        DB::table('teacher_word_set_preferences')
+            ->where('teacher_id', $teacher->id)
+            ->where('category', 'like', 'max_appointments_per_day:%')
+            ->delete();
+
+        DB::table('teacher_word_set_preferences')->insert([
+            'teacher_id'  => $teacher->id,
+            'category'    => 'max_appointments_per_day:' . $request->max_per_day,
+            'is_active'   => true,
+            'created_at'  => now(),
+            'updated_at'  => now(),
+        ]);
+
+        return back()->with('success', 'Max appointments per day updated.');
     }
 
     public function saveSchedule(Request $request)

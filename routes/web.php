@@ -158,6 +158,7 @@ Route::prefix('teacher')->middleware(['auth', 'teacher'])->group(function () {
     Route::post('/consultation-availability',             [TeacherConsultationController::class, 'store'])->name('teacher.consultation.store');
     Route::post('/consultation-availability/save',        [TeacherConsultationController::class, 'saveSchedule'])->name('teacher.consultation.save');
     Route::post('/consultation-availability/status',      [TeacherConsultationController::class, 'updateStatus'])->name('teacher.consultation.updateStatus');
+    Route::post('/consultation-availability/max-appointments', [TeacherConsultationController::class, 'saveMaxAppointments'])->name('teacher.consultation.maxAppointments');
     Route::delete('/consultation-availability/{slot}',    [TeacherConsultationController::class, 'destroy'])->name('teacher.consultation.destroy');
 
     // Profile & Password

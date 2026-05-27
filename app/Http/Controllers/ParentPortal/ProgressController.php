@@ -13,13 +13,14 @@ class ProgressController extends Controller
 {
     public function index(Request $request)
     {
-        $parent = ParentProfile::where('user_id', auth()->id())->firstOrFail();
+        $parent   = ParentProfile::where('user_id', auth()->id())->firstOrFail();
+        $students = $parent->students()->get();
 
         if ($request->filled('student_id')) {
-            $student = Student::findOrFail($request->query('student_id'));
-            abort_if($student->parent_id !== $parent->id, 403, 'You are not authorized to view this page.');
+            $student = $students->firstWhere('id', (int) $request->query('student_id'));
+            abort_if(!$student, 403);
         } else {
-            $student = $parent->students()->first();
+            $student = $students->first();
         }
 
         $snapshots      = collect();
@@ -69,6 +70,6 @@ class ProgressController extends Controller
                 ->get();
         }
 
-        return view('parent.progress', compact('parent', 'student', 'snapshots', 'recentActivity', 'hasMasteryScores'));
+        return view('parent.progress', compact('parent', 'students', 'student', 'snapshots', 'recentActivity', 'hasMasteryScores'));
     }
 }

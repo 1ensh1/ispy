@@ -4,11 +4,27 @@
 @section('content')
 <div class="max-w-6xl mx-auto space-y-6">
 
-    <div>
-        <h1 class="text-2xl font-bold text-gray-900">Proficiency Levels</h1>
-        <p class="text-sm text-gray-500 mt-0.5">
-            {{ $student ? "Monitor {$student->name}'s progress across learning areas" : 'No student linked yet.' }}
-        </p>
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900">Proficiency Levels</h1>
+            <p class="text-sm text-gray-500 mt-0.5">
+                {{ $student ? "Monitor {$student->name}'s progress across learning areas" : 'No student linked yet.' }}
+            </p>
+        </div>
+        @if($students->count() > 1)
+        <div class="flex items-center gap-2 shrink-0">
+            <span class="text-sm font-medium text-gray-600">Viewing:</span>
+            <select onchange="window.location.href=this.value"
+                    class="px-3 py-1.5 border border-gray-200 rounded-lg text-sm bg-white text-gray-700 focus:ring-2 focus:ring-teal-500 outline-none">
+                @foreach($students as $s)
+                    <option value="{{ request()->fullUrlWithQuery(['student_id' => $s->id]) }}"
+                            {{ $student?->id == $s->id ? 'selected' : '' }}>
+                        {{ $s->name }}
+                    </option>
+                @endforeach
+            </select>
+        </div>
+        @endif
     </div>
 
     @if($student)

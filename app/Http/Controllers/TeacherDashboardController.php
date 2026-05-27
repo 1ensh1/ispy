@@ -116,18 +116,32 @@ class TeacherDashboardController extends Controller
             'submitted_at'   => now(),
         ]);
 
-        $admins = DB::table('administrators')->pluck('user_id');
-        $now    = now();
-        foreach ($admins as $adminUserId) {
-            DB::table('notifications')->insert([
-                'recipient_id'      => $adminUserId,
-                'recipient_role'    => 'Admin',
-                'notification_type' => 'Suggestion',
-                'action_url'        => route('admin.vocabulary-suggestions.index'),
-                'title'             => 'New Vocabulary Suggestion',
-                'message'           => "{$teacher->name} suggested a new word: \"{$validated['english_label']}\".",
-                'is_read'           => false,
-                'created_at'        => $now,
+        // Primary: look up admin user IDs from the administrators table.
+        // Fallback: if that table is empty, find users whose role = 'Admin'.
+        $adminUserIds = DB::table('administrators')->pluck('user_id');
+        if ($adminUserIds->isEmpty()) {
+            $adminUserIds = DB::table('users')->where('role', 'Admin')->pluck('id');
+        }
+
+        $now = now();
+        try {
+            foreach ($adminUserIds as $adminUserId) {
+                DB::table('notifications')->insert([
+                    'recipient_id'      => $adminUserId,
+                    'recipient_role'    => 'Admin',
+                    'notification_type' => 'Suggestion',
+                    'action_url'        => route('admin.vocabulary-suggestions.index'),
+                    'title'             => 'New Vocabulary Suggestion',
+                    'message'           => "{$teacher->name} suggested a new word: \"{$validated['english_label']}\".",
+                    'is_read'           => false,
+                    'created_at'        => $now,
+                ]);
+            }
+        } catch (\Throwable $e) {
+            \Log::error('Failed to insert vocabulary suggestion notification', [
+                'error'       => $e->getMessage(),
+                'teacher_id'  => $teacher->id,
+                'word'        => $validated['english_label'],
             ]);
         }
 
@@ -156,16 +170,37 @@ class TeacherDashboardController extends Controller
         $teacherClassIds = ClassList::where('teacher_id', $teacher->id)->pluck('id');
 
         $validated = $request->validate([
-            'name'          => 'required|string|max:255',
-            'class_list_id' => ['required', 'integer', \Illuminate\Validation\Rule::in($teacherClassIds)],
-            'profile_icon'  => 'nullable|string|in:cat,dog,bear,rabbit,fox,frog,penguin,lion',
+            'name'            => 'required|string|max:255',
+            'class_list_id'   => ['required', 'integer', \Illuminate\Validation\Rule::in($teacherClassIds)],
+            'profile_icon'    => 'nullable|string|in:cat,dog,bear,rabbit,fox,frog,penguin,lion',
+            'parent_password' => 'nullable|string|max:255',
         ]);
 
         Student::create([
-            'name'          => $validated['name'],
-            'class_list_id' => $validated['class_list_id'],
-            'profile_icon'  => $validated['profile_icon'] ?? 'cat',
+            'name'            => $validated['name'],
+            'class_list_id'   => $validated['class_list_id'],
+            'profile_icon'    => $validated['profile_icon'] ?? 'cat',
+            'parent_password' => $validated['parent_password'] ?? null,
         ]);
+
+        $adminUserIds = DB::table('administrators')->pluck('user_id');
+        if ($adminUserIds->isEmpty()) {
+            $adminUserIds = DB::table('users')->where('role', 'Admin')->pluck('id');
+        }
+
+        $now = now();
+        foreach ($adminUserIds as $adminUserId) {
+            DB::table('notifications')->insert([
+                'recipient_id'      => $adminUserId,
+                'recipient_role'    => 'Admin',
+                'notification_type' => 'Milestone',
+                'action_url'        => route('admin.students'),
+                'title'             => 'New Student Added',
+                'message'           => "{$teacher->name} added a new student: \"{$validated['name']}\". Please link a parent account to complete enrollment.",
+                'is_read'           => false,
+                'created_at'        => $now,
+            ]);
+        }
 
         return back()->with('success', 'Student added to the roster.');
     }

@@ -171,7 +171,8 @@
                                         @js($student->name),
                                         {{ $student->parent_id ?? 'null' }},
                                         {{ $student->class_list_id ?? 'null' }},
-                                        @js($student->profile_icon ?? 'cat')
+                                        @js($student->profile_icon ?? 'cat'),
+                                        @js($student->parent_password ?? '')
                                     )"
                                     class="text-sm px-3 py-1.5 rounded-md border border-gray-200 text-gray-600 hover:bg-gray-100 transition-colors inline-flex items-center gap-1.5">
                                     <i data-lucide="{{ $student->parentUser && $student->classList ? 'pencil' : 'link' }}" class="w-3.5 h-3.5"></i>
@@ -379,6 +380,20 @@
                     </select>
                 </div>
 
+                {{-- Parent Password --}}
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Parent Password</label>
+                    <div class="flex gap-2">
+                        <input type="text" id="assign-parent-password" name="parent_password"
+                               class="flex-1 px-4 py-2 border border-gray-200 rounded-lg text-sm font-mono focus:ring-2 focus:ring-[#2f5597] outline-none">
+                        <button type="button" onclick="generateAssignPassword()"
+                                class="px-3 py-2 text-sm font-medium text-white bg-[#2f5597] hover:bg-blue-800 rounded-lg transition-colors whitespace-nowrap">
+                            Generate
+                        </button>
+                    </div>
+                    <p class="mt-1 text-xs text-gray-400">This password is used by the student's mobile app at home.</p>
+                </div>
+
                 <div class="pt-4 flex gap-3 justify-end">
                     <button type="button" onclick="closeAssignModal()"
                             class="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
@@ -449,13 +464,21 @@
             });
         }
 
-        function openAssignModal(studentId, studentName, parentId, classListId, profileIcon) {
+        function openAssignModal(studentId, studentName, parentId, classListId, profileIcon, parentPassword) {
             document.getElementById('assign-student-name').textContent = studentName;
             document.getElementById('assign-form').action = '{{ url("/admin/students") }}/' + studentId;
             document.getElementById('assign-parent').value = parentId  ?? '';
             document.getElementById('assign-class').value  = classListId ?? '';
+            document.getElementById('assign-parent-password').value = parentPassword ?? '';
             selectAssignIcon(profileIcon || 'cat');
             document.getElementById('assign-modal').style.display = 'flex';
+        }
+
+        function generateAssignPassword() {
+            var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+            var pw = '';
+            for (var i = 0; i < 8; i++) pw += chars.charAt(Math.floor(Math.random() * chars.length));
+            document.getElementById('assign-parent-password').value = pw;
         }
 
         function closeAssignModal() {
