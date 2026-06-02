@@ -18,6 +18,7 @@ class VocabularyLibrary extends Model
         'is_active',
         'filipino_audio_url',
         'english_audio_url',
+        'image_url',
     ];
 
     protected $casts = [

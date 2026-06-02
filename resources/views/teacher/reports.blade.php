@@ -5,10 +5,30 @@
 <div class="max-w-5xl mx-auto space-y-6">
 
     {{-- Page header --}}
-    <div>
-        <h2 class="text-2xl font-bold text-gray-900">Student Reports</h2>
-        <p class="text-sm text-gray-500 mt-1">View and send progress reports for each student</p>
+    <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; flex-wrap:wrap;">
+        <div>
+            <h2 class="text-2xl font-bold text-gray-900">Student Reports</h2>
+            <p class="text-sm text-gray-500 mt-1">View and send progress reports for each student</p>
+        </div>
+        <div class="no-print">
+            <button onclick="window.print()"
+                    style="display:inline-flex; align-items:center; gap:0.375rem; padding:0.5rem 0.875rem; background:#4b5563; color:#fff; border-radius:0.5rem; font-size:0.875rem; font-weight:500; border:none; cursor:pointer;"
+                    onmouseover="this.style.background='#374151'" onmouseout="this.style.background='#4b5563'">
+                <i data-lucide="printer" style="width:16px; height:16px;"></i>
+                Print / PDF
+            </button>
+        </div>
     </div>
+
+    <style>
+    @media print {
+        nav, aside, header, .no-print, footer { display: none !important; }
+        body { background: white !important; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1px solid #ccc; padding: 6px; font-size: 12px; }
+        a { color: black !important; text-decoration: none !important; }
+    }
+    </style>
 
     {{-- Filters row --}}
     <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">

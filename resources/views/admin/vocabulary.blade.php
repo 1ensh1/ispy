@@ -11,9 +11,22 @@
                 is_active: true,
                 filipino_audio_url: null,
                 english_audio_url: null,
-                audio_status: 'Missing'
+                audio_status: 'Missing',
+                image_url: null,
+                current_page: 1,
+                current_search: '',
+                current_audio: '',
+                current_category: '',
+                current_status: ''
             },
-            openEdit(w) { this.word = w; this.editOpen = true; },
+            openEdit(w) {
+                this.word = w;
+                this.editOpen = true;
+                this.$nextTick(() => {
+                    const cat = document.getElementById('edit_category');
+                    if (cat) cat.value = w.category;
+                });
+            },
             closeEdit() { this.editOpen = false; }
          }"
          class="p-6 max-w-7xl mx-auto relative">
@@ -69,6 +82,13 @@
                 <option value="Missing"  {{ ($audioFilter ?? '') === 'Missing'  ? 'selected' : '' }}>Missing</option>
             </select>
 
+            <select name="category" onchange="this.form.submit()"
+                    class="px-3 pr-8 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#2f5597] outline-none bg-white text-gray-700">
+                <option value="">All Categories</option>
+                <option value="CVC"           {{ ($categoryFilter ?? '') === 'CVC'           ? 'selected' : '' }}>CVC</option>
+                <option value="Multi-Syllabic" {{ ($categoryFilter ?? '') === 'Multi-Syllabic' ? 'selected' : '' }}>Multi-Syllabic</option>
+            </select>
+
             <select name="is_active" onchange="this.form.submit()"
                     class="px-3 pr-8 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#2f5597] outline-none bg-white text-gray-700">
                 <option value="">All Status</option>
@@ -81,7 +101,7 @@
                 Search
             </button>
 
-            @if($search || $audioFilter || $activeFilter)
+            @if($search || $audioFilter || $categoryFilter || $activeFilter)
                 <a href="{{ route('admin.vocabulary') }}"
                    class="text-sm text-gray-500 hover:text-gray-700 underline">Clear filters</a>
             @endif
@@ -91,6 +111,17 @@
             </span>
         </form>
 
+        {{-- Auto-Fill Missing Images --}}
+        <div id="auto-fill-wrap" class="mb-4">
+            <button id="auto-fill-btn" type="button" onclick="autoFillMissingImages()"
+                    style="background-color:#f59e0b; color:#fff; display:none;"
+                    class="px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 transition-colors hover:opacity-90">
+                <i data-lucide="image-plus" class="w-4 h-4"></i>
+                Auto-Fill Missing Images
+            </button>
+            <p id="auto-fill-progress" class="mt-2 text-sm text-gray-600" style="display:none;"></p>
+        </div>
+
         {{-- Table --}}
         <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
             <div class="overflow-x-auto">
@@ -99,6 +130,7 @@
                         <tr>
                             <th class="px-6 py-4 font-medium">Filipino</th>
                             <th class="px-6 py-4 font-medium">English</th>
+                            <th class="px-6 py-4 font-medium">Image</th>
                             <th class="px-6 py-4 font-medium">Difficulty</th>
                             <th class="px-6 py-4 font-medium">Category</th>
                             <th class="px-6 py-4 font-medium">Audio</th>
@@ -108,9 +140,22 @@
                     </thead>
                     <tbody class="divide-y divide-gray-100">
                         @forelse($words as $word)
-                        <tr class="hover:bg-gray-50 transition-colors">
+                        @php $isNew = $highlightId && (int)$word->id === (int)$highlightId; @endphp
+                        <tr class="hover:bg-gray-50 transition-colors vocab-row"
+                            data-vocab-id="{{ $word->id }}"
+                            data-has-image="{{ $word->image_url ? '1' : '0' }}"
+                            style="{{ $isNew ? 'border-left: 4px solid #22c55e; background-color: #f0fdf4;' : '' }}">
                             <td class="px-6 py-4 font-medium text-gray-900">{{ $word->filipino_label }}</td>
                             <td class="px-6 py-4 text-gray-500">{{ $word->english_label }}</td>
+                            <td class="px-6 py-4">
+                                @if($word->image_url)
+                                    <img src="{{ $word->image_url }}" alt="{{ $word->english_label }}"
+                                         style="width:48px; height:48px; object-fit:cover;"
+                                         class="rounded">
+                                @else
+                                    <span class="text-xs text-gray-400">No image</span>
+                                @endif
+                            </td>
                             <td class="px-6 py-4">
                                 @if($word->complexity_level == 1)
                                     <span class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#2f5597] text-white">CVC</span>
@@ -146,7 +191,13 @@
                                                 is_active: {{ $word->is_active ? 'true' : 'false' }},
                                                 filipino_audio_url: @js($word->filipino_audio_url),
                                                 english_audio_url: @js($word->english_audio_url),
-                                                audio_status: @js($word->audio_status)
+                                                audio_status: @js($word->audio_status),
+                                                image_url: @js($word->image_url),
+                                                current_page: {{ $words->currentPage() }},
+                                                current_search: @js($search ?? ''),
+                                                current_audio: @js($audioFilter ?? ''),
+                                                current_category: @js($categoryFilter ?? ''),
+                                                current_status: @js($activeFilter ?? '')
                                             })"
                                             class="text-gray-400 hover:text-gray-700 transition-colors">
                                         <i data-lucide="pencil" class="w-4 h-4"></i>
@@ -166,10 +217,10 @@
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="7" class="px-6 py-12 text-center text-gray-400 text-sm">
+                            <td colspan="8" class="px-6 py-12 text-center text-gray-400 text-sm">
                                 <i data-lucide="book-open" class="w-8 h-8 mx-auto mb-2 opacity-30"></i>
                                 <p>No vocabulary entries found.</p>
-                                @if($search || $audioFilter || $activeFilter)
+                                @if($search || $audioFilter || $categoryFilter || $activeFilter)
                                     <a href="{{ route('admin.vocabulary') }}" class="text-[#2f5597] hover:underline mt-1 inline-block">Clear filters</a>
                                 @endif
                             </td>
@@ -201,7 +252,7 @@
                     </button>
                 </div>
 
-                <form method="POST" action="{{ route('admin.vocabulary.store') }}" class="p-6 space-y-4">
+                <form method="POST" action="{{ route('admin.vocabulary.store') }}" enctype="multipart/form-data" class="p-6 space-y-4">
                     @csrf
 
                     <div class="grid grid-cols-2 gap-4">
@@ -224,19 +275,16 @@
                         <select name="category" required
                                 class="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#2f5597] outline-none bg-white">
                             <option value="">Select category...</option>
-                            @foreach(['Classroom','Household','Food & Drinks','Animals','Body Parts','Nature','Clothing','Community'] as $cat)
-                                <option value="{{ $cat }}">{{ $cat }}</option>
-                            @endforeach
+                            <option value="CVC">CVC</option>
+                            <option value="Multi-Syllabic">Multi-Syllabic</option>
                         </select>
                     </div>
 
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Difficulty / Complexity</label>
-                        <select name="complexity_level" required
-                                class="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#2f5597] outline-none bg-white">
-                            <option value="1">CVC (Consonant-Vowel-Consonant)</option>
-                            <option value="2">Multi-syllabic</option>
-                        </select>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Image</label>
+                        <input type="file" name="image" accept=".jpg,.jpeg,.png,.gif,.webp"
+                               class="w-full text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:font-medium file:bg-[#2f5597]/10 file:text-[#2f5597] hover:file:bg-[#2f5597]/20 transition-colors">
+                        <p class="mt-1 text-xs text-gray-400">If no image is uploaded, one will be fetched automatically from Pexels based on the English label.</p>
                     </div>
 
                     <p class="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
@@ -278,6 +326,11 @@
                       class="p-6 space-y-4">
                     @csrf
                     <input type="hidden" name="_method" value="PUT">
+                    <input type="hidden" name="current_page"     :value="word.current_page">
+                    <input type="hidden" name="current_search"   :value="word.current_search">
+                    <input type="hidden" name="current_audio"    :value="word.current_audio">
+                    <input type="hidden" name="current_category" :value="word.current_category">
+                    <input type="hidden" name="current_status"   :value="word.current_status">
 
                     <div class="grid grid-cols-2 gap-4">
                         <div>
@@ -296,21 +349,30 @@
 
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Category</label>
-                        <select name="category" required x-model="word.category"
+                        <select name="category" id="edit_category" required
                                 class="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#2f5597] outline-none bg-white">
-                            @foreach(['Classroom','Household','Food & Drinks','Animals','Body Parts','Nature','Clothing','Community'] as $cat)
-                                <option value="{{ $cat }}">{{ $cat }}</option>
-                            @endforeach
+                            <option value="CVC">CVC</option>
+                            <option value="Multi-Syllabic">Multi-Syllabic</option>
                         </select>
                     </div>
 
+                    {{-- Image Upload Section --}}
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Difficulty / Complexity</label>
-                        <select name="complexity_level" required x-model="word.complexity_level"
-                                class="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#2f5597] outline-none bg-white">
-                            <option value="1">CVC (Consonant-Vowel-Consonant)</option>
-                            <option value="2">Multi-syllabic</option>
-                        </select>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Image</label>
+                        <template x-if="word.image_url">
+                            <div class="mb-2">
+                                <img :src="word.image_url" alt="Current image"
+                                     style="max-width:200px; max-height:150px; object-fit:contain;"
+                                     class="rounded border border-gray-200">
+                            </div>
+                        </template>
+                        <template x-if="!word.image_url">
+                            <p class="text-xs text-gray-400 mb-2">No image currently.</p>
+                        </template>
+                        <input type="file" name="image" accept=".jpg,.jpeg,.png,.gif,.webp"
+                               class="w-full text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:font-medium file:bg-[#2f5597]/10 file:text-[#2f5597] hover:file:bg-[#2f5597]/20 transition-colors">
+                        <input type="hidden" name="existing_image_url" :value="word.image_url || ''">
+                        <p class="mt-1 text-xs text-gray-500">Replace Image (optional)</p>
                     </div>
 
                     {{-- is_active toggle --}}
@@ -380,6 +442,88 @@
             if (typeof lucide !== 'undefined') {
                 lucide.createIcons();
             }
+            updateAutoFillButtonVisibility();
         });
+
+        function getMissingImageRows() {
+            return Array.from(document.querySelectorAll('tr.vocab-row[data-has-image="0"]'));
+        }
+
+        function updateAutoFillButtonVisibility() {
+            var btn = document.getElementById('auto-fill-btn');
+            if (!btn) return;
+            btn.style.display = getMissingImageRows().length > 0 ? 'flex' : 'none';
+        }
+
+        async function autoFillMissingImages() {
+            var btn      = document.getElementById('auto-fill-btn');
+            var progress = document.getElementById('auto-fill-progress');
+            var rows     = getMissingImageRows();
+            var total    = rows.length;
+
+            if (total === 0) return;
+
+            btn.disabled     = true;
+            btn.style.opacity = '0.6';
+            btn.style.cursor  = 'not-allowed';
+            progress.style.display = 'block';
+
+            var csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+            var fetchUrl  = '{{ route('admin.vocabulary.fetch-image') }}';
+            var done      = 0;
+            var failed    = [];
+
+            for (var i = 0; i < rows.length; i++) {
+                var row    = rows[i];
+                var wordId = row.getAttribute('data-vocab-id');
+                progress.textContent = 'Processing ' + (done + 1) + ' of ' + total + ' words...';
+
+                try {
+                    var response = await fetch(fetchUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': csrfToken,
+                            'Accept': 'application/json',
+                        },
+                        body: JSON.stringify({ vocabulary_id: wordId }),
+                    });
+
+                    var data = await response.json();
+
+                    if (data.success) {
+                        var imgCell = row.querySelector('td:nth-child(3)');
+                        if (imgCell) {
+                            var img = document.createElement('img');
+                            img.src = data.image_url;
+                            img.alt = data.english_label;
+                            img.style.cssText = 'width:48px; height:48px; object-fit:cover;';
+                            img.className = 'rounded';
+                            imgCell.innerHTML = '';
+                            imgCell.appendChild(img);
+                        }
+                        row.setAttribute('data-has-image', '1');
+                    } else {
+                        failed.push(data.english_label || 'ID ' + wordId);
+                    }
+                } catch (e) {
+                    failed.push('ID ' + wordId);
+                }
+
+                done++;
+            }
+
+            var summary = 'Done! ' + (done - failed.length) + ' image' + ((done - failed.length) !== 1 ? 's' : '') + ' generated.';
+            if (failed.length > 0) {
+                summary += ' Could not fetch images for: ' + failed.join(', ');
+            }
+            progress.textContent = summary;
+
+            btn.disabled      = false;
+            btn.style.opacity = '1';
+            btn.style.cursor  = 'pointer';
+
+            updateAutoFillButtonVisibility();
+        }
     </script>
 </x-app-layout>

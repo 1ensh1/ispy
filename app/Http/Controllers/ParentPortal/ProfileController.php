@@ -14,7 +14,7 @@ class ProfileController extends Controller
     {
         $parent   = ParentProfile::where('user_id', auth()->id())->firstOrFail();
         $user     = auth()->user();
-        $students = Student::where('parent_id', $parent->id)->with('classList')->get();
+        $students = Student::active()->where('parent_id', $parent->id)->with('classList')->get();
         return view('parent.profile', compact('parent', 'user', 'students'));
     }
 

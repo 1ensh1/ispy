@@ -14,7 +14,7 @@ class DashboardController extends Controller
     public function index(Request $request)
     {
         $parent   = ParentProfile::where('user_id', auth()->id())->firstOrFail();
-        $students = $parent->students()->with('classList.teacher')->get();
+        $students = $parent->students()->active()->with('classList.teacher')->get();
 
         if ($request->filled('student_id')) {
             $student = $students->firstWhere('id', (int) $request->query('student_id'));
@@ -112,10 +112,10 @@ class DashboardController extends Controller
         $parent = ParentProfile::where('user_id', auth()->id())->firstOrFail();
 
         if ($request->filled('student_id')) {
-            $student = \App\Models\Student::findOrFail($request->input('student_id'));
+            $student = \App\Models\Student::active()->where('id', $request->input('student_id'))->firstOrFail();
             abort_if($student->parent_id !== $parent->id, 403);
         } else {
-            $student = \App\Models\Student::where('parent_id', $parent->id)->first();
+            $student = \App\Models\Student::active()->where('parent_id', $parent->id)->first();
         }
 
         if (!$student) {

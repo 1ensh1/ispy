@@ -5,14 +5,13 @@ namespace App\Http\Controllers\Teacher;
 use App\Http\Controllers\Controller;
 use App\Models\ClassList;
 use App\Models\Student;
-use App\Models\Teacher;
+use Illuminate\Http\Request;
 
 class StudentProgressController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $teacher   = Teacher::where('user_id', auth()->id())->firstOrFail();
-        $classList = ClassList::where('teacher_id', $teacher->id)->first();
+        $classList = ClassList::find($request->active_class_id);
 
         $students = collect();
 

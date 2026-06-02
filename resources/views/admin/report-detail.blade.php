@@ -1,20 +1,42 @@
 <x-app-layout>
 <div class="p-6 max-w-7xl mx-auto space-y-6">
 
+    <style>
+    @media print {
+        nav, aside, header, .no-print, footer { display: none !important; }
+        body { background: white !important; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1px solid #ccc; padding: 6px; font-size: 12px; }
+        a { color: black !important; text-decoration: none !important; }
+        .shadow-sm { box-shadow: none !important; }
+        select { display: none; }
+    }
+    </style>
+
     {{-- Back + heading --}}
-    <div>
-        <a href="{{ route('admin.reports') }}"
-           class="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 mb-3">
-            <i data-lucide="arrow-left" class="w-4 h-4"></i>
-            Back to Reports
-        </a>
-        <h1 class="text-2xl font-bold text-gray-900">{{ $student->name }}</h1>
-        <p class="text-sm text-gray-500 mt-0.5">
-            {{ optional($student->classList)->class_name ?? 'No class assigned' }}
-            @if(optional(optional($student->classList)->teacher)->name)
-                &mdash; {{ $student->classList->teacher->name }}
-            @endif
-        </p>
+    <div class="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+            <a href="{{ url()->previous() }}" class="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 no-print" style="margin-bottom:0.75rem; text-decoration:none;">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                </svg>
+                Back
+            </a>
+            <h1 class="text-2xl font-bold text-gray-900">{{ $student->name }}</h1>
+            <p class="text-sm text-gray-500 mt-0.5">
+                {{ optional($student->classList)->class_name ?? 'No class assigned' }}
+                @if(optional(optional($student->classList)->teacher)->name)
+                    &mdash; {{ $student->classList->teacher->name }}
+                @endif
+            </p>
+        </div>
+        <div class="shrink-0 no-print">
+            <button onclick="window.print()"
+                    class="inline-flex items-center gap-1.5 px-3 py-2 bg-gray-600 hover:bg-gray-700 text-white text-sm font-medium rounded-lg transition-colors">
+                <i data-lucide="printer" class="w-4 h-4"></i>
+                Print / Save as PDF
+            </button>
+        </div>
     </div>
 
     {{-- Filters --}}

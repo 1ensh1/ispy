@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
+use App\Traits\LogsActivity;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -11,6 +12,7 @@ use Illuminate\View\View;
 
 class AuthenticatedSessionController extends Controller
 {
+    use LogsActivity;
     /**
      * Display the login view.
      */
@@ -29,6 +31,8 @@ class AuthenticatedSessionController extends Controller
         $request->session()->regenerate();
 
         $role = strtolower(auth()->user()->role ?? '');
+        $roleName = auth()->user()->role ?? 'User';
+        self::log('login', "{$roleName} logged in");
 
         return match($role) {
             'admin'   => redirect('/admin/dashboard'),

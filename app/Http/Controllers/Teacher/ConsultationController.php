@@ -5,11 +5,13 @@ namespace App\Http\Controllers\Teacher;
 use App\Http\Controllers\Controller;
 use App\Models\Teacher;
 use App\Models\ConsultationSlot;
+use App\Traits\LogsActivity;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class ConsultationController extends Controller
 {
+    use LogsActivity;
     public function index()
     {
         $teacher = Teacher::where('user_id', auth()->id())->firstOrFail();
@@ -103,6 +105,8 @@ class ConsultationController extends Controller
             'is_available'   => true,
         ]);
 
+        self::log('create', 'Teacher set consultation availability');
+
         return back()->with('success', 'Consultation slot added.');
     }
 
@@ -185,6 +189,9 @@ class ConsultationController extends Controller
             'is_read'           => false,
             'created_at'        => now(),
         ]);
+
+        $parentRecord = DB::table('parents')->where('id', $booking->parent_id)->value('name');
+        self::log('update', "Teacher " . strtolower($request->status) . " booking for parent: " . ($parentRecord ?? 'Unknown'));
 
         return back()->with('success', 'Booking ' . strtolower($request->status) . '.');
     }

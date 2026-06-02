@@ -14,7 +14,7 @@ class ProgressController extends Controller
     public function index(Request $request)
     {
         $parent   = ParentProfile::where('user_id', auth()->id())->firstOrFail();
-        $students = $parent->students()->get();
+        $students = $parent->students()->active()->get();
 
         if ($request->filled('student_id')) {
             $student = $students->firstWhere('id', (int) $request->query('student_id'));

@@ -6,7 +6,12 @@ use Illuminate\Database\Eloquent\Model;
 
 class Student extends Model
 {
-    protected $fillable = ['parent_id', 'class_list_id', 'name', 'profile_icon', 'parent_password'];
+    protected $fillable = ['parent_id', 'class_list_id', 'name', 'profile_icon', 'parent_password', 'archived_at'];
+
+    protected $casts = ['archived_at' => 'datetime'];
+
+    public function scopeActive($query)   { return $query->whereNull('archived_at'); }
+    public function scopeArchived($query) { return $query->whereNotNull('archived_at'); }
 
     public function parentUser()
     {

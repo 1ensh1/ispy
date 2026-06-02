@@ -3,22 +3,29 @@
 namespace App\Http\Controllers\Teacher;
 
 use App\Http\Controllers\Controller;
+use App\Models\Student;
 use App\Models\Teacher;
 use App\Models\TeacherAnnotation;
+use App\Traits\LogsActivity;
 use Illuminate\Http\Request;
 
 class AnnotationsController extends Controller
 {
-    public function index()
+    use LogsActivity;
+
+    public function index(Request $request)
     {
         $teacher = Teacher::where('user_id', auth()->id())->firstOrFail();
 
-        $classIds = $teacher->classLists()->pluck('id');
-        $students = \App\Models\Student::whereIn('class_list_id', $classIds)
+        $students = Student::where('class_list_id', $request->active_class_id)
             ->orderBy('name')
             ->get();
 
-        $annotations = TeacherAnnotation::where('teacher_id', $teacher->id)
+        $studentIds = Student::where('class_list_id', $request->active_class_id)
+            ->whereNull('archived_at')
+            ->pluck('id');
+
+        $annotations = TeacherAnnotation::whereIn('student_id', $studentIds)
             ->with('student')
             ->orderByDesc('annotation_date')
             ->orderByDesc('created_at')
@@ -38,6 +45,13 @@ class AnnotationsController extends Controller
 
         $teacher = Teacher::where('user_id', auth()->id())->firstOrFail();
 
+        abort_if(
+            Student::where('id', $request->student_id)
+                ->where('class_list_id', $request->active_class_id)
+                ->doesntExist(),
+            403
+        );
+
         $tags = collect(explode(',', $request->input('tags', '')))
             ->map(fn($t) => trim($t))
             ->filter()
@@ -52,6 +66,9 @@ class AnnotationsController extends Controller
             'tags'            => $tags ?: null,
             'created_at'      => now(),
         ]);
+
+        $annotatedStudent = Student::find($request->student_id);
+        self::log('create', "Teacher added annotation for student: " . ($annotatedStudent?->name ?? 'Unknown'));
 
         return back()->with('success', 'Annotation saved.');
     }
