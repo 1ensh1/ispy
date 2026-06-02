@@ -194,7 +194,7 @@
 
         {{-- Footer --}}
         <p class="text-center" style="font-size:0.72rem; color:#9ca3af; margin-top:1.5rem; line-height:1.6;">
-            &copy; 2024 &ndash; 2025 iSpy World. &nbsp;Licensed to Future Minds Academy
+            &copy; 2026 &ndash; 2027 iSpy World. &nbsp;Licensed to Future Minds Academy
             | <a href="#" style="color:#9ca3af;">Terms of Service</a>
             | <a href="#" style="color:#9ca3af;">Privacy Policy</a>
         </p>

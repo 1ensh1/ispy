@@ -8,17 +8,17 @@ use App\Models\ParentProfile;
 use App\Models\Student;
 use App\Models\StudentProgress;
 use App\Models\Teacher;
+use App\Traits\LogsActivity;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class ReportController extends Controller
 {
-    public function index()
-    {
-        $teacher  = Teacher::where('user_id', auth()->id())->firstOrFail();
-        $classIds = $teacher->classLists()->pluck('id');
+    use LogsActivity;
 
-        $students = Student::whereIn('class_list_id', $classIds)
+    public function index(Request $request)
+    {
+        $students = Student::where('class_list_id', $request->active_class_id)
             ->with('masteryScores')
             ->get()
             ->map(function (Student $s) {
@@ -53,12 +53,9 @@ class ReportController extends Controller
         return view('teacher.reports', compact('students'));
     }
 
-    public function show(Student $student)
+    public function show(Request $request, Student $student)
     {
-        $teacher  = Teacher::where('user_id', auth()->id())->firstOrFail();
-        $classIds = $teacher->classLists()->pluck('id');
-
-        abort_if(! $classIds->contains($student->class_list_id), 403);
+        abort_if($student->class_list_id !== $request->active_class_id, 403);
 
         $masteryScores = $student->masteryScores()->with('vocabulary')->get();
 
@@ -82,10 +79,9 @@ class ReportController extends Controller
 
     public function send(Request $request, Student $student)
     {
-        $teacher  = Teacher::where('user_id', auth()->id())->firstOrFail();
-        $classIds = $teacher->classLists()->pluck('id');
+        abort_if($student->class_list_id !== $request->active_class_id, 403);
 
-        abort_if(! $classIds->contains($student->class_list_id), 403);
+        $teacher = Teacher::where('user_id', auth()->id())->firstOrFail();
 
         if (is_null($student->parent_id)) {
             return redirect()->back()->with(
@@ -119,6 +115,49 @@ class ReportController extends Controller
             'created_at'        => now(),
         ]);
 
+        self::log('create', "Teacher sent report for student: {$student->name}");
+
         return redirect()->back()->with('success', 'Progress report sent to ' . $parent->name . ' successfully.');
+    }
+
+    public function exportStudentReportCsv(Request $request, Student $student)
+    {
+        abort_if($student->class_list_id !== $request->active_class_id, 403);
+
+        $rows = DB::table('student_progress')
+            ->join('vocabulary_library', 'student_progress.vocabulary_id', '=', 'vocabulary_library.id')
+            ->leftJoin('mastery_scores', function ($join) use ($student) {
+                $join->on('mastery_scores.student_id', '=', 'student_progress.student_id')
+                     ->on('mastery_scores.vocabulary_id', '=', 'student_progress.vocabulary_id');
+            })
+            ->where('student_progress.student_id', $student->id)
+            ->select(
+                'vocabulary_library.english_label as word',
+                'student_progress.mode',
+                'student_progress.score',
+                'mastery_scores.proficiency_level',
+                'student_progress.attempted_at'
+            )
+            ->orderBy('vocabulary_library.english_label')
+            ->orderBy('student_progress.mode')
+            ->get();
+
+        $filename = strtolower(str_replace(' ', '-', $student->name)) . '-report.csv';
+
+        return response()->streamDownload(function () use ($rows, $student) {
+            $handle = fopen('php://output', 'w');
+            fputcsv($handle, ['Student Name', 'Vocabulary Word', 'Mode', 'Score', 'Proficiency Level', 'Attempted At']);
+            foreach ($rows as $row) {
+                fputcsv($handle, [
+                    $student->name,
+                    $row->word,
+                    $row->mode,
+                    $row->score,
+                    $row->proficiency_level ?? '—',
+                    $row->attempted_at,
+                ]);
+            }
+            fclose($handle);
+        }, $filename, ['Content-Type' => 'text/csv']);
     }
 }

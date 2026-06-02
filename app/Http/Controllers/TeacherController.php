@@ -2,69 +2,131 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use App\Models\User;
+use App\Mail\TeacherAccountCreated;
 use App\Models\ClassList;
+use App\Models\ParentUser;
+use App\Models\Student;
+use App\Models\User;
+use App\Traits\LogsActivity;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 
 class TeacherController extends Controller
 {
+    use LogsActivity;
     public function index(Request $request)
     {
+        // ===== TEACHERS =====
         $search = $request->query('search');
-
-        $query = User::where('role', 'teacher');
-
+        $teacherQuery = User::where('role', 'teacher');
         if ($search) {
-            $query->where(function ($q) use ($search) {
+            $teacherQuery->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
                   ->orWhere('email', 'like', "%{$search}%");
             });
         }
-
-        $users = $query->latest()->paginate(10)->appends(['search' => $search]);
+        $users = $teacherQuery->latest()->paginate(10)->appends(['search' => $search]);
 
         $userIds = $users->pluck('id')->toArray();
 
-        $teacherRecords = DB::table('teachers')
+        // Fetch all rows (one per class per teacher) to support multiple classes
+        $allTeacherRows = DB::table('teachers')
             ->leftJoin('class_lists', 'class_lists.teacher_id', '=', 'teachers.id')
             ->whereIn('teachers.user_id', $userIds)
             ->select(
                 'teachers.id',
                 'teachers.user_id',
+                'teachers.status',
                 'class_lists.id as class_list_id',
                 'class_lists.class_name',
+                'class_lists.subject',
                 'class_lists.unified_classroom_pin'
             )
-            ->get()
-            ->keyBy('user_id');
+            ->get();
 
-        $teacherIds = $teacherRecords->pluck('id')->toArray();
+        $teacherRowsByUserId = $allTeacherRows->groupBy('user_id');
+        $teacherIds = $allTeacherRows->pluck('id')->unique()->values()->toArray();
 
         $rawCounts = DB::table('students')
             ->join('class_lists', 'students.class_list_id', '=', 'class_lists.id')
             ->whereIn('class_lists.teacher_id', $teacherIds)
+            ->whereNull('students.archived_at')
             ->select('class_lists.teacher_id', DB::raw('COUNT(students.id) as total'))
             ->groupBy('class_lists.teacher_id')
             ->pluck('total', 'teacher_id');
 
         $studentCountsByUser = [];
         $classListsByUser    = [];
-        foreach ($teacherRecords as $userId => $record) {
-            $studentCountsByUser[$userId] = $rawCounts[$record->id] ?? 0;
-            $classListsByUser[$userId]    = [
-                'id'                    => $record->class_list_id,
-                'class_name'            => $record->class_name,
-                'unified_classroom_pin' => $record->unified_classroom_pin,
+        foreach ($teacherRowsByUserId as $userId => $rows) {
+            $firstRow = $rows->first();
+            $teacherId = $firstRow->id;
+            $studentCountsByUser[$userId] = $rawCounts[$teacherId] ?? 0;
+            $allClassNames = $rows->pluck('class_name')->filter()->unique()->join(', ');
+            $allClasses    = $rows->filter(fn($r) => $r->class_list_id !== null)
+                ->map(fn($r) => [
+                    'id'      => $r->class_list_id,
+                    'name'    => $r->class_name,
+                    'subject' => $r->subject,
+                    'pin'     => $r->unified_classroom_pin,
+                ])->values()->all();
+            $classListsByUser[$userId] = [
+                'teacher_id'            => $firstRow->id,
+                'id'                    => $firstRow->class_list_id,
+                'class_name'            => $firstRow->class_name,
+                'all_class_names'       => $allClassNames ?: null,
+                'unified_classroom_pin' => $firstRow->unified_classroom_pin,
+                'all_classes'           => $allClasses,
+                'status'                => $firstRow->status ?? 'Active',
             ];
         }
 
-        $activeTab   = 'teacher';
-        $extraData   = [];
+        // ===== PARENTS =====
+        $parentSearch = $request->query('parent_search');
+        $parentQuery = User::where('role', 'parent');
+        if ($parentSearch) {
+            $parentQuery->where(function ($q) use ($parentSearch) {
+                $q->where('name', 'like', "%{$parentSearch}%")
+                  ->orWhere('email', 'like', "%{$parentSearch}%");
+            });
+        }
+        $parentUsers = $parentQuery->latest()->paginate(10, ['*'], 'parent_page')
+            ->appends(['parent_search' => $parentSearch, 'tab' => 'parents']);
+
+        $extraData = [];
+        $parentUserIds = $parentUsers->pluck('id')->toArray();
+        if ($parentUserIds) {
+            $parentRecords   = DB::table('parents')->whereIn('user_id', $parentUserIds)->get()->keyBy('user_id');
+            $parentIds       = $parentRecords->pluck('id')->toArray();
+            $childrenByParent = $parentIds
+                ? DB::table('students')->whereIn('parent_id', $parentIds)->whereNull('archived_at')->get()->groupBy('parent_id')
+                : collect();
+            foreach ($parentUsers as $user) {
+                $pr = $parentRecords->get($user->id);
+                $pid = $pr ? $pr->id : null;
+                $extraData[$user->id] = [
+                    'children' => ($pid && $childrenByParent->has($pid))
+                        ? $childrenByParent->get($pid)
+                        : collect(),
+                ];
+            }
+        }
+
+        // ===== STUDENTS =====
+        $students    = Student::active()->with(['parentUser', 'classList.teacher'])
+            ->paginate(15, ['*'], 'student_page')
+            ->appends(['tab' => 'students']);
+        $parentsList = ParentUser::orderBy('name')->get();
+        $classLists  = ClassList::with('teacher')->orderBy('class_name')->get();
+
+        $activeTab = 'teacher';
 
         return view('admin.users', compact(
-            'users', 'activeTab', 'search', 'extraData', 'studentCountsByUser', 'classListsByUser'
+            'users', 'activeTab', 'search', 'extraData', 'studentCountsByUser', 'classListsByUser',
+            'parentUsers', 'parentSearch',
+            'students', 'parentsList', 'classLists'
         ));
     }
 
@@ -76,7 +138,7 @@ class TeacherController extends Controller
             'email'      => 'required|email|max:255|unique:users',
         ]);
 
-        $tempPassword = Str::random(8);
+        $tempPassword = Str::random(10);
 
         $user = User::create([
             'name'     => $validated['name'],
@@ -88,6 +150,7 @@ class TeacherController extends Controller
         $teacherId = DB::table('teachers')->insertGetId([
             'user_id'    => $user->id,
             'name'       => $validated['name'],
+            'status'     => 'Inactive',
             'created_at' => now(),
             'updated_at' => now(),
         ]);
@@ -98,10 +161,16 @@ class TeacherController extends Controller
             'unified_classroom_pin' => null,
         ]);
 
+        self::log('create', "Created teacher account for {$user->name} ({$user->email})");
+
+        try {
+            Mail::to($user->email)->send(new TeacherAccountCreated($user->name, $user->email, $tempPassword));
+        } catch (\Throwable $e) {
+            Log::error("Failed to send teacher account email to {$user->email}: {$e->getMessage()}");
+        }
+
         return redirect()->route('admin.teachers.index')
-            ->with('success', "Teacher account for \"{$user->name}\" created successfully.")
-            ->with('new_teacher_password', $tempPassword)
-            ->with('new_teacher_name', $user->name);
+            ->with('success', "Teacher account created. A credentials email has been sent to {$user->email}.");
     }
 
     public function update(Request $request, User $teacher)
@@ -131,6 +200,8 @@ class TeacherController extends Controller
                 ->update(['class_name' => $validated['class_name']]);
         }
 
+        self::log('update', "Admin updated teacher: {$validated['name']}");
+
         return redirect()->route('admin.teachers.index')
             ->with('success', "Teacher \"{$teacher->name}\" updated successfully.");
     }
@@ -143,6 +214,7 @@ class TeacherController extends Controller
             $studentCount = DB::table('students')
                 ->join('class_lists', 'students.class_list_id', '=', 'class_lists.id')
                 ->where('class_lists.teacher_id', $record->id)
+                ->whereNull('students.archived_at')
                 ->count();
 
             if ($studentCount > 0) {
@@ -156,6 +228,8 @@ class TeacherController extends Controller
 
         $name = $teacher->name;
         $teacher->delete();
+
+        self::log('delete', "Admin deleted teacher: {$name}");
 
         return redirect()->route('admin.teachers.index')
             ->with('success', "Teacher account for \"{$name}\" has been deleted.");

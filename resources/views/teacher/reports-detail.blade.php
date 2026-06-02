@@ -4,23 +4,49 @@
 @section('content')
 <div class="max-w-5xl mx-auto space-y-6">
 
+    <style>
+    @media print {
+        nav, aside, header, .no-print, footer { display: none !important; }
+        body { background: white !important; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1px solid #ccc; padding: 6px; font-size: 12px; }
+        a { color: black !important; text-decoration: none !important; }
+    }
+    </style>
+
     {{-- Back + heading --}}
-    <div>
-        <a href="{{ route('teacher.reports') }}"
-           style="display:inline-flex; align-items:center; gap:0.375rem; font-size:0.875rem; color:#6b7280; text-decoration:none; margin-bottom:0.75rem;"
-           onmouseover="this.style.color='#374151'" onmouseout="this.style.color='#6b7280'">
-            <i data-lucide="arrow-left" style="width:16px; height:16px;"></i>
-            Back to Reports
-        </a>
-        <h2 style="font-size:1.5rem; font-weight:700; color:#111827; margin:0 0 0.25rem 0;">{{ $student->name }}</h2>
-        <p style="font-size:0.875rem; color:#6b7280; margin:0;">
-            Detailed progress report
-            @if($student->parent_id)
-                &mdash; Parent linked
-            @else
-                &mdash; <span style="color:#b45309; font-weight:500;">No parent linked</span>
-            @endif
-        </p>
+    <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; flex-wrap:wrap;">
+        <div>
+            <a href="{{ url()->previous() }}" class="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 no-print" style="margin-bottom:0.75rem; text-decoration:none;">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                </svg>
+                Back
+            </a>
+            <h2 style="font-size:1.5rem; font-weight:700; color:#111827; margin:0 0 0.25rem 0;">{{ $student->name }}</h2>
+            <p style="font-size:0.875rem; color:#6b7280; margin:0;">
+                Detailed progress report
+                @if($student->parent_id)
+                    &mdash; Parent linked
+                @else
+                    &mdash; <span style="color:#b45309; font-weight:500;">No parent linked</span>
+                @endif
+            </p>
+        </div>
+        <div style="display:flex; align-items:center; gap:0.5rem; flex-shrink:0;" class="no-print">
+            <a href="{{ route('teacher.reports.export', $student->id) }}"
+               style="display:inline-flex; align-items:center; gap:0.375rem; padding:0.5rem 0.875rem; background:#16a34a; color:#fff; border-radius:0.5rem; font-size:0.875rem; font-weight:500; text-decoration:none; border:none;"
+               onmouseover="this.style.background='#15803d'" onmouseout="this.style.background='#16a34a'">
+                <i data-lucide="download" style="width:16px; height:16px;"></i>
+                Export CSV
+            </a>
+            <button onclick="window.print()"
+                    style="display:inline-flex; align-items:center; gap:0.375rem; padding:0.5rem 0.875rem; background:#4b5563; color:#fff; border-radius:0.5rem; font-size:0.875rem; font-weight:500; border:none; cursor:pointer;"
+                    onmouseover="this.style.background='#374151'" onmouseout="this.style.background='#4b5563'">
+                <i data-lucide="printer" style="width:16px; height:16px;"></i>
+                Print / Save as PDF
+            </button>
+        </div>
     </div>
 
     {{-- ─────────────────────────────────────────────────────────────────────── --}}

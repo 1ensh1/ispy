@@ -6,14 +6,13 @@ use App\Http\Controllers\Controller;
 use App\Models\ClassList;
 use App\Models\Student;
 use App\Models\StudentProgress;
-use App\Models\Teacher;
+use Illuminate\Http\Request;
 
 class SpellingAnalysisController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $teacher   = Teacher::where('user_id', auth()->id())->firstOrFail();
-        $classList = ClassList::where('teacher_id', $teacher->id)->first();
+        $classList = ClassList::find($request->active_class_id);
 
         $barChartData  = ['labels' => [], 'data' => []];
         $phonemeCounts = array_fill_keys(['a', 'e', 'i', 'o', 'u', 'k', 't', 's', 'n', 'l', 'p', 'r'], 0);
@@ -21,7 +20,6 @@ class SpellingAnalysisController extends Controller
         if ($classList) {
             $studentIds = Student::where('class_list_id', $classList->id)->pluck('id');
 
-            // Bar chart: top 5 vocabulary words by total error count
             $errorRows = StudentProgress::whereIn('student_id', $studentIds)
                 ->whereNotNull('errors')
                 ->with('vocabulary')
@@ -44,7 +42,6 @@ class SpellingAnalysisController extends Controller
                 $barChartData['data'][]   = $count;
             }
 
-            // Phoneme heatmap: count letter occurrences across all error strings
             $phonemes  = array_keys($phonemeCounts);
             $allErrors = StudentProgress::whereIn('student_id', $studentIds)
                 ->whereNotNull('errors')

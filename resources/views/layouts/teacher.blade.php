@@ -75,6 +75,9 @@
                 </div>
                 <div class="flex items-center gap-4">
 
+                    {{-- Class Switcher --}}
+                    @include('teacher.partials.class-switcher')
+
                     {{-- Notification Bell --}}
                     <div class="relative" id="teacher-bell-container">
                         <button onclick="toggleTeacherBell(event)"
@@ -208,6 +211,18 @@
                 </div>
             @endif
 
+            {{-- Substitute banner --}}
+            @if(isset($teacherActiveClass) && ($teacherActiveClass['is_sub'] ?? false))
+                <div class="flex items-center gap-3 px-6 py-3 bg-amber-50 border-b border-amber-200 text-amber-800 text-sm font-medium">
+                    <i data-lucide="alert-triangle" class="w-4 h-4 shrink-0 text-amber-500"></i>
+                    <span>
+                        You are viewing as <strong>Substitute Teacher</strong> for
+                        <strong>{{ $teacherActiveClass['class_name'] }}</strong>.
+                        All your actions are logged under your account.
+                    </span>
+                </div>
+            @endif
+
             <main class="flex-1 p-6 overflow-auto">
                 @yield('content')
             </main>
@@ -224,10 +239,26 @@
     (function () {
         const CSRF = document.querySelector('meta[name="csrf-token"]')?.content ?? '';
 
+        window.toggleClassSwitcher = function (e) {
+            e.stopPropagation();
+            document.getElementById('class-switcher-dropdown')?.classList.toggle('hidden');
+            document.getElementById('teacher-bell-dropdown').classList.add('hidden');
+            document.getElementById('teacher-profile-dropdown').classList.add('hidden');
+        };
+
+        document.addEventListener('click', function (e) {
+            const container = document.getElementById('class-switcher-container');
+            const dropdown  = document.getElementById('class-switcher-dropdown');
+            if (dropdown && container && !container.contains(e.target)) {
+                dropdown.classList.add('hidden');
+            }
+        });
+
         window.toggleTeacherProfile = function (e) {
             e.stopPropagation();
             document.getElementById('teacher-profile-dropdown').classList.toggle('hidden');
             document.getElementById('teacher-bell-dropdown').classList.add('hidden');
+            document.getElementById('class-switcher-dropdown')?.classList.add('hidden');
         };
 
         document.addEventListener('click', function (e) {
@@ -241,6 +272,8 @@
         window.toggleTeacherBell = function (e) {
             e.stopPropagation();
             document.getElementById('teacher-bell-dropdown').classList.toggle('hidden');
+            document.getElementById('teacher-profile-dropdown').classList.add('hidden');
+            document.getElementById('class-switcher-dropdown')?.classList.add('hidden');
         };
 
         document.addEventListener('click', function (e) {

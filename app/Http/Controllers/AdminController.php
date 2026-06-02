@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Traits\LogsActivity;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use App\Models\User;
@@ -9,9 +10,11 @@ use Illuminate\Support\Facades\DB;
 
 class AdminController extends Controller
 {
+    use LogsActivity;
     public function dashboard()
     {
         $totalUsers     = User::count();
+        $totalAdmins    = DB::table('administrators')->count();
         $teacherCount   = DB::table('teachers')->count();
         $parentCount    = DB::table('parents')->count();
         $studentCount   = DB::table('students')->count();
@@ -41,7 +44,7 @@ class AdminController extends Controller
             ->get();
 
         return view('admin.dashboard', compact(
-            'totalUsers', 'teacherCount', 'parentCount', 'studentCount',
+            'totalUsers', 'totalAdmins', 'teacherCount', 'parentCount', 'studentCount',
             'activeStudents', 'vocabCount', 'weeklyActivityJson', 'recentActivity'
         ));
     }
@@ -116,7 +119,8 @@ class AdminController extends Controller
         }
         $user->save();
 
-        return redirect()->route('admin.users', ['tab' => $user->role])
+        $redirectTab = $user->role === 'parent' ? 'parents' : $user->role;
+        return redirect()->route('admin.teachers.index', ['tab' => $redirectTab])
                          ->with('success', "Account for \"{$user->name}\" updated successfully.");
     }
 
@@ -136,7 +140,7 @@ class AdminController extends Controller
             if ($parentRecord) {
                 $linkedStudents = DB::table('students')->where('parent_id', $parentRecord->id)->count();
                 if ($linkedStudents > 0) {
-                    return redirect()->route('admin.users', ['tab' => 'parent'])
+                    return redirect()->route('admin.teachers.index', ['tab' => 'parents'])
                         ->with('error', "Cannot delete \"{$name}\". They have active student(s) linked to their account. Please reassign the student(s) first.");
                 }
                 DB::table('parents')->where('user_id', $user->id)->delete();
@@ -145,7 +149,8 @@ class AdminController extends Controller
 
         $user->delete();
 
-        return redirect()->route('admin.users', ['tab' => $role])
+        $redirectTab = $role === 'parent' ? 'parents' : $role;
+        return redirect()->route('admin.teachers.index', ['tab' => $redirectTab])
                          ->with('success', "Account for \"{$name}\" has been deleted.");
     }
 
@@ -183,8 +188,12 @@ class AdminController extends Controller
             ]);
         }
 
-        // 4. Redirect back with a success message, switching to their newly assigned tab
-        return redirect()->route('admin.users', ['tab' => $validated['role']])
+        if ($validated['role'] === 'parent') {
+            self::log('create', "Admin created parent: {$user->name}");
+        }
+
+        $redirectTab = $validated['role'] === 'parent' ? 'parents' : $validated['role'];
+        return redirect()->route('admin.teachers.index', ['tab' => $redirectTab])
                          ->with('success', 'User account created successfully!');
     }
 }

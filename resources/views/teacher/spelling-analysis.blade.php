@@ -39,17 +39,17 @@
 
                 function phonemeBg(int $count): string {
                     if ($count >= 70) return '#dc2626';
-                    if ($count >= 50) return '#ef4444';
-                    if ($count >= 30) return '#f59e0b';
-                    return '#f3f4f6';
+                    if ($count >= 50) return '#ea580c';
+                    if ($count >= 30) return '#ca8a04';
+                    return '#16a34a';
                 }
 
                 function phonemeText(int $count): string {
-                    return $count >= 30 ? 'text-white' : 'text-gray-400';
+                    return 'text-white';
                 }
 
                 function phonemeSubtext(int $count): string {
-                    return $count >= 30 ? 'text-white/80' : 'text-gray-400';
+                    return 'text-white/80';
                 }
             @endphp
 
@@ -57,8 +57,8 @@
                 @foreach($phonemeList as $letter)
                     @php $count = $phonemeCounts[$letter] ?? 0; @endphp
                     <div style="background-color:{{ phonemeBg($count) }}; border-radius:0.75rem; padding:1rem 0.5rem; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0.25rem; aspect-ratio:1;">
-                        <span style="font-size:1.5rem; font-weight:700; font-style:italic; color:{{ $count >= 30 ? '#ffffff' : '#9ca3af' }};">{{ $letter }}</span>
-                        <span style="font-size:0.6875rem; color:{{ $count >= 30 ? 'rgba(255,255,255,0.85)' : '#9ca3af' }};">{{ $count }} errors</span>
+                        <span style="font-size:1.5rem; font-weight:700; font-style:italic; color:#ffffff;">{{ $letter }}</span>
+                        <span style="font-size:0.6875rem; color:rgba(255,255,255,0.85);">{{ $count }} errors</span>
                     </div>
                 @endforeach
             </div>
@@ -66,15 +66,15 @@
             {{-- Legend --}}
             <div class="flex items-center gap-4 mt-5 flex-wrap">
                 <div class="flex items-center gap-1.5">
-                    <span class="w-3.5 h-3.5 rounded-sm shrink-0" style="background:#f3f4f6; border:1px solid #e5e7eb;"></span>
+                    <span class="w-3.5 h-3.5 rounded-sm shrink-0" style="background:#16a34a;"></span>
                     <span class="text-xs text-gray-500">Low</span>
                 </div>
                 <div class="flex items-center gap-1.5">
-                    <span class="w-3.5 h-3.5 rounded-sm shrink-0" style="background:#f59e0b;"></span>
+                    <span class="w-3.5 h-3.5 rounded-sm shrink-0" style="background:#ca8a04;"></span>
                     <span class="text-xs text-gray-500">Medium</span>
                 </div>
                 <div class="flex items-center gap-1.5">
-                    <span class="w-3.5 h-3.5 rounded-sm shrink-0" style="background:#ef4444;"></span>
+                    <span class="w-3.5 h-3.5 rounded-sm shrink-0" style="background:#ea580c;"></span>
                     <span class="text-xs text-gray-500">High</span>
                 </div>
                 <div class="flex items-center gap-1.5">

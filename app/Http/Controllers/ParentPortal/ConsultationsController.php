@@ -5,15 +5,17 @@ namespace App\Http\Controllers\ParentPortal;
 use App\Http\Controllers\Controller;
 use App\Models\ParentProfile;
 use App\Models\ConsultationSlot;
+use App\Traits\LogsActivity;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class ConsultationsController extends Controller
 {
+    use LogsActivity;
     public function index()
     {
         $parent  = ParentProfile::where('user_id', auth()->id())->firstOrFail();
-        $student = $parent->students()->with('classList.teacher')->first();
+        $student = $parent->students()->active()->with('classList.teacher')->first();
         $teacher = $student?->classList?->teacher;
 
         $bookings = DB::table('face_to_face_bookings')
@@ -99,6 +101,8 @@ class ConsultationsController extends Controller
             'created_at'        => now(),
         ]);
 
+        self::log('update', 'Parent cancelled consultation booking');
+
         return back()->with('success', 'Booking cancelled successfully.');
     }
 
@@ -110,7 +114,7 @@ class ConsultationsController extends Controller
         ]);
 
         $parent  = ParentProfile::where('user_id', auth()->id())->firstOrFail();
-        $student = $parent->students()->with('classList.teacher')->first();
+        $student = $parent->students()->active()->with('classList.teacher')->first();
         $teacher = $student?->classList?->teacher;
 
         $slot = ConsultationSlot::findOrFail($request->slot_id);
@@ -155,6 +159,8 @@ class ConsultationsController extends Controller
                 'created_at'        => now(),
             ]);
         }
+
+        self::log('create', "Parent booked consultation with teacher: " . ($teacher?->name ?? 'Unknown'));
 
         return back()->with('success', 'Consultation booked successfully.');
     }

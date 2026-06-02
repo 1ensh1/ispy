@@ -7,33 +7,27 @@ use App\Models\Teacher;
 use App\Models\Student;
 use App\Models\VocabularyLibrary;
 use App\Models\VocabularySuggestion;
+use App\Traits\LogsActivity;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 class TeacherDashboardController extends Controller
 {
-    private function getTeacherAndClass(): array
-    {
-        $teacher = Teacher::where('user_id', auth()->id())->first();
-        $classList = $teacher
-            ? ClassList::where('teacher_id', $teacher->id)->first()
-            : null;
+    use LogsActivity;
 
-        return [$teacher, $classList];
-    }
-
-    public function index()
+    public function index(Request $request)
     {
-        [$teacher, $classList] = $this->getTeacherAndClass();
+        $teacher   = Teacher::where('user_id', auth()->id())->first();
+        $classList = ClassList::find($request->active_class_id);
 
         $studentCount    = 0;
         $pendingMessages = 0;
         $students        = collect();
 
         if ($classList) {
-            $studentCount = Student::where('class_list_id', $classList->id)->count();
-            $students     = Student::where('class_list_id', $classList->id)
+            $studentCount = Student::active()->where('class_list_id', $classList->id)->count();
+            $students     = Student::active()->where('class_list_id', $classList->id)
                 ->with('parentUser')
                 ->get();
         }
@@ -52,12 +46,13 @@ class TeacherDashboardController extends Controller
         ));
     }
 
-    public function students()
+    public function students(Request $request)
     {
-        [$teacher, $classList] = $this->getTeacherAndClass();
+        $teacher   = Teacher::where('user_id', auth()->id())->first();
+        $classList = ClassList::find($request->active_class_id);
 
         $students = $classList
-            ? Student::where('class_list_id', $classList->id)->with('parentUser')->get()
+            ? Student::active()->where('class_list_id', $classList->id)->with('parentUser')->get()
             : collect();
 
         return view('teacher.students', compact('teacher', 'classList', 'students'));
@@ -65,7 +60,7 @@ class TeacherDashboardController extends Controller
 
     public function vocabulary()
     {
-        [$teacher] = $this->getTeacherAndClass();
+        $teacher = Teacher::where('user_id', auth()->id())->first();
 
         $words = VocabularyLibrary::where('is_active', true)->paginate(15);
 
@@ -80,7 +75,7 @@ class TeacherDashboardController extends Controller
 
     public function suggest(Request $request)
     {
-        [$teacher] = $this->getTeacherAndClass();
+        $teacher = Teacher::where('user_id', auth()->id())->first();
 
         if (!$teacher) {
             return back()->withErrors(['english_label' => 'Teacher profile not found. Please contact the administrator.']);
@@ -116,8 +111,6 @@ class TeacherDashboardController extends Controller
             'submitted_at'   => now(),
         ]);
 
-        // Primary: look up admin user IDs from the administrators table.
-        // Fallback: if that table is empty, find users whose role = 'Admin'.
         $adminUserIds = DB::table('administrators')->pluck('user_id');
         if ($adminUserIds->isEmpty()) {
             $adminUserIds = DB::table('users')->where('role', 'Admin')->pluck('id');
@@ -145,43 +138,41 @@ class TeacherDashboardController extends Controller
             ]);
         }
 
+        self::log('create', "Teacher submitted vocabulary suggestion: {$validated['english_label']}");
+
         return back()->with('success', 'Word suggestion submitted successfully!');
     }
 
-    public function enrollment()
+    public function enrollment(Request $request)
     {
-        [$teacher, $classList] = $this->getTeacherAndClass();
+        $teacher   = Teacher::where('user_id', auth()->id())->first();
+        $classList = ClassList::find($request->active_class_id);
 
-        $classLists = $teacher
-            ? ClassList::where('teacher_id', $teacher->id)->orderBy('class_name')->get()
+        $students = $classList
+            ? Student::active()->where('class_list_id', $classList->id)->with('parentUser', 'classList')->get()
             : collect();
 
-        $students = $classLists->isNotEmpty()
-            ? Student::whereIn('class_list_id', $classLists->pluck('id'))->with('parentUser', 'classList')->get()
-            : collect();
-
-        return view('teacher.enrollment', compact('teacher', 'classList', 'classLists', 'students'));
+        return view('teacher.enrollment', compact('teacher', 'classList', 'students'));
     }
 
     public function enrollmentStore(Request $request)
     {
         $teacher = Teacher::where('user_id', auth()->id())->firstOrFail();
 
-        $teacherClassIds = ClassList::where('teacher_id', $teacher->id)->pluck('id');
-
         $validated = $request->validate([
             'name'            => 'required|string|max:255',
-            'class_list_id'   => ['required', 'integer', \Illuminate\Validation\Rule::in($teacherClassIds)],
             'profile_icon'    => 'nullable|string|in:cat,dog,bear,rabbit,fox,frog,penguin,lion',
             'parent_password' => 'nullable|string|max:255',
         ]);
 
         Student::create([
             'name'            => $validated['name'],
-            'class_list_id'   => $validated['class_list_id'],
+            'class_list_id'   => $request->active_class_id,
             'profile_icon'    => $validated['profile_icon'] ?? 'cat',
-            'parent_password' => $validated['parent_password'] ?? null,
+            'parent_password' => $validated['parent_password'] ?: \Illuminate\Support\Str::random(8),
         ]);
+
+        self::log('create', "Teacher enrolled student: {$validated['name']}");
 
         $adminUserIds = DB::table('administrators')->pluck('user_id');
         if ($adminUserIds->isEmpty()) {
@@ -205,9 +196,10 @@ class TeacherDashboardController extends Controller
         return back()->with('success', 'Student added to the roster.');
     }
 
-    public function pin()
+    public function pin(Request $request)
     {
-        [$teacher, $classList] = $this->getTeacherAndClass();
+        $teacher   = Teacher::where('user_id', auth()->id())->first();
+        $classList = ClassList::find($request->active_class_id);
 
         return view('teacher.pin', compact('teacher', 'classList'));
     }

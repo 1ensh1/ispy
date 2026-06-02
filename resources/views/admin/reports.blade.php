@@ -2,12 +2,45 @@
 <div class="p-6 max-w-7xl mx-auto space-y-6">
 
     {{-- Page header --}}
-    <div class="flex items-start justify-between gap-4">
+    <div class="flex items-start justify-between gap-4 flex-wrap">
         <div>
             <h1 class="text-2xl font-bold text-gray-900">Progress Reports</h1>
             <p class="text-sm text-gray-500 mt-0.5">Student mastery and learning activity overview</p>
         </div>
+        <div class="flex items-center gap-2 flex-wrap no-print">
+            <a href="{{ route('admin.reports.export.progress', array_filter(request()->only(['teacher_id', 'search', 'proficiency']))) }}"
+               class="inline-flex items-center gap-1.5 px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors">
+                <i data-lucide="download" class="w-4 h-4"></i>
+                Progress CSV
+            </a>
+            <a href="{{ route('admin.reports.export.mastery', array_filter(request()->only(['teacher_id', 'search', 'proficiency']))) }}"
+               class="inline-flex items-center gap-1.5 px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors">
+                <i data-lucide="download" class="w-4 h-4"></i>
+                Mastery CSV
+            </a>
+            <a href="{{ route('admin.reports.export.captured', array_filter(request()->only(['teacher_id', 'search', 'proficiency']))) }}"
+               class="inline-flex items-center gap-1.5 px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors">
+                <i data-lucide="download" class="w-4 h-4"></i>
+                Captured CSV
+            </a>
+            <button onclick="window.print()"
+                    class="inline-flex items-center gap-1.5 px-3 py-2 bg-gray-600 hover:bg-gray-700 text-white text-sm font-medium rounded-lg transition-colors">
+                <i data-lucide="printer" class="w-4 h-4"></i>
+                Print / PDF
+            </button>
+        </div>
     </div>
+
+    <style>
+    @media print {
+        nav, aside, header, .no-print, footer { display: none !important; }
+        body { background: white !important; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1px solid #ccc; padding: 6px; font-size: 12px; }
+        a { color: black !important; text-decoration: none !important; }
+        .shadow-sm { box-shadow: none !important; }
+    }
+    </style>
 
     {{-- System overview --}}
     <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
@@ -43,15 +76,15 @@
     </div>
 
     {{-- Filters --}}
-    <form method="GET" action="{{ route('admin.reports') }}" id="filter-form" class="flex flex-wrap items-end gap-3">
+    <form method="GET" action="{{ route('admin.reports') }}" id="filter-form" class="flex flex-wrap items-end gap-3" onsubmit="return false;">
 
         {{-- Search --}}
         <div class="relative">
             <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"></i>
-            <input type="text" name="search" id="report-search"
+            <input type="text" name="search" id="search-students-report"
                    value="{{ request('search') }}"
                    placeholder="Search students…"
-                   oninput="filterReportRows()"
+                   oninput="filterStudentReportRows()"
                    class="pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 outline-none w-52">
         </div>
 
@@ -103,7 +136,7 @@
                         <th class="px-5 py-3.5 font-medium text-gray-500 text-xs uppercase tracking-wide"></th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-gray-100" id="report-tbody">
+                <tbody class="divide-y divide-gray-100" id="tbody-students-report">
                     @forelse($students as $student)
                         @php
                             $badgeBg = match($student->dominant) {
@@ -113,7 +146,7 @@
                                 default      => '#9ca3af',
                             };
                         @endphp
-                        <tr class="report-row hover:bg-gray-50 transition-colors" data-name="{{ strtolower($student->name) }}">
+                        <tr class="report-row hover:bg-gray-50 transition-colors" data-name="{{ strtolower($student->name) }} {{ strtolower($student->class_name ?? '') }} {{ strtolower($student->teacher ?? '') }}">
                             <td class="px-5 py-3.5 font-semibold text-gray-900">{{ $student->name }}</td>
                             <td class="px-5 py-3.5 text-gray-600">{{ $student->class_name }}</td>
                             <td class="px-5 py-3.5 text-gray-600">{{ $student->teacher }}</td>
@@ -149,17 +182,33 @@
 
 @push('scripts')
 <script>
-function filterReportRows() {
-    var query = document.getElementById('report-search').value.toLowerCase();
-    var rows  = document.querySelectorAll('#report-tbody .report-row');
-    var any   = false;
+function filterStudentReportRows() {
+    const input = document.getElementById('search-students-report');
+    const tbody = document.getElementById('tbody-students-report');
+    if (!input || !tbody) return;
+
+    const query = input.value.toLowerCase().trim();
+    const rows  = tbody.querySelectorAll('tr:not([data-empty])');
+    let visibleCount = 0;
+
     rows.forEach(function (row) {
-        var match = row.dataset.name.includes(query);
-        row.style.display = match ? '' : 'none';
-        if (match) any = true;
+        const name = (row.dataset.name || '').toLowerCase();
+        if (query === '' || name.includes(query)) {
+            row.style.display = '';
+            visibleCount++;
+        } else {
+            row.style.display = 'none';
+        }
     });
-    var empty = document.getElementById('empty-row');
-    if (empty) empty.style.display = (rows.length > 0 && !any) ? '' : 'none';
+
+    let emptyRow = tbody.querySelector('[data-empty]');
+    if (!emptyRow) {
+        emptyRow = document.createElement('tr');
+        emptyRow.setAttribute('data-empty', '1');
+        emptyRow.innerHTML = '<td colspan="10" class="text-center py-8 text-gray-400 text-sm">No students found.</td>';
+        tbody.appendChild(emptyRow);
+    }
+    emptyRow.style.display = visibleCount === 0 ? '' : 'none';
 }
 </script>
 @endpush

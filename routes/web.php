@@ -11,11 +11,14 @@ use App\Http\Controllers\Admin\VocabularySuggestionsController;
 use App\Http\Controllers\Admin\ProfileController as AdminProfileController;
 use App\Http\Controllers\Admin\NotificationController as AdminNotificationController;
 use App\Http\Controllers\Admin\ReportController as AdminReportController;
+use App\Http\Controllers\Admin\AdminSubstituteController;
+use App\Http\Controllers\Admin\AdminClassController;
 use App\Http\Controllers\Admin\ConsultationController as AdminConsultationController;
 use App\Http\Controllers\Teacher\ProfileController as TeacherProfileController;
 use App\Http\Controllers\Teacher\MessagingController as TeacherMessagingController;
 use App\Http\Controllers\Teacher\ConsultationController as TeacherConsultationController;
 use App\Http\Controllers\Teacher\NotificationController as TeacherNotificationController;
+use App\Http\Controllers\Teacher\TeacherClassSwitchController;
 use App\Http\Controllers\ParentPortal\ProfileController as ParentProfileController;
 use App\Http\Controllers\ParentPortal\NotificationController as ParentNotificationController;
 use App\Http\Controllers\AssetController;
@@ -59,10 +62,17 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
     Route::get('/students', [StudentController::class, 'index'])->name('admin.students');
     Route::post('/students', [StudentController::class, 'store'])->name('admin.students.store');
     Route::patch('/students/{student}', [StudentController::class, 'update'])->name('admin.students.update');
-    Route::delete('/students/{student}', [StudentController::class, 'destroy'])->name('admin.students.destroy');
+    Route::get('/students/{student}/profile', [\App\Http\Controllers\Admin\UserManagementController::class, 'showStudentProfile'])->name('admin.students.profile');
+    Route::post('/students/{student}/archive', [StudentController::class, 'archive'])->name('admin.students.archive');
+    Route::post('/students/{student}/restore', [StudentController::class, 'restore'])->name('admin.students.restore');
 
     // Class Management
     Route::post('/classes/{classList}/generate-pin', [ClassController::class, 'generatePin'])->name('admin.classes.generatePin');
+    Route::post('/classes/assign',           [AdminClassController::class, 'assignClass'])->name('admin.classes.assign');
+    Route::delete('/classes/{id}/unassign',  [AdminClassController::class, 'unassignClass'])->name('admin.classes.unassign');
+    Route::delete('/classes/{id}/delete',    [AdminClassController::class, 'deleteClass'])->name('admin.classes.delete');
+    Route::post('/classes/create-assign',    [AdminClassController::class, 'createAndAssign'])->name('admin.classes.create-assign');
+    Route::patch('/classes/update-subject',  [AdminClassController::class, 'updateSubject'])->name('admin.classes.update-subject');
 
     // Teacher Management
     Route::get('/teachers/search', [TeacherController::class, 'search'])->name('admin.teachers.search');
@@ -70,6 +80,8 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
     Route::post('/teachers', [TeacherController::class, 'store'])->name('admin.teachers.store');
     Route::put('/teachers/{teacher}', [TeacherController::class, 'update'])->name('admin.teachers.update');
     Route::delete('/teachers/{teacher}', [TeacherController::class, 'destroy'])->name('admin.teachers.destroy');
+    Route::get('/teachers/{teacher}/profile', [\App\Http\Controllers\Admin\UserManagementController::class, 'showTeacherProfile'])->name('admin.teachers.profile');
+    Route::get('/parents/{user}/profile', [\App\Http\Controllers\Admin\UserManagementController::class, 'showParentProfile'])->name('admin.parents.profile');
 
     // Vocabulary Suggestions
     Route::get('/vocabulary-suggestions', [VocabularySuggestionsController::class, 'index'])->name('admin.vocabulary-suggestions.index');
@@ -81,6 +93,7 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
     Route::post('/vocabulary', [VocabularyController::class, 'store'])->name('admin.vocabulary.store');
     Route::put('/vocabulary/{vocabulary}', [VocabularyController::class, 'update'])->name('admin.vocabulary.update');
     Route::delete('/vocabulary/{vocabulary}', [VocabularyController::class, 'destroy'])->name('admin.vocabulary.destroy');
+    Route::post('/vocabulary/fetch-image', [VocabularyController::class, 'fetchImageForWord'])->name('admin.vocabulary.fetch-image');
 
     // Bilingual Assets
     Route::get('/assets', [AssetController::class, 'index'])->name('admin.assets');
@@ -91,13 +104,21 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
     Route::get('/access', fn() => view('admin.access'))->name('admin.access');
 
     // Static admin views
-    Route::get('/logs', fn() => view('admin.logs'))->name('admin.logs');
     Route::get('/consultations',        [AdminConsultationController::class, 'index'])->name('admin.consultations');
     Route::get('/consultations/export', [AdminConsultationController::class, 'export'])->name('admin.consultations.export');
     Route::get('/sync', fn() => view('admin.sync'))->name('admin.sync');
     Route::get('/snapshots', fn() => view('admin.snapshots'))->name('admin.snapshots');
-    Route::get('/reports',           [AdminReportController::class, 'index'])->name('admin.reports');
-    Route::get('/reports/{student}', [AdminReportController::class, 'show'])->name('admin.reports.show');
+    Route::get('/activity-logs', [\App\Http\Controllers\Admin\ActivityLogController::class, 'index'])->name('admin.activity.logs');
+
+    // Substitute Management
+    Route::post('/substitutes/assign',        [AdminSubstituteController::class, 'assign'])->name('admin.substitutes.assign');
+    Route::delete('/substitutes/{id}/remove', [AdminSubstituteController::class, 'remove'])->name('admin.substitutes.remove');
+    Route::get('/substitutes/list',           [AdminSubstituteController::class, 'listForClass'])->name('admin.substitutes.list');
+    Route::get('/reports',                         [AdminReportController::class, 'index'])->name('admin.reports');
+    Route::get('/reports/export/student-progress', [AdminReportController::class, 'exportStudentProgressCsv'])->name('admin.reports.export.progress');
+    Route::get('/reports/export/mastery-scores',   [AdminReportController::class, 'exportMasteryScoresCsv'])->name('admin.reports.export.mastery');
+    Route::get('/reports/export/captured-objects', [AdminReportController::class, 'exportCapturedObjectsCsv'])->name('admin.reports.export.captured');
+    Route::get('/reports/{student}',               [AdminReportController::class, 'show'])->name('admin.reports.show');
 
     // Profile & Password
     Route::get('/profile',          [AdminProfileController::class, 'index'])->name('admin.profile');
@@ -139,15 +160,17 @@ Route::prefix('teacher')->middleware(['auth', 'teacher'])->group(function () {
     Route::get('/student-progress', [\App\Http\Controllers\Teacher\StudentProgressController::class, 'index'])->name('teacher.student-progress');
     Route::get('/spelling-analysis', [\App\Http\Controllers\Teacher\SpellingAnalysisController::class, 'index'])->name('teacher.spelling-analysis');
     Route::get('/milestones', [\App\Http\Controllers\Teacher\MilestonesController::class, 'index'])->name('teacher.milestones');
-    Route::get('/reports',                 [\App\Http\Controllers\Teacher\ReportController::class, 'index'])->name('teacher.reports');
-    Route::get('/reports/{student}',       [\App\Http\Controllers\Teacher\ReportController::class, 'show'])->name('teacher.reports.show');
-    Route::post('/reports/{student}/send', [\App\Http\Controllers\Teacher\ReportController::class, 'send'])->name('teacher.reports.send');
+    Route::get('/reports',                          [\App\Http\Controllers\Teacher\ReportController::class, 'index'])->name('teacher.reports');
+    Route::get('/reports/export/{student}',         [\App\Http\Controllers\Teacher\ReportController::class, 'exportStudentReportCsv'])->name('teacher.reports.export');
+    Route::get('/reports/{student}',                [\App\Http\Controllers\Teacher\ReportController::class, 'show'])->name('teacher.reports.show');
+    Route::post('/reports/{student}/send',          [\App\Http\Controllers\Teacher\ReportController::class, 'send'])->name('teacher.reports.send');
     Route::get('/word-sets',         [\App\Http\Controllers\Teacher\WordSetsController::class, 'index'])->name('teacher.word-sets');
     Route::post('/word-sets/toggle', [\App\Http\Controllers\Teacher\WordSetsController::class, 'toggle'])->name('teacher.word-sets.toggle');
     Route::get('/annotations',       [\App\Http\Controllers\Teacher\AnnotationsController::class, 'index'])->name('teacher.annotations');
     Route::post('/annotations',      [\App\Http\Controllers\Teacher\AnnotationsController::class, 'store'])->name('teacher.annotations.store');
     Route::get('/mobile-sync',       [\App\Http\Controllers\Teacher\MobileSyncController::class,  'index'])->name('teacher.mobile-sync');
     Route::post('/logout', [TeacherDashboardController::class, 'logout'])->name('teacher.logout');
+    Route::post('/switch-class', [TeacherClassSwitchController::class, 'switch'])->name('teacher.switch-class');
 
     // Messaging
     Route::get('/messaging',  [TeacherMessagingController::class,   'index'])->name('teacher.messaging');

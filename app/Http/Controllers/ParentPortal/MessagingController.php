@@ -5,15 +5,17 @@ namespace App\Http\Controllers\ParentPortal;
 use App\Http\Controllers\Controller;
 use App\Models\ParentProfile;
 use App\Models\EngagementRecord;
+use App\Traits\LogsActivity;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class MessagingController extends Controller
 {
+    use LogsActivity;
     public function index()
     {
         $parent  = ParentProfile::where('user_id', auth()->id())->firstOrFail();
-        $student = $parent->students()->with('classList.teacher')->first();
+        $student = $parent->students()->active()->with('classList.teacher')->first();
         $teacher = $student?->classList?->teacher;
 
         $engagement = null;
@@ -45,7 +47,7 @@ class MessagingController extends Controller
         ]);
 
         $parent  = ParentProfile::where('user_id', auth()->id())->firstOrFail();
-        $student = $parent->students()->with('classList.teacher')->first();
+        $student = $parent->students()->active()->with('classList.teacher')->first();
         $teacher = $student?->classList?->teacher;
 
         $engagement = $teacher
@@ -77,6 +79,8 @@ class MessagingController extends Controller
                 'created_at'        => now(),
             ]);
         }
+
+        self::log('create', 'Parent sent message to teacher');
 
         return back()->with('success', 'Message sent.');
     }

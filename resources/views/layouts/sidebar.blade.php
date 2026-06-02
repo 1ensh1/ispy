@@ -13,7 +13,7 @@
             ['label' => 'Data Sync',          'icon' => 'refresh-cw',       'path' => 'admin/sync'],
             ['label' => 'System Snapshots',   'icon' => 'camera',           'path' => 'admin/snapshots'],
             ['label' => 'Access Control',     'icon' => 'shield-check',     'path' => 'admin/access'],
-            ['label' => 'System Logs',        'icon' => 'activity',         'path' => 'admin/logs'],
+            ['label' => 'Activity Logs',      'icon' => 'clipboard-list',   'path' => 'admin/activity-logs'],
             ['label' => 'Consultations',      'icon' => 'calendar-check',   'path' => 'admin/consultations'],
             ['label' => 'Reports',            'icon' => 'bar-chart-2',      'path' => 'admin/reports'],
         ],

@@ -5,11 +5,13 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\VocabularySuggestion;
 use App\Models\VocabularyLibrary;
+use App\Traits\LogsActivity;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class VocabularySuggestionsController extends Controller
 {
+    use LogsActivity;
     public function index(Request $request)
     {
         $status = $request->query('status');
@@ -63,6 +65,8 @@ class VocabularySuggestionsController extends Controller
             'created_at'        => now(),
         ]);
 
+        self::log('approve', "Admin approved vocabulary: {$suggestion->english_label}");
+
         return back()->with('success', "Suggestion \"{$suggestion->english_label}\" approved and added to the vocabulary library.");
     }
 
@@ -87,6 +91,8 @@ class VocabularySuggestionsController extends Controller
             'is_read'           => false,
             'created_at'        => now(),
         ]);
+
+        self::log('reject', "Admin rejected vocabulary: {$suggestion->english_label}");
 
         return back()->with('success', "Suggestion \"{$suggestion->english_label}\" has been rejected.");
     }
