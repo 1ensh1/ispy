@@ -34,6 +34,10 @@ Route::get('/', function () {
     return redirect()->route('login');
 });
 
+// Public teacher account activation (no auth — reached from emailed link)
+Route::get('/teacher/activate/{token}', [\App\Http\Controllers\TeacherActivationController::class, 'activate'])
+    ->name('teacher.activate');
+
 Route::get('/dashboard', function () {
     return match (Auth::user()->role) {
         'Admin'   => redirect()->route('admin.dashboard'),
@@ -70,7 +74,8 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
     Route::post('/classes/{classList}/generate-pin', [ClassController::class, 'generatePin'])->name('admin.classes.generatePin');
     Route::post('/classes/assign',           [AdminClassController::class, 'assignClass'])->name('admin.classes.assign');
     Route::delete('/classes/{id}/unassign',  [AdminClassController::class, 'unassignClass'])->name('admin.classes.unassign');
-    Route::delete('/classes/{id}/delete',    [AdminClassController::class, 'deleteClass'])->name('admin.classes.delete');
+    Route::patch('/classes/{id}/archive',    [AdminClassController::class, 'archiveClass'])->name('admin.classes.archive');
+    Route::patch('/classes/{id}/restore',    [AdminClassController::class, 'restoreClass'])->name('admin.classes.restore');
     Route::post('/classes/create-assign',    [AdminClassController::class, 'createAndAssign'])->name('admin.classes.create-assign');
     Route::patch('/classes/update-subject',  [AdminClassController::class, 'updateSubject'])->name('admin.classes.update-subject');
 
@@ -79,6 +84,7 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
     Route::get('/teachers', [TeacherController::class, 'index'])->name('admin.teachers.index');
     Route::post('/teachers', [TeacherController::class, 'store'])->name('admin.teachers.store');
     Route::put('/teachers/{teacher}', [TeacherController::class, 'update'])->name('admin.teachers.update');
+    Route::post('/teachers/{teacher}/resend-activation', [TeacherController::class, 'resendActivation'])->name('admin.teachers.resend-activation');
     Route::delete('/teachers/{teacher}', [TeacherController::class, 'destroy'])->name('admin.teachers.destroy');
     Route::get('/teachers/{teacher}/profile', [\App\Http\Controllers\Admin\UserManagementController::class, 'showTeacherProfile'])->name('admin.teachers.profile');
     Route::get('/parents/{user}/profile', [\App\Http\Controllers\Admin\UserManagementController::class, 'showParentProfile'])->name('admin.parents.profile');

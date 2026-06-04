@@ -16,6 +16,7 @@ class TeacherAccountCreated extends Mailable
         public string $name,
         public string $email,
         public string $temporary_password,
+        public string $activation_url,
     ) {}
 
     public function envelope(): Envelope

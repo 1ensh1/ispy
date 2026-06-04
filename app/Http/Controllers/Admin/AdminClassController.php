@@ -21,7 +21,7 @@ class AdminClassController extends Controller
             'teacher_id'    => 'required|integer|exists:teachers,id',
         ]);
 
-        $class = ClassList::findOrFail($request->class_list_id);
+        $class = ClassList::active()->findOrFail($request->class_list_id);
 
         if ($class->teacher_id !== null) {
             return redirect()->route('admin.teachers.profile', ['teacher' => $request->teacher_id])
@@ -134,7 +134,7 @@ class AdminClassController extends Controller
             ->with('success', "Subject for \"{$class->class_name}\" updated to {$request->subject}.");
     }
 
-    public function deleteClass(int $id, Request $request)
+    public function archiveClass(int $id, Request $request)
     {
         $request->validate(['teacher_id' => 'required|integer|exists:teachers,id']);
 
@@ -164,21 +164,48 @@ class AdminClassController extends Controller
         }
 
         $teacher = Teacher::find($class->teacher_id);
-        $className = $class->class_name;
-        $subject   = $class->subject ?? 'No subject';
+        $className   = $class->class_name;
+        $subject     = $class->subject ?? 'No subject';
         $teacherName = $teacher->name ?? 'Unknown';
 
-        $class->delete();
+        $class->archived_at = now();
+        $class->save();
 
         ActivityLog::create([
             'user_id'     => Auth::id(),
             'role'        => 'Admin',
-            'action'      => 'Delete Class',
-            'description' => "Permanently deleted class \"{$className}\" ({$subject}) from teacher {$teacherName}.",
+            'action'      => 'Archive Class',
+            'description' => "Archived class \"{$className}\" ({$subject}) from teacher {$teacherName}.",
             'created_at'  => now(),
         ]);
 
         return redirect()->route('admin.teachers.profile', ['teacher' => $request->teacher_id])
-            ->with('success', "Class \"{$className}\" deleted permanently.");
+            ->with('success', "Class \"{$className}\" archived successfully.");
+    }
+
+    public function restoreClass(int $id, Request $request)
+    {
+        $request->validate(['teacher_id' => 'required|integer|exists:teachers,id']);
+
+        $class = ClassList::withoutGlobalScopes()->findOrFail($id);
+
+        $teacher     = Teacher::find($class->teacher_id);
+        $className   = $class->class_name;
+        $subject     = $class->subject ?? 'No subject';
+        $teacherName = $teacher->name ?? 'Unknown';
+
+        $class->archived_at = null;
+        $class->save();
+
+        ActivityLog::create([
+            'user_id'     => Auth::id(),
+            'role'        => 'Admin',
+            'action'      => 'Restore Class',
+            'description' => "Restored class \"{$className}\" ({$subject}) for teacher {$teacherName}.",
+            'created_at'  => now(),
+        ]);
+
+        return redirect()->route('admin.teachers.profile', ['teacher' => $request->teacher_id])
+            ->with('success', "Class \"{$className}\" restored successfully.");
     }
 }

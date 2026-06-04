@@ -176,14 +176,14 @@
                                             </button>
                                         </form>
                                         <form method="POST"
-                                              action="{{ route('admin.classes.delete', $class->id) }}"
-                                              onsubmit="return confirm('Permanently delete this class? This cannot be undone.')">
+                                              action="{{ route('admin.classes.archive', $class->id) }}"
+                                              onsubmit="return confirm('Archive this class? It will be hidden but can be restored later.')">
                                             @csrf
-                                            @method('DELETE')
+                                            @method('PATCH')
                                             <input type="hidden" name="teacher_id" value="{{ $teacher->id }}">
                                             <button type="submit"
                                                     class="px-3 py-1.5 text-xs font-medium rounded-md bg-red-600 text-white hover:bg-red-700 transition-colors">
-                                                Delete
+                                                Archive
                                             </button>
                                         </form>
                                     </div>
@@ -194,6 +194,63 @@
                     </table>
                 </div>
             @endif
+        </div>
+
+        {{-- ===================== ARCHIVED CLASSES ===================== --}}
+        <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden mb-6">
+            <details>
+                <summary class="px-6 py-4 border-b border-gray-100 bg-gray-50 flex items-center gap-2 cursor-pointer list-none select-none">
+                    <i data-lucide="archive" class="w-4 h-4 text-gray-400"></i>
+                    <h2 class="text-sm font-semibold text-gray-500">Archived Classes
+                        @if($archivedClasses->isNotEmpty())
+                            <span class="ml-1.5 inline-block px-2 py-0.5 text-xs rounded-full bg-gray-100 text-gray-500 font-medium">{{ $archivedClasses->count() }}</span>
+                        @endif
+                    </h2>
+                    <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400 ml-auto"></i>
+                </summary>
+                @if($archivedClasses->isEmpty())
+                    <div class="px-6 py-8 text-center text-gray-400">
+                        <i data-lucide="archive" class="w-7 h-7 mx-auto mb-2 opacity-40"></i>
+                        <p class="text-sm">No archived classes for this teacher.</p>
+                    </div>
+                @else
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm text-left">
+                            <thead class="bg-gray-50 border-b border-gray-200 text-gray-500">
+                                <tr>
+                                    <th class="px-6 py-3 font-medium">Class Name</th>
+                                    <th class="px-6 py-3 font-medium">Subject</th>
+                                    <th class="px-6 py-3 font-medium whitespace-nowrap">Archived On</th>
+                                    <th class="px-6 py-3 font-medium text-right">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100">
+                                @foreach($archivedClasses as $archived)
+                                <tr class="hover:bg-gray-50 transition-colors">
+                                    <td class="px-6 py-3 font-medium text-gray-700">{{ $archived->class_name }}</td>
+                                    <td class="px-6 py-3 text-gray-500">{{ $archived->subject ?? '—' }}</td>
+                                    <td class="px-6 py-3 text-gray-400 text-xs whitespace-nowrap">
+                                        {{ $archived->archived_at ? $archived->archived_at->format('M d, Y') : '—' }}
+                                    </td>
+                                    <td class="px-6 py-3 text-right">
+                                        <form method="POST"
+                                              action="{{ route('admin.classes.restore', $archived->id) }}">
+                                            @csrf
+                                            @method('PATCH')
+                                            <input type="hidden" name="teacher_id" value="{{ $teacher->id }}">
+                                            <button type="submit"
+                                                    class="px-3 py-1.5 text-xs font-medium rounded-md bg-green-50 border border-green-200 text-green-700 hover:bg-green-100 transition-colors">
+                                                Restore
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                @endif
+            </details>
         </div>
 
         {{-- ===================== ASSIGNED CLASSES — Part B: Assign existing class ===================== --}}

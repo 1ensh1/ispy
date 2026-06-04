@@ -16,7 +16,13 @@ class UserManagementController extends Controller
     {
         $teacher->load('user');
 
-        $classes = ClassList::where('teacher_id', $teacher->id)
+        $classes = ClassList::active()
+            ->where('teacher_id', $teacher->id)
+            ->orderBy('class_name')
+            ->get();
+
+        $archivedClasses = ClassList::archived()
+            ->where('teacher_id', $teacher->id)
             ->orderBy('class_name')
             ->get();
 
@@ -41,7 +47,8 @@ class UserManagementController extends Controller
             ->orderBy('name')
             ->get();
 
-        $unassignedClasses = ClassList::whereNull('teacher_id')
+        $unassignedClasses = ClassList::active()
+            ->whereNull('teacher_id')
             ->orderBy('class_name')
             ->get();
 
@@ -51,7 +58,7 @@ class UserManagementController extends Controller
             ->get();
 
         return view('admin.teachers.profile', compact(
-            'teacher', 'classes', 'recentActivity', 'currentSubs', 'otherTeachers', 'unassignedClasses'
+            'teacher', 'classes', 'archivedClasses', 'recentActivity', 'currentSubs', 'otherTeachers', 'unassignedClasses'
         ));
     }
 
