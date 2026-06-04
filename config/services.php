@@ -39,4 +39,9 @@ return [
         'api_key' => env('PEXELS_API_KEY'),
     ],
 
+    'supabase' => [
+        'url'              => env('SUPABASE_URL'),
+        'service_role_key' => env('SUPABASE_SERVICE_ROLE_KEY'),
+    ],
+
 ];

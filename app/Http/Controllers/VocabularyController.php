@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\VocabularyLibrary;
 use App\Services\PexelsService;
+use App\Services\SupabaseStorageService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
@@ -80,20 +81,19 @@ class VocabularyController extends Controller
 
         $label    = strtolower($validated['english_label']);
         $imageUrl = null;
+        $supabase = new SupabaseStorageService;
 
         if ($request->hasFile('image')) {
-            $ext      = $request->file('image')->getClientOriginalExtension();
-            $filename = $label . '_' . time() . '.' . $ext;
-            $request->file('image')->storeAs('vocabulary', $filename, 'public');
-            $imageUrl = asset('storage/vocabulary/' . $filename);
+            $filename = $label . '_' . time() . '.jpg';
+            $binary   = file_get_contents($request->file('image')->getRealPath());
+            $imageUrl = $supabase->uploadImage($binary, $filename);
         } else {
             $pexelsUrl = (new PexelsService)->fetchImage($validated['english_label']);
             if ($pexelsUrl) {
                 $binary = @file_get_contents($pexelsUrl);
                 if ($binary) {
                     $filename = $label . '_' . time() . '.jpg';
-                    Storage::disk('public')->put('vocabulary/' . $filename, $binary);
-                    $imageUrl = asset('storage/vocabulary/' . $filename);
+                    $imageUrl = $supabase->uploadImage($binary, $filename);
                 }
             }
         }
@@ -147,10 +147,12 @@ class VocabularyController extends Controller
 
         if ($request->hasFile('image')) {
             $label    = strtolower($validated['english_label']);
-            $ext      = $request->file('image')->getClientOriginalExtension();
-            $filename = $label . '_' . time() . '.' . $ext;
-            $request->file('image')->storeAs('vocabulary', $filename, 'public');
-            $data['image_url'] = asset('storage/vocabulary/' . $filename);
+            $filename = $label . '_' . time() . '.jpg';
+            $binary   = file_get_contents($request->file('image')->getRealPath());
+            $uploaded = (new SupabaseStorageService)->uploadImage($binary, $filename);
+            if ($uploaded) {
+                $data['image_url'] = $uploaded;
+            }
         }
 
         $filipinoUrl = $data['filipino_audio_url'] ?? $vocabulary->filipino_audio_url;
@@ -212,8 +214,11 @@ class VocabularyController extends Controller
 
         $label    = strtolower($vocabulary->english_label);
         $filename = $label . '_' . time() . '.jpg';
-        Storage::disk('public')->put('vocabulary/' . $filename, $binary);
-        $imageUrl = asset('storage/vocabulary/' . $filename);
+        $imageUrl = (new SupabaseStorageService)->uploadImage($binary, $filename);
+
+        if (!$imageUrl) {
+            return response()->json(['success' => false, 'message' => 'Failed to upload image for ' . $vocabulary->english_label]);
+        }
 
         $vocabulary->update(['image_url' => $imageUrl]);
 

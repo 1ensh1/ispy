@@ -34,7 +34,10 @@ class TeacherController extends Controller
 
         // Fetch all rows (one per class per teacher) to support multiple classes
         $allTeacherRows = DB::table('teachers')
-            ->leftJoin('class_lists', 'class_lists.teacher_id', '=', 'teachers.id')
+            ->leftJoin('class_lists', function ($join) {
+                $join->on('class_lists.teacher_id', '=', 'teachers.id')
+                     ->whereNull('class_lists.archived_at');
+            })
             ->whereIn('teachers.user_id', $userIds)
             ->select(
                 'teachers.id',
@@ -119,7 +122,7 @@ class TeacherController extends Controller
             ->paginate(15, ['*'], 'student_page')
             ->appends(['tab' => 'students']);
         $parentsList = ParentUser::orderBy('name')->get();
-        $classLists  = ClassList::with('teacher')->orderBy('class_name')->get();
+        $classLists  = ClassList::active()->with('teacher')->orderBy('class_name')->get();
 
         $activeTab = 'teacher';
 
@@ -163,14 +166,55 @@ class TeacherController extends Controller
 
         self::log('create', "Created teacher account for {$user->name} ({$user->email})");
 
+        // Generate a one-time activation token and build the activation link.
+        $token = Str::random(64);
+        DB::table('teacher_activation_tokens')->insert([
+            'teacher_id' => $teacherId,
+            'token'      => $token,
+            'created_at' => now(),
+        ]);
+        $activationUrl = route('teacher.activate', ['token' => $token]);
+
         try {
-            Mail::to($user->email)->send(new TeacherAccountCreated($user->name, $user->email, $tempPassword));
+            Mail::to($user->email)->send(new TeacherAccountCreated($user->name, $user->email, $tempPassword, $activationUrl));
         } catch (\Throwable $e) {
             Log::error("Failed to send teacher account email to {$user->email}: {$e->getMessage()}");
         }
 
         return redirect()->route('admin.teachers.index')
             ->with('success', "Teacher account created. A credentials email has been sent to {$user->email}.");
+    }
+
+    public function resendActivation(User $teacher)
+    {
+        $record = DB::table('teachers')->where('user_id', $teacher->id)->first();
+
+        if (!$record) {
+            return redirect()->route('admin.teachers.index')
+                ->with('error', "Teacher record not found for \"{$teacher->name}\".");
+        }
+
+        // Replace any existing token so only the newest link works.
+        DB::table('teacher_activation_tokens')->where('teacher_id', $record->id)->delete();
+
+        $token = Str::random(64);
+        DB::table('teacher_activation_tokens')->insert([
+            'teacher_id' => $record->id,
+            'token'      => $token,
+            'created_at' => now(),
+        ]);
+        $activationUrl = route('teacher.activate', ['token' => $token]);
+
+        try {
+            Mail::to($teacher->email)->send(new TeacherAccountCreated($teacher->name, $teacher->email, '(your existing temporary password)', $activationUrl));
+        } catch (\Throwable $e) {
+            Log::error("Failed to resend teacher activation email to {$teacher->email}: {$e->getMessage()}");
+        }
+
+        self::log('update', "Resent activation email to {$teacher->name} ({$teacher->email})");
+
+        return redirect()->route('admin.teachers.index')
+            ->with('success', "Activation email resent to {$teacher->email}.");
     }
 
     public function update(Request $request, User $teacher)

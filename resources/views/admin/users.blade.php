@@ -534,6 +534,16 @@
                                             class="text-gray-400 hover:text-gray-700 transition-colors">
                                         <i data-lucide="pencil" class="w-4 h-4"></i>
                                     </button>
+                                    @if(($classListsByUser[$user->id]['status'] ?? 'Active') === 'Inactive')
+                                    <form method="POST" action="{{ route('admin.teachers.resend-activation', $user->id) }}"
+                                          class="inline-block"
+                                          onsubmit="return confirm('Resend the activation email to \'{{ addslashes($user->email) }}\'?')">
+                                        @csrf
+                                        <button type="submit" class="text-gray-400 hover:text-amber-600 transition-colors" title="Resend activation email">
+                                            <i data-lucide="mail" class="w-4 h-4"></i>
+                                        </button>
+                                    </form>
+                                    @endif
                                     <form method="POST" action="{{ route('admin.teachers.destroy', $user->id) }}"
                                           class="inline-block"
                                           onsubmit="return confirm('Delete teacher account for \'{{ addslashes($user->name) }}\'?\n\nNote: deletion will be blocked if this teacher has active students.')">

@@ -103,6 +103,12 @@
                 Sign in to access your literacy portal.
             </p>
 
+            @if (session('status'))
+                <div style="margin-bottom:1.25rem; padding:0.75rem 1rem; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:0.5rem;">
+                    <p class="text-sm" style="color:#15803d;">{{ session('status') }}</p>
+                </div>
+            @endif
+
             <form method="POST" action="{{ route('login') }}">
                 @csrf
 

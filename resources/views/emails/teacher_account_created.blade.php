@@ -54,8 +54,12 @@
                                             Your account is currently <strong>inactive</strong>. You must click the activation link below
                                             before you can log in. The link will expire, so please activate soon.
                                         </p>
-                                        <p style="margin:12px 0 0 0; font-size:14px; color:#78350f;">
-                                            [Activation link will appear here]
+                                        <p style="margin:16px 0 0 0; font-size:14px;">
+                                            <a href="{{ $activation_url }}" style="display:inline-block; background-color:#1e3a5f; color:#ffffff; text-decoration:none; font-weight:bold; padding:12px 24px; border-radius:6px;">Click here to activate your account</a>
+                                        </p>
+                                        <p style="margin:12px 0 0 0; font-size:12px; line-height:1.5; color:#92400e; word-break:break-all;">
+                                            Or copy and paste this link into your browser:<br>
+                                            <a href="{{ $activation_url }}" style="color:#1e3a5f;">{{ $activation_url }}</a>
                                         </p>
                                     </td>
                                 </tr>

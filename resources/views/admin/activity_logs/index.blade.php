@@ -42,7 +42,8 @@
                 <option value="Unassign Class"          {{ request('action') === 'Unassign Class'          ? 'selected' : '' }}>Unassign Class</option>
                 <option value="Create and Assign Class" {{ request('action') === 'Create and Assign Class' ? 'selected' : '' }}>Create and Assign Class</option>
                 <option value="Update Class Subject"    {{ request('action') === 'Update Class Subject'    ? 'selected' : '' }}>Update Class Subject</option>
-                <option value="Delete Class"            {{ request('action') === 'Delete Class'            ? 'selected' : '' }}>Delete Class</option>
+                <option value="Archive Class"           {{ request('action') === 'Archive Class'           ? 'selected' : '' }}>Archive Class</option>
+                <option value="Restore Class"           {{ request('action') === 'Restore Class'           ? 'selected' : '' }}>Restore Class</option>
                 <option value="Assign Substitute"       {{ request('action') === 'Assign Substitute'       ? 'selected' : '' }}>Assign Substitute</option>
                 <option value="Remove Substitute"       {{ request('action') === 'Remove Substitute'       ? 'selected' : '' }}>Remove Substitute</option>
             </select>

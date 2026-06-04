@@ -30,7 +30,8 @@ class TeacherMiddleware
         }
 
         // Own classes
-        $ownClasses = ClassList::where('teacher_id', $teacher->id)
+        $ownClasses = ClassList::active()
+            ->where('teacher_id', $teacher->id)
             ->get()
             ->map(fn($cl) => [
                 'id'         => $cl->id,
