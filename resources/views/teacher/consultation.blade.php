@@ -2,32 +2,6 @@
 @section('title', 'Consultation Availability')
 
 @section('content')
-@php
-    use Carbon\Carbon;
-
-    $hours = [8, 9, 10, 11, 12, 13, 14, 15, 16];
-    $days  = [1 => 'Mon', 2 => 'Tue', 3 => 'Wed', 4 => 'Thu', 5 => 'Fri'];
-
-    // Bug 3: deduplicate by exact date+time so slots from different weeks
-    // with the same dow+hour don't stack into the same cell.
-    $grid     = [];
-    $seenSlot = [];
-    foreach ($slots as $slot) {
-        $slotKey = $slot->scheduled_date . '_' . $slot->time_start;
-        if (isset($seenSlot[$slotKey])) continue;
-        $seenSlot[$slotKey] = true;
-
-        $dow  = (int) Carbon::parse($slot->scheduled_date)->dayOfWeek;
-        $hour = (int) substr($slot->time_start, 0, 2);
-        if ($dow >= 1 && $dow <= 5 && $hour >= 8 && $hour <= 16) {
-            $cellKey = "{$dow}_{$hour}";
-            if (!isset($grid[$dow][$hour])) {
-                $grid[$dow][$hour] = [];
-            }
-            $grid[$dow][$hour][] = $slot;
-        }
-    }
-@endphp
 
 <div class="space-y-6">
 
@@ -109,62 +83,46 @@
         {{-- ── Tab: Weekly Availability ── --}}
         <div id="panel-weekly" class="mt-4 space-y-4">
 
+            {{-- Week navigation (client-side) --}}
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+                <button type="button" id="btn-prev-week"
+                        style="padding:6px 14px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;color:#374151;background:#fff;cursor:pointer;white-space:nowrap;">
+                    ← Previous Week
+                </button>
+                <span id="week-label" style="font-weight:600;font-size:14px;color:#111827;text-align:center;"></span>
+                <button type="button" id="btn-next-week"
+                        style="padding:6px 14px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;color:#374151;background:#fff;cursor:pointer;white-space:nowrap;">
+                    Next Week →
+                </button>
+            </div>
+
             <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                 <div class="overflow-x-auto">
                     <table class="w-full text-sm">
                         <thead class="bg-gray-50 border-b border-gray-200">
                             <tr>
                                 <th class="px-4 py-3 text-left font-medium text-gray-500 w-28">Time</th>
-                                @foreach($days as $dow => $dayName)
-                                    <th class="px-4 py-3 text-center font-medium text-gray-500">{{ $dayName }}</th>
-                                @endforeach
+                                <th id="week-th-0" class="px-4 py-3 text-center font-medium text-gray-500"></th>
+                                <th id="week-th-1" class="px-4 py-3 text-center font-medium text-gray-500"></th>
+                                <th id="week-th-2" class="px-4 py-3 text-center font-medium text-gray-500"></th>
+                                <th id="week-th-3" class="px-4 py-3 text-center font-medium text-gray-500"></th>
+                                <th id="week-th-4" class="px-4 py-3 text-center font-medium text-gray-500"></th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100">
-                            @foreach($hours as $hour)
+                            @foreach([8,9,10,11,12,13,14,15,16] as $hour)
                                 @php
-                                    if ($hour < 12)      $timeLabel = $hour . ':00 AM';
+                                    if ($hour < 12)       $timeLabel = $hour . ':00 AM';
                                     elseif ($hour === 12) $timeLabel = '12:00 PM';
-                                    else                 $timeLabel = ($hour - 12) . ':00 PM';
+                                    else                  $timeLabel = ($hour - 12) . ':00 PM';
                                 @endphp
                                 <tr class="hover:bg-gray-50 transition-colors">
-                                    <td class="px-4 py-3 text-gray-500 font-medium whitespace-nowrap text-xs">
-                                        {{ $timeLabel }}
-                                    </td>
-                                    @foreach([1,2,3,4,5] as $dow)
-                                        <td class="px-4 py-3 text-center">
-                                            @if(!empty($grid[$dow][$hour]))
-                                                <div class="flex flex-col items-center gap-1.5">
-                                                    @foreach($grid[$dow][$hour] as $slot)
-                                                        <div class="flex items-center gap-1">
-                                                            <button type="button"
-                                                                    data-slot-id="{{ $slot->id }}"
-                                                                    data-available="{{ $slot->is_available ? '1' : '0' }}"
-                                                                    onclick="toggleSlot(this)"
-                                                                    class="slot-toggle px-2.5 py-0.5 rounded-full text-xs font-medium cursor-pointer border
-                                                                           {{ $slot->is_available ? 'bg-green-100 text-green-700 border-green-200' : 'bg-gray-100 text-gray-500 border-gray-200' }}">
-                                                                {{ $slot->is_available ? 'Available' : 'Unavailable' }}
-                                                            </button>
-                                                            <form method="POST"
-                                                                  action="{{ route('teacher.consultation.destroy', $slot->id) }}"
-                                                                  onsubmit="return confirm('Delete this slot?')"
-                                                                  class="inline">
-                                                                @csrf
-                                                                @method('DELETE')
-                                                                <button type="submit"
-                                                                        class="text-gray-300 hover:text-red-500
-                                                                               transition-colors ml-0.5">
-                                                                    <i data-lucide="x" class="w-3.5 h-3.5"></i>
-                                                                </button>
-                                                            </form>
-                                                        </div>
-                                                    @endforeach
-                                                </div>
-                                            @else
-                                                <span class="text-gray-200 text-base leading-none">—</span>
-                                            @endif
-                                        </td>
-                                    @endforeach
+                                    <td class="px-4 py-3 text-gray-500 font-medium whitespace-nowrap text-xs">{{ $timeLabel }}</td>
+                                    <td id="cell-{{ $hour }}-0" class="px-4 py-3 text-center"><span class="text-gray-200 text-base leading-none">—</span></td>
+                                    <td id="cell-{{ $hour }}-1" class="px-4 py-3 text-center"><span class="text-gray-200 text-base leading-none">—</span></td>
+                                    <td id="cell-{{ $hour }}-2" class="px-4 py-3 text-center"><span class="text-gray-200 text-base leading-none">—</span></td>
+                                    <td id="cell-{{ $hour }}-3" class="px-4 py-3 text-center"><span class="text-gray-200 text-base leading-none">—</span></td>
+                                    <td id="cell-{{ $hour }}-4" class="px-4 py-3 text-center"><span class="text-gray-200 text-base leading-none">—</span></td>
                                 </tr>
                             @endforeach
                         </tbody>
@@ -196,6 +154,7 @@
                     <div>
                         <label class="block text-xs font-medium text-gray-600 mb-1">Start Time</label>
                         <input type="time" name="time_start" id="slot-time-start" required
+                               min="08:00" max="17:00"
                                value="{{ old('time_start') }}"
                                class="px-3 py-2 border border-gray-200 rounded-lg text-sm
                                       focus:ring-2 focus:ring-indigo-500 outline-none bg-white
@@ -207,6 +166,7 @@
                     <div>
                         <label class="block text-xs font-medium text-gray-600 mb-1">End Time</label>
                         <input type="time" name="time_end" id="slot-time-end" required
+                               min="08:00" max="17:00"
                                value="{{ old('time_end') }}"
                                class="px-3 py-2 border border-gray-200 rounded-lg text-sm
                                       focus:ring-2 focus:ring-indigo-500 outline-none bg-white
@@ -227,27 +187,34 @@
 
         {{-- ── Tab: Calendar View ── --}}
         <div id="panel-calendar" class="mt-4 hidden">
-            <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5 max-w-sm">
-                <div class="flex items-center justify-between mb-4">
-                    <button onclick="prevMonth()"
-                            class="p-1 rounded hover:bg-gray-100 transition-colors">
-                        <i data-lucide="chevron-left" class="w-5 h-5 text-gray-600"></i>
-                    </button>
-                    <span id="cal-month-label" class="font-semibold text-gray-800 text-sm"></span>
-                    <button onclick="nextMonth()"
-                            class="p-1 rounded hover:bg-gray-100 transition-colors">
-                        <i data-lucide="chevron-right" class="w-5 h-5 text-gray-600"></i>
-                    </button>
+            <div class="flex gap-5 items-start">
+                <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5 shrink-0" style="width:300px;">
+                    <div class="flex items-center justify-between mb-4">
+                        <button onclick="prevMonth()"
+                                class="p-1 rounded hover:bg-gray-100 transition-colors">
+                            <i data-lucide="chevron-left" class="w-5 h-5 text-gray-600"></i>
+                        </button>
+                        <span id="cal-month-label" class="font-semibold text-gray-800 text-sm"></span>
+                        <button onclick="nextMonth()"
+                                class="p-1 rounded hover:bg-gray-100 transition-colors">
+                            <i data-lucide="chevron-right" class="w-5 h-5 text-gray-600"></i>
+                        </button>
+                    </div>
+                    <div class="grid grid-cols-7 gap-0 text-center mb-1">
+                        @foreach(['Su','Mo','Tu','We','Th','Fr','Sa'] as $d)
+                            <div class="text-[11px] font-medium text-gray-400 py-1">{{ $d }}</div>
+                        @endforeach
+                    </div>
+                    <div id="cal-grid" class="grid grid-cols-7 gap-0 text-center"></div>
+                    <div class="mt-4 flex items-center gap-2 text-xs text-gray-500">
+                        <span class="w-2 h-2 rounded-full bg-green-500 inline-block"></span>
+                        Has scheduled slots
+                    </div>
                 </div>
-                <div class="grid grid-cols-7 gap-0 text-center mb-1">
-                    @foreach(['Su','Mo','Tu','We','Th','Fr','Sa'] as $d)
-                        <div class="text-[11px] font-medium text-gray-400 py-1">{{ $d }}</div>
-                    @endforeach
-                </div>
-                <div id="cal-grid" class="grid grid-cols-7 gap-0 text-center"></div>
-                <div class="mt-4 flex items-center gap-2 text-xs text-gray-500">
-                    <span class="w-2 h-2 rounded-full bg-green-500 inline-block"></span>
-                    Has available slots
+                <div class="flex-1 bg-white rounded-xl border border-gray-200 shadow-sm p-5" style="min-height:200px;">
+                    <div id="cal-detail-panel" class="flex items-center justify-center text-gray-400 text-sm" style="min-height:160px;">
+                        Select a date to view schedule details.
+                    </div>
                 </div>
             </div>
         </div>
@@ -308,6 +275,11 @@
                                                      bg-rose-100 text-rose-700 border border-rose-200">
                                             Cancelled
                                         </span>
+                                    @elseif($booking->status === 'Rejected')
+                                        <span class="px-2.5 py-0.5 rounded-full text-xs font-medium
+                                                     bg-red-100 text-red-700 border border-red-200">
+                                            Rejected
+                                        </span>
                                     @else
                                         <span class="px-2.5 py-0.5 rounded-full text-xs font-medium
                                                      bg-gray-100 text-gray-500 border border-gray-200">
@@ -317,26 +289,68 @@
                                 </td>
                                 <td class="px-5 py-4 whitespace-nowrap">
                                     @if($booking->status === 'Pending')
-                                        <form method="POST" action="{{ route('teacher.consultation.updateStatus') }}" class="inline">
-                                            @csrf
-                                            <input type="hidden" name="booking_id" value="{{ $booking->id }}">
-                                            <input type="hidden" name="status" value="Confirmed">
-                                            <button type="submit"
-                                                    class="px-3 py-1 text-xs font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors">
-                                                Confirm
-                                            </button>
-                                        </form>
+                                        <div class="flex items-center gap-1 flex-wrap">
+                                            <form method="POST" action="{{ route('teacher.consultation.updateStatus') }}" class="inline">
+                                                @csrf
+                                                <input type="hidden" name="booking_id" value="{{ $booking->id }}">
+                                                <input type="hidden" name="status" value="Confirmed">
+                                                <button type="submit"
+                                                        style="background:#16a34a;color:white;padding:3px 10px;font-size:12px;border-radius:6px;border:none;cursor:pointer;">
+                                                    Confirm
+                                                </button>
+                                            </form>
+                                            <form method="POST" action="{{ route('teacher.consultation.booking.reject', $booking->id) }}" class="inline"
+                                                  onsubmit="return confirm('Reject this booking?')">
+                                                @csrf
+                                                <button type="submit"
+                                                        style="background:#dc2626;color:white;padding:3px 10px;font-size:12px;border-radius:6px;border:none;cursor:pointer;">
+                                                    Reject
+                                                </button>
+                                            </form>
+                                            @if($booking->slot_id)
+                                            <form method="POST" action="{{ route('teacher.consultation.destroy', $booking->slot_id) }}" class="inline"
+                                                  onsubmit="return confirm('Delete this slot? The booking will be cancelled.')">
+                                                @csrf
+                                                @method('DELETE')
+                                                <button type="submit"
+                                                        style="background:#dc2626;color:white;padding:3px 10px;font-size:12px;border-radius:6px;border:none;cursor:pointer;">
+                                                    Cancel
+                                                </button>
+                                            </form>
+                                            @endif
+                                        </div>
                                     @elseif($booking->status === 'Confirmed')
-                                        <form method="POST" action="{{ route('teacher.consultation.updateStatus') }}" class="inline">
-                                            @csrf
-                                            <input type="hidden" name="booking_id" value="{{ $booking->id }}">
-                                            <input type="hidden" name="status" value="Completed">
-                                            <button type="submit"
-                                                    class="px-3 py-1 text-xs font-medium text-white rounded-lg hover:opacity-80 transition-colors"
-                                                    style="background:#1e3a5f;">
-                                                Complete
-                                            </button>
-                                        </form>
+                                        @php
+                                            $slotEnd = $booking->scheduled_date
+                                                ? \Carbon\Carbon::parse($booking->scheduled_date . ' ' . $booking->time_end)
+                                                : null;
+                                        @endphp
+                                        @if($slotEnd && $slotEnd->isPast())
+                                            <form method="POST" action="{{ route('teacher.consultation.updateStatus') }}" class="inline">
+                                                @csrf
+                                                <input type="hidden" name="booking_id" value="{{ $booking->id }}">
+                                                <input type="hidden" name="status" value="Completed">
+                                                <button type="submit"
+                                                        style="background:#f97316;color:white;padding:3px 10px;font-size:12px;border-radius:6px;border:none;cursor:pointer;">
+                                                    Complete
+                                                </button>
+                                            </form>
+                                        @else
+                                            <div class="flex items-center gap-1 flex-wrap">
+                                                <span style="background-color:#dbeafe;color:#1d4ed8;padding:3px 10px;border-radius:9999px;font-size:12px;font-weight:500;">Upcoming</span>
+                                                @if($booking->slot_id)
+                                                <form method="POST" action="{{ route('teacher.consultation.destroy', $booking->slot_id) }}" class="inline"
+                                                      onsubmit="return confirm('Delete this slot? The booking will be cancelled.')">
+                                                    @csrf
+                                                    @method('DELETE')
+                                                    <button type="submit"
+                                                            style="background:#dc2626;color:white;padding:3px 10px;font-size:12px;border-radius:6px;border:none;cursor:pointer;">
+                                                        Cancel
+                                                    </button>
+                                                </form>
+                                                @endif
+                                            </div>
+                                        @endif
                                     @else
                                         <span class="text-gray-300 text-xs">—</span>
                                     @endif
@@ -362,6 +376,206 @@
 
 @push('scripts')
 <script>
+// ── Data from PHP ─────────────────────────────────────────────────────────────
+const ALL_SLOTS       = @json($allSlots);
+const TODAY_MONDAY    = '{{ $todayMonday->format('Y-m-d') }}';
+const CSRF_TOKEN      = '{{ csrf_token() }}';
+const DESTROY_URL_TPL  = '{{ route('teacher.consultation.destroy',          ['slot'    => 'SLOT_ID'])    }}';
+const CONFIRM_URL_TPL  = '{{ route('teacher.consultation.booking.confirm',  ['booking' => 'BOOKING_ID']) }}';
+const REJECT_URL_TPL   = '{{ route('teacher.consultation.booking.reject',   ['booking' => 'BOOKING_ID']) }}';
+const SAVE_URL         = '{{ route('teacher.consultation.save') }}';
+const TODAY           = isoDate(new Date()); // "YYYY-MM-DD" — used for past-slot detection
+
+// ── Week grid constants ───────────────────────────────────────────────────────
+const HOURS       = [8, 9, 10, 11, 12, 13, 14, 15, 16];
+const DAY_ABBRS   = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+const MONTH_NAMES = ['January','February','March','April','May','June',
+                     'July','August','September','October','November','December'];
+const MONTH_ABBRS = ['Jan','Feb','Mar','Apr','May','Jun',
+                     'Jul','Aug','Sep','Oct','Nov','Dec'];
+
+let currentMonday = parseDate(TODAY_MONDAY);
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function parseDate(str) {
+    const [y, m, d] = str.split('-').map(Number);
+    return new Date(y, m - 1, d);
+}
+
+function isoDate(d) {
+    return d.getFullYear()
+        + '-' + String(d.getMonth() + 1).padStart(2, '0')
+        + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+function fmtTime(timeStr) {
+    // accepts "HH:mm" or "HH:mm:ss"
+    const parts = timeStr.split(':');
+    const h     = parseInt(parts[0], 10);
+    const m     = parts[1];
+    const sfx   = h >= 12 ? 'PM' : 'AM';
+    const h12   = h % 12 || 12;
+    return h12 + (m === '00' ? '' : ':' + m) + ' ' + sfx;
+}
+
+const BTN = 'border:none;cursor:pointer;border-radius:5px;padding:2px 8px;font-size:11px;margin-left:2px;';
+
+function renderCancelForm(slot) {
+    const url = DESTROY_URL_TPL.replace('SLOT_ID', slot.id);
+    return '<form method="POST" action="' + url + '"'
+        + ' onsubmit="return confirm(\'Delete this slot?\')" class="inline">'
+        + '<input type="hidden" name="_token" value="' + CSRF_TOKEN + '">'
+        + '<input type="hidden" name="_method" value="DELETE">'
+        + '<button type="submit" style="background-color:#dc2626;color:white;' + BTN + '">Cancel</button>'
+        + '</form>';
+}
+
+function renderConfirmForm(slot) {
+    const url = CONFIRM_URL_TPL.replace('BOOKING_ID', slot.booking_id);
+    return '<form method="POST" action="' + url + '" class="inline">'
+        + '<input type="hidden" name="_token" value="' + CSRF_TOKEN + '">'
+        + '<button type="submit" style="background-color:#16a34a;color:white;' + BTN + '">Confirm</button>'
+        + '</form>';
+}
+
+function renderRejectForm(slot) {
+    const url = REJECT_URL_TPL.replace('BOOKING_ID', slot.booking_id);
+    return '<form method="POST" action="' + url + '" onsubmit="return confirm(\'Reject this booking?\')" class="inline">'
+        + '<input type="hidden" name="_token" value="' + CSRF_TOKEN + '">'
+        + '<button type="submit" style="background-color:#dc2626;color:white;' + BTN + '">Reject</button>'
+        + '</form>';
+}
+
+// ── Week grid renderer ────────────────────────────────────────────────────────
+function renderWeek(monday) {
+    currentMonday = monday;
+
+    // Five weekday Date objects
+    const weekDates = [];
+    for (let i = 0; i < 5; i++) {
+        const d = new Date(monday);
+        d.setDate(d.getDate() + i);
+        weekDates.push(d);
+    }
+    const friday = weekDates[4];
+
+    // Week label: "June 2026 — Week 2 (Jun 8 – Jun 14)"
+    const weekNum = Math.ceil(monday.getDate() / 7);
+    document.getElementById('week-label').textContent =
+        MONTH_NAMES[monday.getMonth()] + ' ' + monday.getFullYear()
+        + ' — Week ' + weekNum
+        + ' (' + MONTH_ABBRS[monday.getMonth()] + ' ' + monday.getDate()
+        + ' – ' + MONTH_ABBRS[friday.getMonth()] + ' ' + friday.getDate() + ')';
+
+    // Column headers: "Mon / Jun 8"
+    weekDates.forEach(function (d, i) {
+        const th = document.getElementById('week-th-' + i);
+        if (!th) return;
+        th.innerHTML = '<div>' + DAY_ABBRS[i] + '</div>'
+            + '<div style="font-size:11px;color:#9ca3af;font-weight:400;margin-top:2px;">'
+            + MONTH_ABBRS[d.getMonth()] + ' ' + d.getDate() + '</div>';
+    });
+
+    // Build grid lookup: dateStr -> hour -> slots[]
+    const mondayStr = isoDate(monday);
+    const fridayStr = isoDate(friday);
+    const weekSlots = ALL_SLOTS.filter(function (s) {
+        return s.scheduled_date >= mondayStr && s.scheduled_date <= fridayStr;
+    });
+
+    const grid = {};
+    weekSlots.forEach(function (slot) {
+        const hour = parseInt(slot.time_start.split(':')[0], 10);
+        if (!grid[slot.scheduled_date])       grid[slot.scheduled_date]       = {};
+        if (!grid[slot.scheduled_date][hour]) grid[slot.scheduled_date][hour] = [];
+        grid[slot.scheduled_date][hour].push(slot);
+    });
+
+    // Re-render every cell
+    HOURS.forEach(function (hour) {
+        weekDates.forEach(function (d, colIdx) {
+            const cell = document.getElementById('cell-' + hour + '-' + colIdx);
+            if (!cell) return;
+            const dateStr   = isoDate(d);
+            const cellSlots = (grid[dateStr] && grid[dateStr][hour]) ? grid[dateStr][hour] : [];
+
+            if (cellSlots.length === 0) {
+                cell.innerHTML = '<span class="text-gray-200 text-base leading-none">—</span>';
+                return;
+            }
+
+            let html = '<div class="flex flex-col items-center gap-1">';
+            cellSlots.forEach(function (slot) {
+                const timeRange = fmtTime(slot.time_start) + '–' + fmtTime(slot.time_end);
+                const isPast    = slot.scheduled_date < TODAY;
+                const bs        = slot.booking_status;
+
+                html += '<div class="flex flex-col items-center gap-0.5">';
+
+                // Parent name · time range on one compact line
+                const headerTxt   = (slot.parent_name && bs)
+                    ? slot.parent_name + ' · ' + timeRange
+                    : timeRange;
+                const headerColor = (slot.parent_name && bs) ? '#6b7280' : '#9ca3af';
+                html += '<span style="font-size:11px;color:' + headerColor + ';">' + headerTxt + '</span>';
+
+                const BADGE = 'border-radius:9999px;padding:2px 10px;font-size:11px;font-weight:500;color:white;';
+
+                if (bs === 'Completed') {
+                    html += '<span style="background-color:#16a34a;' + BADGE + '">Completed</span>';
+
+                } else if (bs === 'Cancelled') {
+                    html += '<span style="background-color:#6b7280;' + BADGE + '">Cancelled</span>';
+
+                } else if (bs === 'Rejected') {
+                    html += '<span style="background-color:#dc2626;' + BADGE + '">Rejected</span>';
+
+                } else if (bs === 'Confirmed') {
+                    html += '<div class="flex items-center gap-1">'
+                        + '<span style="background-color:#16a34a;' + BADGE + '">Confirmed</span>'
+                        + renderCancelForm(slot)
+                        + '</div>';
+
+                } else if (bs === 'Pending') {
+                    html += '<div class="flex items-center gap-1">'
+                        + '<span style="background-color:#d97706;' + BADGE + '">Pending</span>'
+                        + renderConfirmForm(slot)
+                        + renderRejectForm(slot)
+                        + renderCancelForm(slot)
+                        + '</div>';
+
+                } else if (isPast) {
+                    html += '<span style="background-color:#9ca3af;' + BADGE + '">No Booking</span>';
+
+                } else {
+                    const availCls = slot.is_available
+                        ? 'bg-green-100 text-green-700 border-green-200'
+                        : 'bg-gray-100 text-gray-500 border-gray-200';
+                    const availTxt = slot.is_available ? 'Available' : 'Unavailable';
+                    const availVal = slot.is_available ? '1' : '0';
+                    html += '<div class="flex items-center gap-1">'
+                        + '<button type="button"'
+                        +   ' data-slot-id="' + slot.id + '"'
+                        +   ' data-available="' + availVal + '"'
+                        +   ' onclick="toggleSlot(this)"'
+                        +   ' class="slot-toggle px-2.5 py-0.5 rounded-full text-xs font-medium cursor-pointer border ' + availCls + '">'
+                        + availTxt
+                        + '</button>'
+                        + renderCancelForm(slot)
+                        + '</div>';
+                }
+
+                html += '</div>';
+            });
+            html += '</div>';
+            cell.innerHTML = html;
+        });
+    });
+
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+// ── Slot availability toggle ──────────────────────────────────────────────────
 const slotChanges = {};
 
 function toggleSlot(btn) {
@@ -377,6 +591,9 @@ function toggleSlot(btn) {
         btn.className   = 'slot-toggle px-2.5 py-0.5 rounded-full text-xs font-medium cursor-pointer border bg-gray-100 text-gray-500 border-gray-200';
     }
     slotChanges[id] = next ? 1 : 0;
+    // Mirror change into ALL_SLOTS so re-renders reflect the toggle
+    const s = ALL_SLOTS.find(function (s) { return s.id == id; });
+    if (s) s.is_available = next;
 }
 
 function saveSchedule() {
@@ -386,9 +603,9 @@ function saveSchedule() {
     }
     const form  = document.createElement('form');
     form.method = 'POST';
-    form.action = '{{ route("teacher.consultation.save") }}';
+    form.action = SAVE_URL;
     const csrf  = document.createElement('input');
-    csrf.type   = 'hidden'; csrf.name = '_token'; csrf.value = '{{ csrf_token() }}';
+    csrf.type   = 'hidden'; csrf.name = '_token'; csrf.value = CSRF_TOKEN;
     form.appendChild(csrf);
     for (const [id, val] of Object.entries(slotChanges)) {
         const inp = document.createElement('input');
@@ -399,18 +616,19 @@ function saveSchedule() {
     form.submit();
 }
 
-const slotDates  = new Set(@json($slotDates));
-let currentYear  = new Date().getFullYear();
-let currentMonth = new Date().getMonth();
-const monthNames = ['January','February','March','April','May','June',
-                    'July','August','September','October','November','December'];
+// ── Calendar view ─────────────────────────────────────────────────────────────
+const slotDates     = new Set(@json($slotDates));
+const CAL_SLOTS     = @json($calendarSlots);
+let currentYear     = new Date().getFullYear();
+let currentMonth    = new Date().getMonth();
+let selectedCalDate = null;
 
 function renderCalendar() {
     const label = document.getElementById('cal-month-label');
     const grid  = document.getElementById('cal-grid');
     if (!label || !grid) return;
 
-    label.textContent = monthNames[currentMonth] + ' ' + currentYear;
+    label.textContent = MONTH_NAMES[currentMonth] + ' ' + currentYear;
     grid.innerHTML    = '';
 
     const today     = new Date(); today.setHours(0, 0, 0, 0);
@@ -420,28 +638,102 @@ function renderCalendar() {
     for (let i = 0; i < firstDay; i++) {
         grid.insertAdjacentHTML('beforeend', '<div></div>');
     }
-
     for (let d = 1; d <= daysInMon; d++) {
-        const dateObj = new Date(currentYear, currentMonth, d);
-        const yyyy    = dateObj.getFullYear();
-        const mm      = String(dateObj.getMonth() + 1).padStart(2, '0');
-        const dd      = String(dateObj.getDate()).padStart(2, '0');
-        const dateStr = `${yyyy}-${mm}-${dd}`;
-        const hasSlot = slotDates.has(dateStr);
-        const isPast  = dateObj < today;
+        const dateObj    = new Date(currentYear, currentMonth, d);
+        const dateStr    = isoDate(dateObj);
+        const hasSlot    = slotDates.has(dateStr);
+        const isPast     = dateObj < today;
+        const isSelected = dateStr === selectedCalDate;
+        const isClickable = !isPast || hasSlot;
 
         let cls = 'relative flex items-center justify-center w-8 h-8 mx-auto text-sm rounded-full ';
-        cls += isPast ? 'text-gray-300 cursor-default' : 'text-gray-700 hover:bg-gray-100 cursor-pointer';
+        if (isSelected)        cls += 'bg-indigo-600 text-white font-semibold';
+        else if (!isClickable) cls += 'text-gray-300 cursor-default';
+        else if (isPast)       cls += 'text-gray-400 hover:bg-gray-100 cursor-pointer';
+        else                   cls += 'text-gray-700 hover:bg-gray-100 cursor-pointer';
 
         const dot = hasSlot
             ? '<span class="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-green-500"></span>'
             : '';
 
+        const clickAttr = isClickable ? `onclick="selectCalendarDate('${dateStr}')"` : '';
+
         grid.insertAdjacentHTML('beforeend',
-            `<div class="py-0.5"><div class="${cls}">${d}${dot}</div></div>`
+            `<div class="py-0.5"><div class="${cls}" ${clickAttr}>${d}${dot}</div></div>`
         );
     }
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+}
 
+function selectCalendarDate(dateStr) {
+    selectedCalDate = dateStr;
+    renderCalendar();
+    renderDayDetail(dateStr);
+}
+
+function renderDayDetail(dateStr) {
+    const panel = document.getElementById('cal-detail-panel');
+    if (!panel) return;
+
+    const dateObj  = parseDate(dateStr);
+    const dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+    const header   = dayNames[dateObj.getDay()] + ', '
+        + MONTH_NAMES[dateObj.getMonth()] + ' ' + dateObj.getDate() + ', ' + dateObj.getFullYear();
+
+    const daySlots = CAL_SLOTS.filter(function (s) { return s.scheduled_date === dateStr; });
+    daySlots.sort(function (a, b) { return a.time_start.localeCompare(b.time_start); });
+
+    let html = '<div style="width:100%;">';
+    html += '<p style="font-weight:600;font-size:15px;color:#111827;margin-bottom:16px;">' + header + '</p>';
+
+    if (daySlots.length === 0) {
+        html += '<div style="text-align:center;color:#9ca3af;padding:40px 0;font-size:14px;">No schedules for this date.</div>';
+    } else {
+        html += '<div style="display:flex;flex-direction:column;gap:10px;">';
+        daySlots.forEach(function (slot) {
+            const timeRange = fmtTime(slot.time_start) + ' – ' + fmtTime(slot.time_end);
+            const bs = slot.booking_status;
+
+            var bgColor = '#f3f4f6', textColor = '#6b7280', badgeText = 'Unknown';
+            if (!bs) {
+                bgColor = '#dcfce7'; textColor = '#15803d'; badgeText = 'Available';
+            } else if (bs === 'Pending') {
+                bgColor = '#fef3c7'; textColor = '#92400e'; badgeText = 'Pending';
+            } else if (bs === 'Confirmed') {
+                bgColor = '#d1fae5'; textColor = '#065f46'; badgeText = 'Confirmed';
+            } else if (bs === 'Completed') {
+                bgColor = '#f3f4f6'; textColor = '#6b7280'; badgeText = 'Completed';
+            } else if (bs === 'Cancelled') {
+                bgColor = '#ffe4e6'; textColor = '#be123c'; badgeText = 'Cancelled';
+            } else if (bs === 'Rejected') {
+                bgColor = '#fee2e2'; textColor = '#b91c1c'; badgeText = 'Rejected';
+            }
+
+            html += '<div style="border:1px solid #e5e7eb;border-radius:10px;padding:14px;">';
+            html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">';
+            html += '<span style="font-weight:600;font-size:13px;color:#374151;">' + timeRange + '</span>';
+            html += '<span style="padding:2px 10px;border-radius:9999px;font-size:11px;font-weight:500;background:' + bgColor + ';color:' + textColor + ';">' + badgeText + '</span>';
+            html += '</div>';
+
+            if (bs && slot.parent_name) {
+                html += '<div style="font-size:12px;color:#374151;margin-bottom:3px;"><strong>Parent:</strong> ' + slot.parent_name + '</div>';
+                if (slot.student_name) {
+                    html += '<div style="font-size:12px;color:#374151;margin-bottom:3px;"><strong>Student:</strong> ' + slot.student_name + '</div>';
+                }
+                if (slot.purpose) {
+                    html += '<div style="font-size:12px;color:#6b7280;margin-top:6px;font-style:italic;">' + slot.purpose + '</div>';
+                }
+            } else if (!bs) {
+                html += '<div style="font-size:12px;color:#9ca3af;">No booking yet</div>';
+            }
+
+            html += '</div>';
+        });
+        html += '</div>';
+    }
+    html += '</div>';
+
+    panel.innerHTML = html;
     if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
@@ -456,6 +748,7 @@ function nextMonth() {
     renderCalendar();
 }
 
+// ── Tab switching ─────────────────────────────────────────────────────────────
 const TABS = ['weekly', 'calendar', 'appointments'];
 
 function switchTab(tab) {
@@ -473,6 +766,7 @@ function switchTab(tab) {
     if (tab === 'calendar') renderCalendar();
 }
 
+// ── Add Slot form helpers ─────────────────────────────────────────────────────
 function calcExpectedEnd(startVal, durationMins) {
     const [h, m] = startVal.split(':').map(Number);
     const total  = h * 60 + m + durationMins;
@@ -481,7 +775,24 @@ function calcExpectedEnd(startVal, durationMins) {
     return String(eh).padStart(2, '0') + ':' + String(em).padStart(2, '0');
 }
 
+// ── Boot ──────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', function () {
+    // Week navigation buttons
+    document.getElementById('btn-prev-week').addEventListener('click', function () {
+        const prev = new Date(currentMonday);
+        prev.setDate(prev.getDate() - 7);
+        renderWeek(prev);
+    });
+    document.getElementById('btn-next-week').addEventListener('click', function () {
+        const next = new Date(currentMonday);
+        next.setDate(next.getDate() + 7);
+        renderWeek(next);
+    });
+
+    // Initial grid render
+    renderWeek(parseDate(TODAY_MONDAY));
+
+    // Add Slot date validation
     const slotDateInput = document.getElementById('slot-date');
     if (slotDateInput) {
         slotDateInput.addEventListener('change', function () {
@@ -504,14 +815,10 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    if (startInput) startInput.addEventListener('change', autoFillEnd);
-
-    if (durationSel) {
-        durationSel.addEventListener('change', function () {
-            if (startInput && startInput.value) autoFillEnd();
-        });
-    }
-
+    if (startInput)  startInput.addEventListener('change', autoFillEnd);
+    if (durationSel) durationSel.addEventListener('change', function () {
+        if (startInput && startInput.value) autoFillEnd();
+    });
     if (endInput) {
         endInput.addEventListener('change', function () {
             if (!startInput || !startInput.value || !durationSel) return;

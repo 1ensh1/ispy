@@ -25,6 +25,7 @@
                 ['label' => 'Reports',                   'icon' => 'file-bar-chart',   'href' => route('teacher.reports'),     'routeMatch' => 'teacher.reports*'],
                 ['label' => 'Messaging',                 'icon' => 'message-square',   'href' => route('teacher.messaging'),   'routeMatch' => 'teacher.messaging'],
                 ['label' => 'Consultation Availability', 'icon' => 'calendar-clock',   'href' => route('teacher.consultation'),'routeMatch' => 'teacher.consultation'],
+                ['label' => 'Tickets',                   'icon' => 'ticket',           'href' => route('teacher.tickets.index'), 'routeMatch' => 'teacher.tickets.*'],
                 ['label' => 'Word Sets',                 'icon' => 'book-open',        'href' => route('teacher.word-sets'),   'routeMatch' => 'teacher.word-sets'],
                 ['label' => 'Propose Vocab',             'icon' => 'lightbulb',        'href' => route('teacher.vocabulary'),  'routeMatch' => 'teacher.vocabulary'],
                 ['label' => 'Annotations',               'icon' => 'pencil-line',      'href' => route('teacher.annotations'), 'routeMatch' => 'teacher.annotations'],

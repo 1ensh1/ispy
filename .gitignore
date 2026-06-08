@@ -20,6 +20,7 @@
 /storage/pail
 /storage/app/public/audio/
 /vendor
+/storage/google-tts.json
 Homestead.json
 Homestead.yaml
 Thumbs.db

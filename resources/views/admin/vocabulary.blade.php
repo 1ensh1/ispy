@@ -111,15 +111,24 @@
             </span>
         </form>
 
-        {{-- Auto-Fill Missing Images --}}
+        {{-- Bulk Actions --}}
         <div id="auto-fill-wrap" class="mb-4">
-            <button id="auto-fill-btn" type="button" onclick="autoFillMissingImages()"
-                    style="background-color:#f59e0b; color:#fff; display:none;"
-                    class="px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 transition-colors hover:opacity-90">
-                <i data-lucide="image-plus" class="w-4 h-4"></i>
-                Auto-Fill Missing Images
-            </button>
+            <div class="flex flex-wrap items-center gap-3">
+                <button id="auto-fill-btn" type="button" onclick="autoFillMissingImages()"
+                        style="background-color:#f59e0b; color:#fff; display:none;"
+                        class="px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 transition-colors hover:opacity-90">
+                    <i data-lucide="image-plus" class="w-4 h-4"></i>
+                    Auto-Fill Missing Images
+                </button>
+                <button id="gen-audio-btn" type="button" onclick="generateAllMissingAudio()"
+                        style="background-color:#0d9488; color:#fff; display:none;"
+                        class="px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 transition-colors hover:opacity-90">
+                    <i data-lucide="volume-2" class="w-4 h-4"></i>
+                    Generate All Missing Audio
+                </button>
+            </div>
             <p id="auto-fill-progress" class="mt-2 text-sm text-gray-600" style="display:none;"></p>
+            <p id="gen-audio-progress" class="mt-2 text-sm text-gray-600" style="display:none;"></p>
         </div>
 
         {{-- Table --}}
@@ -144,6 +153,7 @@
                         <tr class="hover:bg-gray-50 transition-colors vocab-row"
                             data-vocab-id="{{ $word->id }}"
                             data-has-image="{{ $word->image_url ? '1' : '0' }}"
+                            data-audio-status="{{ $word->audio_status }}"
                             style="{{ $isNew ? 'border-left: 4px solid #22c55e; background-color: #f0fdf4;' : '' }}">
                             <td class="px-6 py-4 font-medium text-gray-900">{{ $word->filipino_label }}</td>
                             <td class="px-6 py-4 text-gray-500">{{ $word->english_label }}</td>
@@ -164,7 +174,7 @@
                                 @endif
                             </td>
                             <td class="px-6 py-4 text-gray-500">{{ $word->category }}</td>
-                            <td class="px-6 py-4">
+                            <td class="px-6 py-4 audio-cell">
                                 @if($word->audio_status === 'Complete')
                                     <span class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-teal-100 text-teal-700 border border-teal-200">Complete</span>
                                 @elseif($word->audio_status === 'Partial')
@@ -182,6 +192,15 @@
                             </td>
                             <td class="px-6 py-4 text-right">
                                 <div class="flex items-center justify-end gap-2">
+                                    @if($word->audio_status !== 'Complete')
+                                    <button type="button"
+                                            onclick="generateAudioForRow(this)"
+                                            title="Generate Audio"
+                                            class="generate-audio-btn text-gray-400 hover:text-[#2f5597] transition-colors">
+                                        <i data-lucide="volume-2" class="w-4 h-4"></i>
+                                    </button>
+                                    @endif
+
                                     <button @click="openEdit({
                                                 id: {{ $word->id }},
                                                 filipino_label: @js($word->filipino_label),
@@ -189,8 +208,8 @@
                                                 category: @js($word->category),
                                                 complexity_level: @js($word->complexity_level),
                                                 is_active: {{ $word->is_active ? 'true' : 'false' }},
-                                                filipino_audio_url: @js($word->filipino_audio_url),
-                                                english_audio_url: @js($word->english_audio_url),
+                                                filipino_audio_url: $event.currentTarget.dataset.filipinoAudioUrl || null,
+                                                english_audio_url: $event.currentTarget.dataset.englishAudioUrl || null,
                                                 audio_status: @js($word->audio_status),
                                                 image_url: @js($word->image_url),
                                                 current_page: {{ $words->currentPage() }},
@@ -199,7 +218,9 @@
                                                 current_category: @js($categoryFilter ?? ''),
                                                 current_status: @js($activeFilter ?? '')
                                             })"
-                                            class="text-gray-400 hover:text-gray-700 transition-colors">
+                                            data-english-audio-url="{{ $word->english_audio_url ?? '' }}"
+                                            data-filipino-audio-url="{{ $word->filipino_audio_url ?? '' }}"
+                                            class="edit-word-btn text-gray-400 hover:text-gray-700 transition-colors">
                                         <i data-lucide="pencil" class="w-4 h-4"></i>
                                     </button>
 
@@ -331,6 +352,7 @@
                     <input type="hidden" name="current_audio"    :value="word.current_audio">
                     <input type="hidden" name="current_category" :value="word.current_category">
                     <input type="hidden" name="current_status"   :value="word.current_status">
+                    <input type="hidden" id="edit-word-id"       :value="word.id">
 
                     <div class="grid grid-cols-2 gap-4">
                         <div>
@@ -387,35 +409,58 @@
                         </div>
                     </div>
 
-                    {{-- Audio Upload Section --}}
+                    {{-- Audio Section --}}
                     <div class="border border-gray-200 rounded-lg overflow-hidden">
                         <div class="bg-gray-50 px-4 py-2 border-b border-gray-200">
-                            <p class="text-xs font-semibold text-gray-600 uppercase tracking-wide">Audio Files (MP3, max 10 MB each)</p>
+                            <p class="text-xs font-semibold text-gray-600 uppercase tracking-wide">Audio</p>
                         </div>
-                        <div class="p-4 space-y-4">
-
-                            {{-- Filipino Audio --}}
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Filipino Audio</label>
-                                <div x-show="word.filipino_audio_url" class="mb-2">
-                                    <audio :src="word.filipino_audio_url" controls
-                                           class="w-full h-8 rounded"></audio>
-                                </div>
-                                <input type="file" name="filipino_audio" accept=".mp3,audio/mpeg"
-                                       class="w-full text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:font-medium file:bg-[#2f5597]/10 file:text-[#2f5597] hover:file:bg-[#2f5597]/20 transition-colors">
-                                <p x-show="!word.filipino_audio_url" class="mt-1 text-xs text-gray-400">No file uploaded yet.</p>
-                            </div>
+                        <div class="p-4 space-y-5">
 
                             {{-- English Audio --}}
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">English Audio</label>
-                                <div x-show="word.english_audio_url" class="mb-2">
-                                    <audio :src="word.english_audio_url" controls
-                                           class="w-full h-8 rounded"></audio>
+                                <div id="edit-en-audio-wrap" x-show="word.english_audio_url" class="mb-2">
+                                    <audio id="edit-en-audio-player" :src="word.english_audio_url" controls
+                                           class="w-full rounded"></audio>
                                 </div>
-                                <input type="file" name="english_audio" accept=".mp3,audio/mpeg"
+                                <p id="edit-en-audio-placeholder" x-show="!word.english_audio_url" class="mb-2 text-xs text-gray-400">No audio yet.</p>
+                            </div>
+
+                            {{-- Filipino Audio --}}
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Filipino Audio</label>
+                                <div id="edit-fil-audio-wrap" x-show="word.filipino_audio_url" class="mb-2">
+                                    <audio id="edit-fil-audio-player" :src="word.filipino_audio_url" controls
+                                           class="w-full rounded"></audio>
+                                </div>
+                                <p id="edit-fil-audio-placeholder" x-show="!word.filipino_audio_url" class="mb-2 text-xs text-gray-400">No audio yet.</p>
+                            </div>
+
+                            {{-- Regenerate via TTS --}}
+                            <div>
+                                <button type="button" id="regen-audio-btn" onclick="regenAudio()"
+                                        style="background-color:#6366f1; color:#fff;"
+                                        class="px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors hover:opacity-90">
+                                    <i data-lucide="mic" class="w-4 h-4"></i>
+                                    Regenerate Audio via TTS
+                                </button>
+                                <p id="regen-audio-msg" class="mt-2 text-xs" style="display:none;"></p>
+                            </div>
+
+                            {{-- English Audio Upload --}}
+                            <div>
+                                <label class="block text-xs font-medium text-gray-500 mb-1">Replace English Audio (optional)</label>
+                                <input type="file" name="english_audio" accept=".mp3,.wav,.ogg,audio/mpeg,audio/wav,audio/ogg"
                                        class="w-full text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:font-medium file:bg-[#2f5597]/10 file:text-[#2f5597] hover:file:bg-[#2f5597]/20 transition-colors">
-                                <p x-show="!word.english_audio_url" class="mt-1 text-xs text-gray-400">No file uploaded yet.</p>
+                                <p class="mt-1 text-xs text-gray-400">MP3, WAV or OGG — max 10 MB</p>
+                            </div>
+
+                            {{-- Filipino Audio Upload --}}
+                            <div>
+                                <label class="block text-xs font-medium text-gray-500 mb-1">Replace Filipino Audio (optional)</label>
+                                <input type="file" name="filipino_audio" accept=".mp3,.wav,.ogg,audio/mpeg,audio/wav,audio/ogg"
+                                       class="w-full text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:font-medium file:bg-[#2f5597]/10 file:text-[#2f5597] hover:file:bg-[#2f5597]/20 transition-colors">
+                                <p class="mt-1 text-xs text-gray-400">MP3, WAV or OGG — max 10 MB</p>
                             </div>
 
                         </div>
@@ -443,6 +488,7 @@
                 lucide.createIcons();
             }
             updateAutoFillButtonVisibility();
+            updateGenAudioButtonVisibility();
         });
 
         function getMissingImageRows() {
@@ -524,6 +570,196 @@
             btn.style.cursor  = 'pointer';
 
             updateAutoFillButtonVisibility();
+        }
+
+        // ===================== AUDIO GENERATION =====================
+
+        var genAudioUrl = '{{ route('admin.vocabulary.generate-audio') }}';
+
+        function getMissingAudioRows() {
+            return Array.from(document.querySelectorAll('tr.vocab-row[data-audio-status="Missing"]'));
+        }
+
+        function updateGenAudioButtonVisibility() {
+            var btn = document.getElementById('gen-audio-btn');
+            if (!btn) return;
+            btn.style.display = getMissingAudioRows().length > 0 ? 'flex' : 'none';
+        }
+
+        function markAudioComplete(row, englishUrl, filipinoUrl) {
+            row.setAttribute('data-audio-status', 'Complete');
+            var cell = row.querySelector('.audio-cell');
+            if (cell) {
+                cell.innerHTML = '<span class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-teal-100 text-teal-700 border border-teal-200">Complete</span>';
+            }
+            var genBtn = row.querySelector('.generate-audio-btn');
+            if (genBtn) genBtn.style.display = 'none';
+            var editBtn = row.querySelector('.edit-word-btn');
+            if (editBtn && englishUrl)  editBtn.dataset.englishAudioUrl  = englishUrl;
+            if (editBtn && filipinoUrl) editBtn.dataset.filipinoAudioUrl = filipinoUrl;
+        }
+
+        async function postGenerateAudio(wordId) {
+            var csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+            var response  = await fetch(genAudioUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken,
+                    'Accept': 'application/json',
+                },
+                body: JSON.stringify({ vocabulary_id: wordId }),
+            });
+            return response.json();
+        }
+
+        async function generateAudioForRow(btn) {
+            var row    = btn.closest('tr.vocab-row');
+            if (!row) return;
+            var wordId = row.getAttribute('data-vocab-id');
+
+            var original     = btn.innerHTML;
+            btn.disabled      = true;
+            btn.style.opacity = '0.6';
+            btn.style.cursor  = 'not-allowed';
+            btn.innerHTML     = '<span style="font-size:11px; white-space:nowrap;">Generating...</span>';
+
+            try {
+                var data = await postGenerateAudio(wordId);
+
+                if (data.success) {
+                    markAudioComplete(row, data.english_audio_url, data.filipino_audio_url);
+                    btn.innerHTML = original;
+                    if (typeof lucide !== 'undefined') lucide.createIcons();
+                } else {
+                    btn.innerHTML = original;
+                    if (typeof lucide !== 'undefined') lucide.createIcons();
+                    alert('Failed to generate audio: ' + (data.message || 'Unknown error'));
+                }
+            } catch (e) {
+                btn.innerHTML = original;
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+                alert('Failed to generate audio. Please try again.');
+            }
+
+            btn.disabled      = false;
+            btn.style.opacity = '1';
+            btn.style.cursor  = 'pointer';
+
+            updateGenAudioButtonVisibility();
+        }
+
+        async function regenAudio() {
+            var btn     = document.getElementById('regen-audio-btn');
+            var msg     = document.getElementById('regen-audio-msg');
+            var wordId  = document.getElementById('edit-word-id').value;
+
+            var original      = btn.innerHTML;
+            btn.disabled      = true;
+            btn.style.opacity = '0.6';
+            btn.style.cursor  = 'not-allowed';
+            btn.innerHTML     = '<span>Regenerating...</span>';
+            msg.style.display = 'none';
+
+            try {
+                var data = await postGenerateAudio(wordId);
+
+                if (data.success) {
+                    var enPlayer  = document.getElementById('edit-en-audio-player');
+                    var filPlayer = document.getElementById('edit-fil-audio-player');
+                    var enWrap    = document.getElementById('edit-en-audio-wrap');
+                    var filWrap   = document.getElementById('edit-fil-audio-wrap');
+                    var enPH      = document.getElementById('edit-en-audio-placeholder');
+                    var filPH     = document.getElementById('edit-fil-audio-placeholder');
+
+                    if (enPlayer && data.english_audio_url) {
+                        enPlayer.src         = data.english_audio_url;
+                        enPlayer.load();
+                        enWrap.style.display = 'block';
+                        if (enPH) enPH.style.display = 'none';
+                    }
+                    if (filPlayer && data.filipino_audio_url) {
+                        filPlayer.src         = data.filipino_audio_url;
+                        filPlayer.load();
+                        filWrap.style.display = 'block';
+                        if (filPH) filPH.style.display = 'none';
+                    }
+
+                    // Update the edit button's data attributes on the table row so the
+                    // modal reflects new URLs if closed and re-opened without a page reload.
+                    var tableRow = document.querySelector('tr.vocab-row[data-vocab-id="' + wordId + '"]');
+                    if (tableRow) {
+                        markAudioComplete(tableRow, data.english_audio_url, data.filipino_audio_url);
+                    }
+
+                    msg.textContent   = 'Audio regenerated successfully.';
+                    msg.style.color   = '#15803d';
+                    msg.style.display = 'block';
+                } else {
+                    msg.textContent   = data.message || 'Failed to regenerate audio.';
+                    msg.style.color   = '#dc2626';
+                    msg.style.display = 'block';
+                }
+            } catch (e) {
+                msg.textContent   = 'Request failed. Please try again.';
+                msg.style.color   = '#dc2626';
+                msg.style.display = 'block';
+            }
+
+            btn.innerHTML     = original;
+            btn.disabled      = false;
+            btn.style.opacity = '1';
+            btn.style.cursor  = 'pointer';
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+
+        async function generateAllMissingAudio() {
+            var btn      = document.getElementById('gen-audio-btn');
+            var progress = document.getElementById('gen-audio-progress');
+            var rows     = getMissingAudioRows();
+            var total    = rows.length;
+
+            if (total === 0) return;
+
+            btn.disabled      = true;
+            btn.style.opacity = '0.6';
+            btn.style.cursor  = 'not-allowed';
+            progress.style.display = 'block';
+
+            var done   = 0;
+            var failed = [];
+
+            for (var i = 0; i < rows.length; i++) {
+                var row    = rows[i];
+                var wordId = row.getAttribute('data-vocab-id');
+                progress.textContent = 'Processing ' + (done + 1) + ' of ' + total + ' words...';
+
+                try {
+                    var data = await postGenerateAudio(wordId);
+
+                    if (data.success) {
+                        markAudioComplete(row, data.english_audio_url, data.filipino_audio_url);
+                    } else {
+                        failed.push(data.english_label || 'ID ' + wordId);
+                    }
+                } catch (e) {
+                    failed.push('ID ' + wordId);
+                }
+
+                done++;
+            }
+
+            var summary = 'Done! ' + (done - failed.length) + ' audio file' + ((done - failed.length) !== 1 ? 's' : '') + ' generated.';
+            if (failed.length > 0) {
+                summary += ' Failed: ' + failed.join(', ');
+            }
+            progress.textContent = summary;
+
+            btn.disabled      = false;
+            btn.style.opacity = '1';
+            btn.style.cursor  = 'pointer';
+
+            updateGenAudioButtonVisibility();
         }
     </script>
 </x-app-layout>

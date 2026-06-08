@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\LandingController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\TeacherController;
 use App\Http\Controllers\TeacherDashboardController;
@@ -14,14 +15,16 @@ use App\Http\Controllers\Admin\ReportController as AdminReportController;
 use App\Http\Controllers\Admin\AdminSubstituteController;
 use App\Http\Controllers\Admin\AdminClassController;
 use App\Http\Controllers\Admin\ConsultationController as AdminConsultationController;
+use App\Http\Controllers\Admin\TicketController as AdminTicketController;
+use App\Http\Controllers\Admin\CmsController as AdminCmsController;
 use App\Http\Controllers\Teacher\ProfileController as TeacherProfileController;
+use App\Http\Controllers\Teacher\TicketController as TeacherTicketController;
 use App\Http\Controllers\Teacher\MessagingController as TeacherMessagingController;
 use App\Http\Controllers\Teacher\ConsultationController as TeacherConsultationController;
 use App\Http\Controllers\Teacher\NotificationController as TeacherNotificationController;
 use App\Http\Controllers\Teacher\TeacherClassSwitchController;
 use App\Http\Controllers\ParentPortal\ProfileController as ParentProfileController;
 use App\Http\Controllers\ParentPortal\NotificationController as ParentNotificationController;
-use App\Http\Controllers\AssetController;
 use App\Http\Controllers\ParentPortal\DashboardController as ParentDashboardController;
 use App\Http\Controllers\ParentPortal\ProgressController as ParentProgressController;
 use App\Http\Controllers\ParentPortal\ProficiencyController as ParentProficiencyController;
@@ -30,9 +33,8 @@ use App\Http\Controllers\ParentPortal\ConsultationsController as ParentConsultat
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', function () {
-    return redirect()->route('login');
-});
+// Public landing page (no auth — homepage)
+Route::get('/', [LandingController::class, 'index'])->name('landing');
 
 // Public teacher account activation (no auth — reached from emailed link)
 Route::get('/teacher/activate/{token}', [\App\Http\Controllers\TeacherActivationController::class, 'activate'])
@@ -100,14 +102,22 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
     Route::put('/vocabulary/{vocabulary}', [VocabularyController::class, 'update'])->name('admin.vocabulary.update');
     Route::delete('/vocabulary/{vocabulary}', [VocabularyController::class, 'destroy'])->name('admin.vocabulary.destroy');
     Route::post('/vocabulary/fetch-image', [VocabularyController::class, 'fetchImageForWord'])->name('admin.vocabulary.fetch-image');
-
-    // Bilingual Assets
-    Route::get('/assets', [AssetController::class, 'index'])->name('admin.assets');
-    Route::post('/assets/{vocabulary}/upload', [AssetController::class, 'upload'])->name('admin.assets.upload');
-    Route::delete('/assets/{vocabulary}/{language}', [AssetController::class, 'destroy'])->name('admin.assets.destroy');
+    Route::post('/vocabulary/generate-audio', [VocabularyController::class, 'generateAudio'])->name('admin.vocabulary.generate-audio');
 
     // Access Control (static display)
     Route::get('/access', fn() => view('admin.access'))->name('admin.access');
+
+    // Tickets
+    Route::get('/tickets',           [AdminTicketController::class, 'index'])->name('admin.tickets.index');
+    Route::post('/tickets',          [AdminTicketController::class, 'store'])->name('admin.tickets.store');
+    Route::patch('/tickets/{ticket}', [AdminTicketController::class, 'update'])->name('admin.tickets.update');
+
+    // Content Management System (landing page)
+    Route::get('/cms',                              [AdminCmsController::class, 'index'])->name('admin.cms.index');
+    Route::patch('/cms/section/{sectionKey}',       [AdminCmsController::class, 'updateSection'])->name('admin.cms.section.update');
+    Route::post('/cms/announcements',               [AdminCmsController::class, 'storeAnnouncement'])->name('admin.cms.announcements.store');
+    Route::patch('/cms/announcements/{id}',         [AdminCmsController::class, 'updateAnnouncement'])->name('admin.cms.announcements.update');
+    Route::delete('/cms/announcements/{id}',        [AdminCmsController::class, 'destroyAnnouncement'])->name('admin.cms.announcements.destroy');
 
     // Static admin views
     Route::get('/consultations',        [AdminConsultationController::class, 'index'])->name('admin.consultations');
@@ -182,12 +192,19 @@ Route::prefix('teacher')->middleware(['auth', 'teacher'])->group(function () {
     Route::get('/messaging',  [TeacherMessagingController::class,   'index'])->name('teacher.messaging');
     Route::post('/messaging', [TeacherMessagingController::class,   'store'])->name('teacher.messaging.store');
 
+    // Tickets
+    Route::get('/tickets',  [TeacherTicketController::class, 'index'])->name('teacher.tickets.index');
+    Route::post('/tickets', [TeacherTicketController::class, 'store'])->name('teacher.tickets.store');
+
     // Consultation Availability
     Route::get('/consultation-availability',              [TeacherConsultationController::class, 'index'])->name('teacher.consultation');
     Route::post('/consultation-availability',             [TeacherConsultationController::class, 'store'])->name('teacher.consultation.store');
     Route::post('/consultation-availability/save',        [TeacherConsultationController::class, 'saveSchedule'])->name('teacher.consultation.save');
     Route::post('/consultation-availability/status',      [TeacherConsultationController::class, 'updateStatus'])->name('teacher.consultation.updateStatus');
     Route::post('/consultation-availability/max-appointments', [TeacherConsultationController::class, 'saveMaxAppointments'])->name('teacher.consultation.maxAppointments');
+    Route::post('/consultation-availability/bookings/{booking}/confirm',  [TeacherConsultationController::class, 'confirmBooking'])->name('teacher.consultation.booking.confirm');
+    Route::post('/consultation-availability/bookings/{booking}/reject',   [TeacherConsultationController::class, 'rejectBooking'])->name('teacher.consultation.booking.reject');
+    Route::post('/consultation-availability/bookings/{booking}/complete', [TeacherConsultationController::class, 'completeBooking'])->name('teacher.consultation.booking.complete');
     Route::delete('/consultation-availability/{slot}',    [TeacherConsultationController::class, 'destroy'])->name('teacher.consultation.destroy');
 
     // Profile & Password
