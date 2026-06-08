@@ -3,10 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\VocabularyLibrary;
+use App\Services\GoogleTTSService;
 use App\Services\PexelsService;
 use App\Services\SupabaseStorageService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 
 class VocabularyController extends Controller
 {
@@ -114,8 +114,8 @@ class VocabularyController extends Controller
             'english_label'  => 'required|string|max:255|unique:vocabulary_library,english_label,' . $vocabulary->id,
             'category'       => 'required|in:CVC,Multi-Syllabic',
             'is_active'      => 'nullable|boolean',
-            'filipino_audio' => 'nullable|file|mimes:mpga,mp3|max:10240',
-            'english_audio'  => 'nullable|file|mimes:mpga,mp3|max:10240',
+            'filipino_audio' => 'nullable|file|mimes:mpga,mp3,wav,ogg|max:10240',
+            'english_audio'  => 'nullable|file|mimes:mpga,mp3,wav,ogg|max:10240',
             'image'          => 'nullable|file|mimes:jpg,jpeg,png,gif,webp|max:2048',
         ], [
             'english_label.unique' => 'This English label already exists in the vocabulary library.',
@@ -133,16 +133,22 @@ class VocabularyController extends Controller
             'is_active'        => $request->boolean('is_active'),
         ];
 
-        $filename = $validated['english_label'] . '.mp3';
+        $supabase = new SupabaseStorageService;
 
         if ($request->hasFile('filipino_audio')) {
-            $request->file('filipino_audio')->storeAs('audio/filipino', $filename, 'public');
-            $data['filipino_audio_url'] = Storage::url('audio/filipino/' . $filename);
+            $binary = file_get_contents($request->file('filipino_audio')->getRealPath());
+            $url    = $supabase->uploadImage($binary, $vocabulary->id . '_fil.mp3', 'audio', 'audio/mpeg');
+            if ($url) {
+                $data['filipino_audio_url'] = $url;
+            }
         }
 
         if ($request->hasFile('english_audio')) {
-            $request->file('english_audio')->storeAs('audio/english', $filename, 'public');
-            $data['english_audio_url'] = Storage::url('audio/english/' . $filename);
+            $binary = file_get_contents($request->file('english_audio')->getRealPath());
+            $url    = $supabase->uploadImage($binary, $vocabulary->id . '_en.mp3', 'audio', 'audio/mpeg');
+            if ($url) {
+                $data['english_audio_url'] = $url;
+            }
         }
 
         if ($request->hasFile('image')) {
@@ -227,5 +233,71 @@ class VocabularyController extends Controller
             'image_url'     => $imageUrl,
             'english_label' => $vocabulary->english_label,
         ]);
+    }
+
+    public function generateAudio(Request $request)
+    {
+        $vocabulary = VocabularyLibrary::find($request->input('vocabulary_id'));
+
+        if (! $vocabulary) {
+            return response()->json(['success' => false, 'message' => 'Word not found']);
+        }
+
+        try {
+            $tts      = new GoogleTTSService;
+            $supabase = new SupabaseStorageService;
+
+            $englishBinary = $tts->synthesize(
+                $vocabulary->english_label,
+                config('services.google_tts.language_en'),
+                config('services.google_tts.voice_en')
+            );
+
+            $filipinoBinary = $tts->synthesize(
+                $vocabulary->filipino_label,
+                config('services.google_tts.language_fil'),
+                config('services.google_tts.voice_fil')
+            );
+
+            $englishUrl = $supabase->uploadImage(
+                $englishBinary,
+                $vocabulary->id . '_en.mp3',
+                'audio',
+                'audio/mpeg'
+            );
+
+            $filipinoUrl = $supabase->uploadImage(
+                $filipinoBinary,
+                $vocabulary->id . '_fil.mp3',
+                'audio',
+                'audio/mpeg'
+            );
+
+            if (! $englishUrl || ! $filipinoUrl) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to upload audio to storage for ' . $vocabulary->english_label,
+                ]);
+            }
+
+            $vocabulary->update([
+                'english_audio_url'  => $englishUrl,
+                'filipino_audio_url' => $filipinoUrl,
+                'audio_status'       => 'Complete',
+            ]);
+
+            return response()->json([
+                'success'            => true,
+                'english_audio_url'  => $englishUrl,
+                'filipino_audio_url' => $filipinoUrl,
+                'english_label'      => $vocabulary->english_label,
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success'       => false,
+                'message'       => $e->getMessage(),
+                'english_label' => $vocabulary->english_label,
+            ]);
+        }
     }
 }

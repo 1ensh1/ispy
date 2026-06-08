@@ -6,15 +6,48 @@ use App\Http\Controllers\Controller;
 use App\Models\Teacher;
 use App\Models\ConsultationSlot;
 use App\Traits\LogsActivity;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class ConsultationController extends Controller
 {
     use LogsActivity;
-    public function index()
+    public function index(Request $request)
     {
         $teacher = Teacher::where('user_id', auth()->id())->firstOrFail();
+
+        // Auto-complete past Confirmed bookings silently on page load
+        $pastSlotIds = DB::table('consultation_slots')
+            ->where('teacher_id', $teacher->id)
+            ->where('scheduled_date', '<', today()->format('Y-m-d'))
+            ->pluck('id');
+
+        if ($pastSlotIds->isNotEmpty()) {
+            DB::table('face_to_face_bookings')
+                ->whereIn('slot_id', $pastSlotIds)
+                ->where('status', 'Confirmed')
+                ->update(['status' => 'Completed']);
+        }
+
+        // Silently delete unbooked out-of-range slots (outside 08:00–17:00)
+        $bookedSlotIds = DB::table('face_to_face_bookings')->pluck('slot_id')->unique();
+        $outOfRangeIds = DB::table('consultation_slots')
+            ->where('teacher_id', $teacher->id)
+            ->where('is_available', true)
+            ->where(function ($q) {
+                $q->where('time_start', '<', '08:00:00')
+                  ->orWhere('time_end', '>', '17:00:00');
+            })
+            ->whereNotIn('id', $bookedSlotIds)
+            ->pluck('id');
+        if ($outOfRangeIds->isNotEmpty()) {
+            DB::table('consultation_slots')->whereIn('id', $outOfRangeIds)->delete();
+        }
+
+        $todayMonday = Carbon::now()->startOfWeek(Carbon::MONDAY)->startOfDay();
+        $rangeStart  = $todayMonday->copy()->subWeeks(4);
+        $rangeEnd    = $todayMonday->copy()->addWeeks(8)->addDays(4); // through Friday of week +8
 
         $upcomingCount = DB::table('face_to_face_bookings')
             ->join('consultation_slots', 'face_to_face_bookings.slot_id', '=', 'consultation_slots.id')
@@ -29,24 +62,85 @@ class ConsultationController extends Controller
             ->value('category');
         $maxPerDay = $maxPref ? (int) explode(':', $maxPref)[1] : 6;
 
-        // Bug 3: only upcoming slots so past weeks don't inflate the weekly grid
-        $slots = ConsultationSlot::where('teacher_id', $teacher->id)
-            ->where('scheduled_date', '>=', today()->format('Y-m-d'))
+        $slotsCollection = ConsultationSlot::where('teacher_id', $teacher->id)
+            ->whereBetween('scheduled_date', [
+                $rangeStart->format('Y-m-d'),
+                $rangeEnd->format('Y-m-d'),
+            ])
             ->orderBy('scheduled_date')
             ->orderBy('time_start')
             ->get();
 
-        $slotDates = $slots->pluck('scheduled_date')
+        // Fetch booking data (id, status, parent name) per slot — latest booking wins via keyBy.
+        $slotIds     = $slotsCollection->pluck('id')->toArray();
+        $bookingData = $slotIds
+            ? DB::table('face_to_face_bookings')
+                ->leftJoin('parents', 'face_to_face_bookings.parent_id', '=', 'parents.id')
+                ->whereIn('face_to_face_bookings.slot_id', $slotIds)
+                ->where('face_to_face_bookings.status', '!=', 'Rejected') // Rejected = slot freed; treat as no booking
+                ->orderBy('face_to_face_bookings.id') // ascending so highest id (latest) wins on keyBy
+                ->select(
+                    'face_to_face_bookings.slot_id',
+                    'face_to_face_bookings.id as booking_id',
+                    'face_to_face_bookings.status',
+                    'parents.name as parent_name'
+                )
+                ->get()
+                ->keyBy('slot_id')
+            : collect();
+
+        $allSlots = $slotsCollection->map(fn($s) => [
+            'id'             => $s->id,
+            'scheduled_date' => Carbon::parse($s->scheduled_date)->format('Y-m-d'),
+            'time_start'     => $s->time_start,
+            'time_end'       => $s->time_end,
+            'is_available'   => (bool) $s->is_available,
+            'booking_status' => $bookingData->has($s->id) ? $bookingData->get($s->id)->status      : null,
+            'parent_name'    => $bookingData->has($s->id) ? $bookingData->get($s->id)->parent_name : null,
+            'booking_id'     => $bookingData->has($s->id) ? $bookingData->get($s->id)->booking_id  : null,
+        ])->values()->toArray();
+
+        $slotDates = $slotsCollection->pluck('scheduled_date')
             ->map(fn($d) => is_string($d) ? $d : date('Y-m-d', strtotime($d)))
             ->unique()->values()->toArray();
+
+        $calendarBookingData = $slotIds
+            ? DB::table('face_to_face_bookings')
+                ->leftJoin('parents', 'face_to_face_bookings.parent_id', '=', 'parents.id')
+                ->whereIn('face_to_face_bookings.slot_id', $slotIds)
+                ->orderBy('face_to_face_bookings.id')
+                ->select(
+                    'face_to_face_bookings.slot_id',
+                    'face_to_face_bookings.status',
+                    'face_to_face_bookings.purpose_of_meeting',
+                    'parents.name as parent_name',
+                    DB::raw('(SELECT s.name FROM students s WHERE s.parent_id = face_to_face_bookings.parent_id LIMIT 1) as student_name')
+                )
+                ->get()
+                ->keyBy('slot_id')
+            : collect();
+
+        $calendarSlots = $slotsCollection->map(fn($s) => [
+            'id'             => $s->id,
+            'scheduled_date' => Carbon::parse($s->scheduled_date)->format('Y-m-d'),
+            'time_start'     => $s->time_start,
+            'time_end'       => $s->time_end,
+            'is_available'   => (bool) $s->is_available,
+            'booking_status' => $calendarBookingData->has($s->id) ? $calendarBookingData->get($s->id)->status             : null,
+            'parent_name'    => $calendarBookingData->has($s->id) ? $calendarBookingData->get($s->id)->parent_name        : null,
+            'student_name'   => $calendarBookingData->has($s->id) ? $calendarBookingData->get($s->id)->student_name       : null,
+            'purpose'        => $calendarBookingData->has($s->id) ? $calendarBookingData->get($s->id)->purpose_of_meeting : null,
+        ])->values()->toArray();
 
         $bookings = DB::table('face_to_face_bookings')
             ->join('consultation_slots', 'face_to_face_bookings.slot_id', '=', 'consultation_slots.id')
             ->leftJoin('parents', 'face_to_face_bookings.parent_id', '=', 'parents.id')
             ->where('face_to_face_bookings.teacher_id', $teacher->id)
+            ->orderByRaw("CASE WHEN face_to_face_bookings.status = 'Pending' THEN 0 ELSE 1 END")
             ->orderByDesc('consultation_slots.scheduled_date')
             ->select(
                 'face_to_face_bookings.id',
+                'face_to_face_bookings.slot_id',
                 'face_to_face_bookings.purpose_of_meeting',
                 'face_to_face_bookings.status',
                 'consultation_slots.scheduled_date',
@@ -57,7 +151,9 @@ class ConsultationController extends Controller
             )
             ->get();
 
-        return view('teacher.consultation', compact('upcomingCount', 'slots', 'slotDates', 'bookings', 'maxPerDay'));
+        return view('teacher.consultation', compact(
+            'upcomingCount', 'allSlots', 'slotDates', 'calendarSlots', 'bookings', 'maxPerDay', 'todayMonday'
+        ));
     }
 
     public function store(Request $request)
@@ -70,15 +166,23 @@ class ConsultationController extends Controller
 
         $teacher = Teacher::where('user_id', auth()->id())->firstOrFail();
 
-        // Bug 1: prevent duplicate slots
-        $duplicate = DB::table('consultation_slots')
+        // Time overlap check: new_start < existing_end AND new_end > existing_start
+        $conflicting = DB::table('consultation_slots')
             ->where('teacher_id', $teacher->id)
             ->where('scheduled_date', $request->scheduled_date)
-            ->where('time_start', $request->time_start)
-            ->exists();
+            ->where('time_start', '<', $request->time_end)
+            ->where('time_end', '>', $request->time_start)
+            ->first();
 
-        if ($duplicate) {
-            return back()->withInput()->with('error', 'A slot already exists for that date and time.');
+        if ($conflicting) {
+            $startFmt = date('g:i A', strtotime($conflicting->time_start));
+            $endFmt   = date('g:i A', strtotime($conflicting->time_end));
+            return back()->withInput()->with('error', "This time slot overlaps with an existing slot ({$startFmt} – {$endFmt}).");
+        }
+
+        // Time range restriction: 08:00 AM – 5:00 PM only
+        if ($request->time_start < '08:00' || $request->time_end > '17:00') {
+            return back()->withInput()->with('error', 'Slots must be scheduled between 8:00 AM and 5:00 PM.');
         }
 
         // Bug 2: enforce max appointments per day
@@ -171,6 +275,16 @@ class ConsultationController extends Controller
             return back()->with('error', 'Can only complete a confirmed booking.');
         }
 
+        if ($request->status === 'Completed') {
+            $slot = DB::table('consultation_slots')->where('id', $booking->slot_id)->first();
+            if ($slot) {
+                $meetingEnd = Carbon::parse($slot->scheduled_date . ' ' . $slot->time_end);
+                if (Carbon::now()->lt($meetingEnd)) {
+                    return back()->with('error', 'Cannot mark complete before the meeting has ended.');
+                }
+            }
+        }
+
         DB::table('face_to_face_bookings')
             ->where('id', $booking->id)
             ->update(['status' => $request->status]);
@@ -203,17 +317,166 @@ class ConsultationController extends Controller
 
         abort_if($slotModel->teacher_id !== $teacher->id, 403);
 
-        $hasConfirmed = DB::table('face_to_face_bookings')
+        // Cancel any active booking (Pending or Confirmed) — keep the record
+        $activeBooking = DB::table('face_to_face_bookings')
             ->where('slot_id', $slotModel->id)
-            ->where('status', 'Confirmed')
-            ->exists();
+            ->whereIn('status', ['Pending', 'Confirmed'])
+            ->first();
 
-        if ($hasConfirmed) {
-            return back()->with('error', 'Cannot delete a slot with a confirmed booking.');
+        if ($activeBooking) {
+            $originalStatus = $activeBooking->status;
+            DB::table('face_to_face_bookings')
+                ->where('id', $activeBooking->id)
+                ->update(['status' => 'Cancelled']);
         }
 
+        $slotDate  = $slotModel->scheduled_date;
+        $slotStart = $slotModel->time_start;
         $slotModel->delete();
 
+        if ($activeBooking) {
+            DB::table('notifications')->insert([
+                'recipient_id'      => $activeBooking->parent_id,
+                'recipient_role'    => 'Parent',
+                'notification_type' => 'Availability',
+                'action_url'        => route('parent.consultations'),
+                'title'             => 'Consultation Cancelled',
+                'message'           => 'Your consultation booking on '
+                    . date('M d, Y', strtotime($slotDate))
+                    . ' at ' . date('g:i A', strtotime($slotStart))
+                    . ' has been cancelled by the teacher.',
+                'is_read'           => false,
+                'created_at'        => now(),
+            ]);
+
+            $parentName = DB::table('parents')->where('id', $activeBooking->parent_id)->value('name');
+            self::log('cancel', 'Teacher cancelled slot with ' . strtolower($originalStatus) . ' booking for parent: ' . ($parentName ?? 'Unknown'));
+        } else {
+            self::log('cancel', 'Teacher cancelled consultation slot');
+        }
+
         return back()->with('success', 'Slot deleted.');
+    }
+
+    public function confirmBooking($bookingId)
+    {
+        $teacher = Teacher::where('user_id', auth()->id())->firstOrFail();
+        $booking = DB::table('face_to_face_bookings')
+            ->where('id', $bookingId)
+            ->where('teacher_id', $teacher->id)
+            ->where('status', 'Pending')
+            ->first();
+
+        abort_if(!$booking, 403);
+
+        DB::table('face_to_face_bookings')
+            ->where('id', $booking->id)
+            ->update(['status' => 'Confirmed']);
+
+        $slot = DB::table('consultation_slots')->where('id', $booking->slot_id)->first();
+
+        DB::table('notifications')->insert([
+            'recipient_id'      => $booking->parent_id,
+            'recipient_role'    => 'Parent',
+            'notification_type' => 'Availability',
+            'action_url'        => route('parent.consultations'),
+            'title'             => 'Consultation Confirmed',
+            'message'           => 'Your consultation booking on '
+                . date('M d, Y', strtotime($slot->scheduled_date))
+                . ' at ' . date('g:i A', strtotime($slot->time_start))
+                . ' has been confirmed by your teacher.',
+            'is_read'           => false,
+            'created_at'        => now(),
+        ]);
+
+        $parentName = DB::table('parents')->where('id', $booking->parent_id)->value('name');
+        self::log('update', 'Teacher confirmed booking for parent: ' . ($parentName ?? 'Unknown'));
+
+        return back()->with('success', 'Booking confirmed.');
+    }
+
+    public function rejectBooking($bookingId)
+    {
+        $teacher = Teacher::where('user_id', auth()->id())->firstOrFail();
+        $booking = DB::table('face_to_face_bookings')
+            ->where('id', $bookingId)
+            ->where('teacher_id', $teacher->id)
+            ->where('status', 'Pending')
+            ->first();
+
+        abort_if(!$booking, 403);
+
+        DB::table('face_to_face_bookings')
+            ->where('id', $booking->id)
+            ->update(['status' => 'Rejected']);
+
+        $slot = DB::table('consultation_slots')->where('id', $booking->slot_id)->first();
+
+        // Free the slot so other parents can book it
+        DB::table('consultation_slots')
+            ->where('id', $booking->slot_id)
+            ->update(['is_available' => true]);
+
+        DB::table('notifications')->insert([
+            'recipient_id'      => $booking->parent_id,
+            'recipient_role'    => 'Parent',
+            'notification_type' => 'Availability',
+            'action_url'        => route('parent.consultations'),
+            'title'             => 'Consultation Rejected',
+            'message'           => 'Your consultation booking on '
+                . date('M d, Y', strtotime($slot->scheduled_date))
+                . ' at ' . date('g:i A', strtotime($slot->time_start))
+                . ' has been rejected by your teacher.',
+            'is_read'           => false,
+            'created_at'        => now(),
+        ]);
+
+        $parentName = DB::table('parents')->where('id', $booking->parent_id)->value('name');
+        self::log('update', 'Teacher rejected booking for parent: ' . ($parentName ?? 'Unknown'));
+
+        return back()->with('success', 'Booking rejected.');
+    }
+
+    public function completeBooking($bookingId)
+    {
+        $teacher = Teacher::where('user_id', auth()->id())->firstOrFail();
+        $booking = DB::table('face_to_face_bookings')
+            ->where('id', $bookingId)
+            ->where('teacher_id', $teacher->id)
+            ->where('status', 'Confirmed')
+            ->first();
+
+        abort_if(!$booking, 403);
+
+        $slot = DB::table('consultation_slots')->where('id', $booking->slot_id)->first();
+
+        // Only allow marking complete after the meeting end time has passed
+        $meetingEnd = Carbon::parse($slot->scheduled_date . ' ' . $slot->time_end);
+        if (Carbon::now()->lt($meetingEnd)) {
+            return response()->json(['error' => 'Cannot mark complete before the meeting has ended.'], 403);
+        }
+
+        DB::table('face_to_face_bookings')
+            ->where('id', $booking->id)
+            ->update(['status' => 'Completed']);
+
+        DB::table('notifications')->insert([
+            'recipient_id'      => $booking->parent_id,
+            'recipient_role'    => 'Parent',
+            'notification_type' => 'Availability',
+            'action_url'        => route('parent.consultations'),
+            'title'             => 'Consultation Completed',
+            'message'           => 'Your consultation on '
+                . date('M d, Y', strtotime($slot->scheduled_date))
+                . ' at ' . date('g:i A', strtotime($slot->time_start))
+                . ' has been marked as completed.',
+            'is_read'           => false,
+            'created_at'        => now(),
+        ]);
+
+        $parentName = DB::table('parents')->where('id', $booking->parent_id)->value('name');
+        self::log('update', 'Teacher marked booking as complete for parent: ' . ($parentName ?? 'Unknown'));
+
+        return back()->with('success', 'Booking marked as complete.');
     }
 }

@@ -101,10 +101,16 @@
                         @forelse($bookings as $booking)
                         <tr class="hover:bg-gray-50">
                             <td class="px-6 py-4 font-medium text-gray-900">{{ $booking->teacher_name }}</td>
-                            <td class="px-6 py-4 text-gray-600 whitespace-nowrap">{{ date('M d, Y', strtotime($booking->scheduled_date)) }}</td>
                             <td class="px-6 py-4 text-gray-600 whitespace-nowrap">
-                                {{ date('g:i A', strtotime($booking->time_start)) }}
-                                – {{ date('g:i A', strtotime($booking->time_end)) }}
+                                {{ $booking->scheduled_date ? date('M d, Y', strtotime($booking->scheduled_date)) : 'Slot Removed' }}
+                            </td>
+                            <td class="px-6 py-4 text-gray-600 whitespace-nowrap">
+                                @if($booking->time_start && $booking->time_end)
+                                    {{ date('g:i A', strtotime($booking->time_start)) }}
+                                    – {{ date('g:i A', strtotime($booking->time_end)) }}
+                                @else
+                                    —
+                                @endif
                             </td>
                             <td class="px-6 py-4 text-gray-500 max-w-xs truncate">{{ $booking->purpose_of_meeting }}</td>
                             <td class="px-6 py-4">
@@ -114,6 +120,10 @@
                                     <span class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700 border border-amber-200">Pending</span>
                                 @elseif($booking->status === 'Cancelled')
                                     <span class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-rose-100 text-rose-700 border border-rose-200">Cancelled</span>
+                                @elseif($booking->status === 'Rejected')
+                                    <span class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700 border border-red-200">Rejected</span>
+                                @elseif($booking->status === 'Completed')
+                                    <span class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500 border border-gray-200">Completed</span>
                                 @else
                                     <span class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500 border border-gray-200">{{ $booking->status }}</span>
                                 @endif
@@ -242,9 +252,11 @@ function selectDate(dateStr) {
                         <form method="POST" action="${bookUrl}">
                             <input type="hidden" name="_token" value="${csrfToken}">
                             <input type="hidden" name="slot_id" value="${slot.id}">
-                            <textarea name="purpose_of_meeting" required maxlength="1000" rows="3"
+                            <textarea name="purpose_of_meeting" required maxlength="300" rows="3"
                                       placeholder="Purpose of meeting…"
+                                      oninput="document.getElementById('counter-${slot.id}').textContent = this.value.length + ' / 300 characters'"
                                       class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none resize-none"></textarea>
+                            <p id="counter-${slot.id}" style="font-size:11px;color:#9ca3af;text-align:right;margin-top:2px;">0 / 300 characters</p>
                             <div class="flex gap-2 pt-1">
                                 <button type="button" onclick="closeBookForm(${slot.id})"
                                         class="px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">

@@ -44,4 +44,12 @@ return [
         'service_role_key' => env('SUPABASE_SERVICE_ROLE_KEY'),
     ],
 
+    'google_tts' => [
+        'credentials'  => env('GOOGLE_APPLICATION_CREDENTIALS'),
+        'language_en'  => env('GOOGLE_TTS_LANGUAGE_EN', 'en-US'),
+        'voice_en'     => env('GOOGLE_TTS_VOICE_EN', 'en-US-Standard-C'),
+        'language_fil' => env('GOOGLE_TTS_LANGUAGE_FIL', 'fil-PH'),
+        'voice_fil'    => env('GOOGLE_TTS_VOICE_FIL', 'fil-PH-Standard-A'),
+    ],
+
 ];

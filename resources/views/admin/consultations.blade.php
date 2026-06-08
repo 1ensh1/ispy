@@ -1,29 +1,5 @@
 <x-app-layout>
-    <div x-data="{
-            searchQuery: '',
-            teacherFilter: 'all',
-            appointments: @json($rows),
-            get filtered() {
-                const q = this.searchQuery.toLowerCase();
-                return this.appointments.filter(a => {
-                    const matchSearch  = !q || a.parent.toLowerCase().includes(q) || a.student.toLowerCase().includes(q);
-                    const matchTeacher = this.teacherFilter === 'all' || a.teacher_id === parseInt(this.teacherFilter);
-                    return matchSearch && matchTeacher;
-                });
-            },
-            statusBadge(status) {
-                const map = {
-                    'Pending':   'bg-blue-100 text-blue-700',
-                    'Confirmed': 'bg-green-100 text-green-700',
-                    'Completed': 'bg-teal-100 text-teal-700',
-                    'Cancelled': 'bg-gray-100 text-gray-600',
-                    'No-show':   'bg-red-100 text-red-700',
-                };
-                return map[status] || 'bg-gray-100 text-gray-600';
-            },
-            statusLabel(status) { return status; }
-         }"
-         class="p-6 max-w-7xl mx-auto">
+    <div class="p-6 max-w-7xl mx-auto">
 
         {{-- Page Header --}}
         <div class="flex justify-between items-start mb-6">
@@ -31,7 +7,7 @@
                 <h1 class="text-3xl font-bold text-gray-900 mb-1">Face-to-Face Consultations</h1>
                 <p class="text-sm text-gray-500">Track and manage scheduled consultation appointments between teachers and parents</p>
             </div>
-            <a :href="`{{ url('/admin/consultations/export') }}` + (teacherFilter !== 'all' ? `?teacher_id=${teacherFilter}` : '')"
+            <a id="export-link" href="{{ url('/admin/consultations/export') }}"
                class="flex items-center gap-2 px-4 py-2 text-sm font-medium border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors">
                 <i data-lucide="download" class="w-4 h-4"></i> Export Records
             </a>
@@ -89,10 +65,10 @@
         <div class="flex flex-wrap items-center gap-3 mb-4">
             <div class="relative max-w-xs w-full">
                 <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"></i>
-                <input type="text" x-model="searchQuery" placeholder="Search parent or student..."
+                <input type="text" id="search-input" placeholder="Search parent or student..."
                        class="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#2f5597]/30 focus:border-[#2f5597]">
             </div>
-            <select x-model="teacherFilter"
+            <select id="teacher-filter"
                     class="px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#2f5597]/30 focus:border-[#2f5597]">
                 <option value="all">All Teachers</option>
                 @foreach($teachers as $t)
@@ -115,26 +91,7 @@
                             <th class="px-4 py-3 font-medium">Status</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-gray-100">
-                        <template x-for="(a, i) in filtered" :key="i">
-                            <tr class="hover:bg-gray-50 transition-colors">
-                                <td class="px-4 py-3 font-medium text-gray-900" x-text="a.teacher"></td>
-                                <td class="px-4 py-3 text-gray-700" x-text="a.parent"></td>
-                                <td class="px-4 py-3 text-gray-500" x-text="a.student"></td>
-                                <td class="px-4 py-3 text-gray-500" x-text="a.date"></td>
-                                <td class="px-4 py-3 text-gray-500" x-text="a.time"></td>
-                                <td class="px-4 py-3">
-                                    <span :class="'px-2.5 py-0.5 rounded-full text-xs font-medium ' + statusBadge(a.status)"
-                                          x-text="statusLabel(a.status)"></span>
-                                </td>
-                            </tr>
-                        </template>
-                        <tr x-show="filtered.length === 0">
-                            <td colspan="6" class="px-4 py-12 text-center text-gray-400 text-sm">
-                                No appointments found.
-                            </td>
-                        </tr>
-                    </tbody>
+                    <tbody id="consultations-tbody" class="divide-y divide-gray-100"></tbody>
                 </table>
             </div>
         </div>
@@ -142,8 +99,65 @@
     </div>
 
     <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            if (typeof lucide !== 'undefined') lucide.createIcons();
+    const ROWS            = @json($rows);
+    const BASE_EXPORT_URL = '{{ url('/admin/consultations/export') }}';
+
+    const STATUS_BADGE = {
+        'Pending':   'bg-blue-100 text-blue-700',
+        'Confirmed': 'bg-green-100 text-green-700',
+        'Completed': 'bg-teal-100 text-teal-700',
+        'Cancelled': 'bg-gray-100 text-gray-600',
+        'Rejected':  'bg-red-100 text-red-700',
+        'No-show':   'bg-red-100 text-red-700',
+    };
+
+    function escapeHtml(str) {
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    function renderTable() {
+        const q             = document.getElementById('search-input').value.toLowerCase();
+        const teacherFilter = document.getElementById('teacher-filter').value;
+        const exportLink    = document.getElementById('export-link');
+        const tbody         = document.getElementById('consultations-tbody');
+
+        exportLink.href = teacherFilter !== 'all'
+            ? BASE_EXPORT_URL + '?teacher_id=' + encodeURIComponent(teacherFilter)
+            : BASE_EXPORT_URL;
+
+        const filtered = ROWS.filter(function (a) {
+            const matchSearch  = !q || a.parent.toLowerCase().includes(q) || a.student.toLowerCase().includes(q);
+            const matchTeacher = teacherFilter === 'all' || a.teacher_id === parseInt(teacherFilter, 10);
+            return matchSearch && matchTeacher;
         });
+
+        if (filtered.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-12 text-center text-gray-400 text-sm">No appointments found.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = filtered.map(function (a) {
+            var badge = STATUS_BADGE[a.status] || 'bg-gray-100 text-gray-600';
+            return '<tr class="hover:bg-gray-50 transition-colors">'
+                + '<td class="px-4 py-3 font-medium text-gray-900">' + escapeHtml(a.teacher) + '</td>'
+                + '<td class="px-4 py-3 text-gray-700">'             + escapeHtml(a.parent)  + '</td>'
+                + '<td class="px-4 py-3 text-gray-500">'             + escapeHtml(a.student) + '</td>'
+                + '<td class="px-4 py-3 text-gray-500">'             + escapeHtml(a.date)    + '</td>'
+                + '<td class="px-4 py-3 text-gray-500">'             + escapeHtml(a.time)    + '</td>'
+                + '<td class="px-4 py-3"><span class="px-2.5 py-0.5 rounded-full text-xs font-medium ' + badge + '">' + escapeHtml(a.status) + '</span></td>'
+                + '</tr>';
+        }).join('');
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        document.getElementById('search-input').addEventListener('input', renderTable);
+        document.getElementById('teacher-filter').addEventListener('change', renderTable);
+        renderTable();
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    });
     </script>
 </x-app-layout>

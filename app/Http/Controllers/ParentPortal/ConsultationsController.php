@@ -19,13 +19,19 @@ class ConsultationsController extends Controller
         $teacher = $student?->classList?->teacher;
 
         $bookings = DB::table('face_to_face_bookings')
-            ->join('consultation_slots', 'face_to_face_bookings.slot_id', '=', 'consultation_slots.id')
+            ->leftJoin('consultation_slots', 'face_to_face_bookings.slot_id', '=', 'consultation_slots.id')
             ->leftJoin('teachers', 'face_to_face_bookings.teacher_id', '=', 'teachers.id')
             ->where('face_to_face_bookings.parent_id', $parent->id)
-            ->orderBy('consultation_slots.scheduled_date')
-            ->orderBy('consultation_slots.time_start')
+            ->orderByDesc('face_to_face_bookings.id')
             ->select(
-                'face_to_face_bookings.*',
+                'face_to_face_bookings.id',
+                'face_to_face_bookings.slot_id',
+                'face_to_face_bookings.teacher_id',
+                'face_to_face_bookings.parent_id',
+                'face_to_face_bookings.purpose_of_meeting',
+                'face_to_face_bookings.status',
+                'face_to_face_bookings.created_at',
+                'face_to_face_bookings.updated_at',
                 'consultation_slots.scheduled_date',
                 'consultation_slots.time_start',
                 'consultation_slots.time_end',
@@ -110,7 +116,7 @@ class ConsultationsController extends Controller
     {
         $request->validate([
             'slot_id'            => 'required|exists:consultation_slots,id',
-            'purpose_of_meeting' => 'required|string|max:1000',
+            'purpose_of_meeting' => 'required|string|max:300',
         ]);
 
         $parent  = ParentProfile::where('user_id', auth()->id())->firstOrFail();
