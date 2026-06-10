@@ -51,57 +51,10 @@ class AdminController extends Controller
 
     public function users(\Illuminate\Http\Request $request)
     {
-        $activeTab = $request->query('tab', 'teacher');
-        $search    = $request->query('search');
-
-        if ($activeTab === 'teacher') {
-            return redirect()->route('admin.teachers.index', array_filter(['search' => $search]));
-        }
-
-        $query = User::where('role', $activeTab);
-
-        if ($search) {
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('email', 'like', "%{$search}%");
-            });
-        }
-
-        $users = $query->latest()->paginate(10)->appends([
-            'tab'    => $activeTab,
-            'search' => $search,
-        ]);
-
-        $extraData          = [];
-        $studentCountsByUser = [];
-
-        if ($activeTab === 'parent') {
-            $userIds = $users->pluck('id')->toArray();
-
-            $parentRecords = DB::table('parents')
-                ->whereIn('user_id', $userIds)
-                ->get()
-                ->keyBy('user_id');
-
-            $parentIds = $parentRecords->pluck('id')->toArray();
-
-            $childrenByParent = DB::table('students')
-                ->whereIn('parent_id', $parentIds)
-                ->get()
-                ->groupBy('parent_id');
-
-            foreach ($users as $user) {
-                $parentRecord = $parentRecords->get($user->id);
-                $parentId     = $parentRecord ? $parentRecord->id : null;
-                $extraData[$user->id] = [
-                    'children' => ($parentId && $childrenByParent->has($parentId))
-                        ? $childrenByParent->get($parentId)
-                        : collect(),
-                ];
-            }
-        }
-
-        return view('admin.users', compact('users', 'activeTab', 'search', 'extraData', 'studentCountsByUser'));
+        return redirect()->route('admin.teachers.index', array_filter([
+            'tab'    => $request->query('tab'),
+            'search' => $request->query('search'),
+        ]));
     }
 
     public function update(\Illuminate\Http\Request $request, User $user)
@@ -189,7 +142,7 @@ class AdminController extends Controller
         }
 
         if ($validated['role'] === 'parent') {
-            self::log('create', "Admin created parent: {$user->name}");
+            self::log('create', "created parent account for {$user->name}");
         }
 
         $redirectTab = $validated['role'] === 'parent' ? 'parents' : $validated['role'];

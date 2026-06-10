@@ -115,7 +115,7 @@ class ReportController extends Controller
             'created_at'        => now(),
         ]);
 
-        self::log('create', "Teacher sent report for student: {$student->name}");
+        self::log('create', "sent progress report for student {$student->name}");
 
         return redirect()->back()->with('success', 'Progress report sent to ' . $parent->name . ' successfully.');
     }

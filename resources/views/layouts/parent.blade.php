@@ -139,8 +139,12 @@
                     <div class="relative pl-4 border-l border-gray-200" id="parent-profile-container">
                         <button onclick="toggleParentProfile(event)"
                                 class="flex items-center gap-2.5 hover:opacity-80 transition-opacity cursor-pointer">
-                            <div class="w-8 h-8 rounded-full bg-teal-100 flex items-center justify-center shrink-0">
-                                <span class="text-teal-700 text-xs font-bold">{{ strtoupper(substr($parentName, 0, 1)) }}</span>
+                            <div class="w-8 h-8 rounded-full overflow-hidden bg-teal-100 flex items-center justify-center shrink-0">
+                                @if($parentProfile?->profile_picture)
+                                    <img src="{{ $parentProfile->profile_picture }}" alt="" style="width:100%;height:100%;object-fit:cover;">
+                                @else
+                                    <span class="text-teal-700 text-xs font-bold">{{ strtoupper(substr($parentName, 0, 1)) }}</span>
+                                @endif
                             </div>
                             <span class="text-sm font-medium text-gray-700 hidden sm:block">{{ $parentName }}</span>
                             <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-gray-400 hidden sm:block"></i>

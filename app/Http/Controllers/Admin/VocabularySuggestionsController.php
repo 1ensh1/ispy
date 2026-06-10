@@ -65,7 +65,7 @@ class VocabularySuggestionsController extends Controller
             'created_at'        => now(),
         ]);
 
-        self::log('approve', "Admin approved vocabulary: {$suggestion->english_label}");
+        self::log('approve', "approved vocabulary suggestion '{$suggestion->english_label}'");
 
         return back()->with('success', "Suggestion \"{$suggestion->english_label}\" approved and added to the vocabulary library.");
     }
@@ -92,7 +92,7 @@ class VocabularySuggestionsController extends Controller
             'created_at'        => now(),
         ]);
 
-        self::log('reject', "Admin rejected vocabulary: {$suggestion->english_label}");
+        self::log('reject', "rejected vocabulary suggestion '{$suggestion->english_label}'");
 
         return back()->with('success', "Suggestion \"{$suggestion->english_label}\" has been rejected.");
     }

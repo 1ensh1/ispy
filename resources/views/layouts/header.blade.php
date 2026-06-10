@@ -11,8 +11,9 @@
         'parent'  => 'bg-green-100 text-green-800 border border-green-200',
     ];
 
-    $adminDisplayName = \App\Models\Administrator::where('user_id', auth()->id())->value('name')
-        ?? auth()->user()->name;
+    $adminRecord      = \App\Models\Administrator::where('user_id', auth()->id())->first();
+    $adminDisplayName = $adminRecord?->name ?? auth()->user()->name;
+    $adminProfilePic  = $adminRecord?->profile_picture;
 
     $adminUnreadCount = \Illuminate\Support\Facades\DB::table('notifications')
         ->where('recipient_id', auth()->id())
@@ -108,8 +109,12 @@
         <div class="relative pl-4 border-l border-gray-200" id="admin-profile-container">
             <button onclick="toggleAdminProfile(event)"
                     class="flex items-center gap-2.5 hover:opacity-80 transition-opacity cursor-pointer">
-                <div class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
-                    <i data-lucide="user" class="w-4 h-4 text-gray-500"></i>
+                <div class="w-8 h-8 rounded-full overflow-hidden bg-gray-100 flex items-center justify-center shrink-0">
+                    @if($adminProfilePic)
+                        <img src="{{ $adminProfilePic }}" alt="" style="width:100%;height:100%;object-fit:cover;">
+                    @else
+                        <i data-lucide="user" class="w-4 h-4 text-gray-500"></i>
+                    @endif
                 </div>
                 <span class="text-sm font-medium text-gray-700 hidden sm:block">{{ $adminDisplayName }}</span>
                 <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-gray-400 hidden sm:block"></i>

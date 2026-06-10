@@ -3,15 +3,24 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Mail\AdminAccountCreated;
 use App\Models\ActivityLog;
+use App\Models\Administrator;
 use App\Models\ClassList;
 use App\Models\Student;
 use App\Models\Teacher;
 use App\Models\User;
+use App\Traits\LogsActivity;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 
 class UserManagementController extends Controller
 {
+    use LogsActivity;
+
     public function showTeacherProfile(Teacher $teacher)
     {
         $teacher->load('user');
@@ -68,6 +77,40 @@ class UserManagementController extends Controller
         $activeStudents   = Student::where('parent_id', $parent->id)->whereNull('archived_at')->get();
         $archivedStudents = Student::where('parent_id', $parent->id)->whereNotNull('archived_at')->get();
         return view('admin.parents.profile', compact('user', 'parent', 'activeStudents', 'archivedStudents'));
+    }
+
+    public function storeAdmin(Request $request)
+    {
+        $request->validateWithBag('admin', [
+            'name'  => 'required|string|max:255',
+            'email' => 'required|email|max:255|unique:users',
+        ]);
+
+        $tempPassword = Str::random(10);
+
+        $user = User::create([
+            'name'     => $request->name,
+            'email'    => $request->email,
+            'password' => bcrypt($tempPassword),
+            'role'     => 'Admin',
+        ]);
+
+        Administrator::create([
+            'user_id'         => $user->id,
+            'name'            => $request->name,
+            'profile_picture' => null,
+        ]);
+
+        self::log('Create', "created admin account for {$request->name}");
+
+        try {
+            Mail::to($user->email)->send(new AdminAccountCreated($request->name, $request->email, $tempPassword));
+        } catch (\Throwable $e) {
+            Log::error("Failed to send admin account email to {$user->email}: {$e->getMessage()}");
+        }
+
+        return redirect()->route('admin.teachers.index')
+            ->with('success', 'Admin account created. Credentials sent to ' . $request->email . '.');
     }
 
     public function showStudentProfile(Student $student)

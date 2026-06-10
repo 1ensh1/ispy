@@ -3,17 +3,18 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\ActivityLog;
 use App\Models\ClassList;
 use App\Models\ClassSubstitute;
 use App\Models\Student;
 use App\Models\Teacher;
+use App\Traits\LogsActivity;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 class AdminClassController extends Controller
 {
+    use LogsActivity;
+
     public function assignClass(Request $request)
     {
         $request->validate([
@@ -33,13 +34,7 @@ class AdminClassController extends Controller
         $class->teacher_id = $teacher->id;
         $class->save();
 
-        ActivityLog::create([
-            'user_id'     => Auth::id(),
-            'role'        => 'Admin',
-            'action'      => 'Assign Class',
-            'description' => "Assigned class \"{$class->class_name}\" to teacher {$teacher->name}.",
-            'created_at'  => now(),
-        ]);
+        self::log('Assign Class', "assigned class {$class->class_name} to teacher {$teacher->name}");
 
         return redirect()->route('admin.teachers.profile', ['teacher' => $request->teacher_id])
             ->with('success', "Class \"{$class->class_name}\" assigned to {$teacher->name}.");
@@ -65,13 +60,7 @@ class AdminClassController extends Controller
         $class->teacher_id = null;
         $class->save();
 
-        ActivityLog::create([
-            'user_id'     => Auth::id(),
-            'role'        => 'Admin',
-            'action'      => 'Unassign Class',
-            'description' => "Unassigned class \"{$class->class_name}\" from teacher {$teacherName}.",
-            'created_at'  => now(),
-        ]);
+        self::log('Unassign Class', "unassigned class {$class->class_name} from teacher {$teacherName}");
 
         return redirect()->route('admin.teachers.profile', ['teacher' => $request->teacher_id])
             ->with('success', "Class \"{$class->class_name}\" unassigned.");
@@ -98,13 +87,7 @@ class AdminClassController extends Controller
             'unified_classroom_pin' => $pin,
         ]);
 
-        ActivityLog::create([
-            'user_id'     => Auth::id(),
-            'role'        => 'Admin',
-            'action'      => 'Create and Assign Class',
-            'description' => "Created class \"{$class->class_name}\" ({$request->subject}) and assigned to {$teacher->name}. PIN: {$pin}.",
-            'created_at'  => now(),
-        ]);
+        self::log('Create and Assign Class', "created class '{$class->class_name}' ({$request->subject}) and assigned to {$teacher->name}. PIN: {$pin}");
 
         return redirect()->route('admin.teachers.profile', ['teacher' => $request->teacher_id])
             ->with('success', "Class \"{$class->class_name}\" created and assigned to {$teacher->name}. PIN: {$pin}.");
@@ -122,13 +105,7 @@ class AdminClassController extends Controller
         $class->subject = $request->subject;
         $class->save();
 
-        ActivityLog::create([
-            'user_id'     => Auth::id(),
-            'role'        => 'Admin',
-            'action'      => 'Update Class Subject',
-            'description' => "Updated subject for class \"{$class->class_name}\" to {$request->subject}.",
-            'created_at'  => now(),
-        ]);
+        self::log('Update Class Subject', "updated subject for class {$class->class_name} to {$request->subject}");
 
         return redirect()->route('admin.teachers.profile', ['teacher' => $request->teacher_id])
             ->with('success', "Subject for \"{$class->class_name}\" updated to {$request->subject}.");
@@ -171,13 +148,7 @@ class AdminClassController extends Controller
         $class->archived_at = now();
         $class->save();
 
-        ActivityLog::create([
-            'user_id'     => Auth::id(),
-            'role'        => 'Admin',
-            'action'      => 'Archive Class',
-            'description' => "Archived class \"{$className}\" ({$subject}) from teacher {$teacherName}.",
-            'created_at'  => now(),
-        ]);
+        self::log('Archive Class', "archived class {$className} ({$subject}) from teacher {$teacherName}");
 
         return redirect()->route('admin.teachers.profile', ['teacher' => $request->teacher_id])
             ->with('success', "Class \"{$className}\" archived successfully.");
@@ -197,13 +168,7 @@ class AdminClassController extends Controller
         $class->archived_at = null;
         $class->save();
 
-        ActivityLog::create([
-            'user_id'     => Auth::id(),
-            'role'        => 'Admin',
-            'action'      => 'Restore Class',
-            'description' => "Restored class \"{$className}\" ({$subject}) for teacher {$teacherName}.",
-            'created_at'  => now(),
-        ]);
+        self::log('Restore Class', "restored class {$className} ({$subject}) for teacher {$teacherName}");
 
         return redirect()->route('admin.teachers.profile', ['teacher' => $request->teacher_id])
             ->with('success', "Class \"{$className}\" restored successfully.");

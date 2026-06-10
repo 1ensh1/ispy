@@ -209,7 +209,7 @@ class ConsultationController extends Controller
             'is_available'   => true,
         ]);
 
-        self::log('create', 'Teacher set consultation availability');
+        self::log('create', 'set consultation availability');
 
         return back()->with('success', 'Consultation slot added.');
     }
@@ -305,7 +305,7 @@ class ConsultationController extends Controller
         ]);
 
         $parentRecord = DB::table('parents')->where('id', $booking->parent_id)->value('name');
-        self::log('update', "Teacher " . strtolower($request->status) . " booking for parent: " . ($parentRecord ?? 'Unknown'));
+        self::log('update', strtolower($request->status) . " booking for parent " . ($parentRecord ?? 'Unknown'));
 
         return back()->with('success', 'Booking ' . strtolower($request->status) . '.');
     }
@@ -350,9 +350,9 @@ class ConsultationController extends Controller
             ]);
 
             $parentName = DB::table('parents')->where('id', $activeBooking->parent_id)->value('name');
-            self::log('cancel', 'Teacher cancelled slot with ' . strtolower($originalStatus) . ' booking for parent: ' . ($parentName ?? 'Unknown'));
+            self::log('cancel', 'cancelled slot with ' . strtolower($originalStatus) . ' booking for parent ' . ($parentName ?? 'Unknown'));
         } else {
-            self::log('cancel', 'Teacher cancelled consultation slot');
+            self::log('cancel', 'cancelled consultation slot');
         }
 
         return back()->with('success', 'Slot deleted.');
@@ -390,7 +390,7 @@ class ConsultationController extends Controller
         ]);
 
         $parentName = DB::table('parents')->where('id', $booking->parent_id)->value('name');
-        self::log('update', 'Teacher confirmed booking for parent: ' . ($parentName ?? 'Unknown'));
+        self::log('update', 'confirmed booking for parent ' . ($parentName ?? 'Unknown'));
 
         return back()->with('success', 'Booking confirmed.');
     }
@@ -432,7 +432,7 @@ class ConsultationController extends Controller
         ]);
 
         $parentName = DB::table('parents')->where('id', $booking->parent_id)->value('name');
-        self::log('update', 'Teacher rejected booking for parent: ' . ($parentName ?? 'Unknown'));
+        self::log('update', 'rejected booking for parent ' . ($parentName ?? 'Unknown'));
 
         return back()->with('success', 'Booking rejected.');
     }
@@ -475,7 +475,7 @@ class ConsultationController extends Controller
         ]);
 
         $parentName = DB::table('parents')->where('id', $booking->parent_id)->value('name');
-        self::log('update', 'Teacher marked booking as complete for parent: ' . ($parentName ?? 'Unknown'));
+        self::log('update', 'marked booking as complete for parent ' . ($parentName ?? 'Unknown'));
 
         return back()->with('success', 'Booking marked as complete.');
     }

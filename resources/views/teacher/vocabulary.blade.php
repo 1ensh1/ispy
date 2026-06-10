@@ -12,6 +12,47 @@
             <p class="text-sm text-gray-500">Active words available in the iSpy World app (read-only)</p>
         </div>
 
+        {{-- Search + Filters --}}
+        <form method="GET" action="{{ route('teacher.vocabulary') }}" class="flex flex-wrap items-center gap-3 mb-4">
+            <div class="relative" style="flex:1; min-width:192px; max-width:320px;">
+                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <i data-lucide="search" class="w-4 h-4 text-gray-400"></i>
+                </div>
+                <input type="text" name="search" value="{{ $search ?? '' }}"
+                       placeholder="Search vocabulary..."
+                       class="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#2f5597] focus:border-transparent outline-none">
+            </div>
+
+            <select name="audio_status" onchange="this.form.submit()"
+                    class="px-3 pr-8 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#2f5597] outline-none bg-white text-gray-700">
+                <option value="">All Audio</option>
+                <option value="Complete" {{ ($audioFilter ?? '') === 'Complete' ? 'selected' : '' }}>Complete</option>
+                <option value="Partial"  {{ ($audioFilter ?? '') === 'Partial'  ? 'selected' : '' }}>Partial</option>
+                <option value="Missing"  {{ ($audioFilter ?? '') === 'Missing'  ? 'selected' : '' }}>Missing</option>
+            </select>
+
+            <select name="category" onchange="this.form.submit()"
+                    class="px-3 pr-8 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#2f5597] outline-none bg-white text-gray-700">
+                <option value="">All Categories</option>
+                <option value="CVC"            {{ ($categoryFilter ?? '') === 'CVC'            ? 'selected' : '' }}>CVC</option>
+                <option value="Multi-Syllabic"  {{ ($categoryFilter ?? '') === 'Multi-Syllabic' ? 'selected' : '' }}>Multi-Syllabic</option>
+            </select>
+
+            <button type="submit"
+                    class="px-4 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-100 transition-colors">
+                Search
+            </button>
+
+            @if($search || $audioFilter || $categoryFilter)
+                <a href="{{ route('teacher.vocabulary') }}"
+                   class="text-sm text-gray-500 hover:text-gray-700 underline">Clear filters</a>
+            @endif
+
+            <span class="px-3 py-1 rounded-full border border-gray-200 bg-white text-sm text-gray-600 font-medium ml-auto">
+                {{ $words->total() }} {{ Str::plural('entry', $words->total()) }}
+            </span>
+        </form>
+
         <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
             <div class="overflow-x-auto">
                 <table class="w-full text-sm text-left">
@@ -52,6 +93,9 @@
                             <td colspan="5" class="px-6 py-12 text-center text-gray-400 text-sm">
                                 <i data-lucide="book-open" class="w-8 h-8 mx-auto mb-2 opacity-30"></i>
                                 <p>No active vocabulary entries yet.</p>
+                                @if($search || $audioFilter || $categoryFilter)
+                                    <a href="{{ route('teacher.vocabulary') }}" class="text-[#2f5597] hover:underline mt-1 inline-block">Clear filters</a>
+                                @endif
                             </td>
                         </tr>
                         @endforelse
@@ -115,9 +159,8 @@
                     <select name="category" required
                             class="w-full px-4 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-[#2f5597] outline-none bg-white {{ $errors->has('category') ? 'border-red-400' : 'border-gray-200' }}">
                         <option value="">Select a category...</option>
-                        @foreach(['Classroom','Household','Food & Drinks','Animals','Body Parts','Nature','Clothing','Community'] as $cat)
-                            <option value="{{ $cat }}" {{ old('category') === $cat ? 'selected' : '' }}>{{ $cat }}</option>
-                        @endforeach
+                        <option value="CVC" {{ old('category') === 'CVC' ? 'selected' : '' }}>CVC</option>
+                        <option value="Multi-Syllabic" {{ old('category') === 'Multi-Syllabic' ? 'selected' : '' }}>Multi-Syllabic</option>
                     </select>
                 </div>
 

@@ -68,7 +68,7 @@ class AnnotationsController extends Controller
         ]);
 
         $annotatedStudent = Student::find($request->student_id);
-        self::log('create', "Teacher added annotation for student: " . ($annotatedStudent?->name ?? 'Unknown'));
+        self::log('create', "added annotation for student " . ($annotatedStudent?->name ?? 'Unknown'));
 
         return back()->with('success', 'Annotation saved.');
     }

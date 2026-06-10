@@ -43,6 +43,7 @@ class TeacherController extends Controller
                 'teachers.id',
                 'teachers.user_id',
                 'teachers.status',
+                'teachers.profile_picture',
                 'class_lists.id as class_list_id',
                 'class_lists.class_name',
                 'class_lists.subject',
@@ -83,6 +84,7 @@ class TeacherController extends Controller
                 'unified_classroom_pin' => $firstRow->unified_classroom_pin,
                 'all_classes'           => $allClasses,
                 'status'                => $firstRow->status ?? 'Active',
+                'profile_picture'       => $firstRow->profile_picture ?? null,
             ];
         }
 
@@ -110,9 +112,10 @@ class TeacherController extends Controller
                 $pr = $parentRecords->get($user->id);
                 $pid = $pr ? $pr->id : null;
                 $extraData[$user->id] = [
-                    'children' => ($pid && $childrenByParent->has($pid))
+                    'children'        => ($pid && $childrenByParent->has($pid))
                         ? $childrenByParent->get($pid)
                         : collect(),
+                    'profile_picture' => $pr ? ($pr->profile_picture ?? null) : null,
                 ];
             }
         }
@@ -121,15 +124,23 @@ class TeacherController extends Controller
         $students    = Student::active()->with(['parentUser', 'classList.teacher'])
             ->paginate(15, ['*'], 'student_page')
             ->appends(['tab' => 'students']);
-        $parentsList = ParentUser::orderBy('name')->get();
-        $classLists  = ClassList::active()->with('teacher')->orderBy('class_name')->get();
+        $parentsList      = ParentUser::orderBy('name')->get();
+        $classLists       = ClassList::active()->with('teacher')->orderBy('class_name')->get();
+        $archivedStudents = Student::archived()->with(['parentUser', 'classList.teacher'])->get();
+
+        $admins = DB::table('administrators')
+            ->join('users', 'administrators.user_id', '=', 'users.id')
+            ->select('administrators.id', 'administrators.name', 'administrators.profile_picture', 'users.email')
+            ->orderBy('administrators.id')
+            ->get();
 
         $activeTab = 'teacher';
 
         return view('admin.users', compact(
             'users', 'activeTab', 'search', 'extraData', 'studentCountsByUser', 'classListsByUser',
             'parentUsers', 'parentSearch',
-            'students', 'parentsList', 'classLists'
+            'students', 'archivedStudents', 'parentsList', 'classLists',
+            'admins'
         ));
     }
 
@@ -164,7 +175,7 @@ class TeacherController extends Controller
             'unified_classroom_pin' => null,
         ]);
 
-        self::log('create', "Created teacher account for {$user->name} ({$user->email})");
+        self::log('create', "created teacher account for {$user->name}");
 
         // Generate a one-time activation token and build the activation link.
         $token = Str::random(64);
@@ -211,7 +222,7 @@ class TeacherController extends Controller
             Log::error("Failed to resend teacher activation email to {$teacher->email}: {$e->getMessage()}");
         }
 
-        self::log('update', "Resent activation email to {$teacher->name} ({$teacher->email})");
+        self::log('update', "resent activation email to teacher {$teacher->name}");
 
         return redirect()->route('admin.teachers.index')
             ->with('success', "Activation email resent to {$teacher->email}.");
@@ -244,7 +255,7 @@ class TeacherController extends Controller
                 ->update(['class_name' => $validated['class_name']]);
         }
 
-        self::log('update', "Admin updated teacher: {$validated['name']}");
+        self::log('update', "updated teacher {$validated['name']}");
 
         return redirect()->route('admin.teachers.index')
             ->with('success', "Teacher \"{$teacher->name}\" updated successfully.");
@@ -273,7 +284,7 @@ class TeacherController extends Controller
         $name = $teacher->name;
         $teacher->delete();
 
-        self::log('delete', "Admin deleted teacher: {$name}");
+        self::log('delete', "deleted teacher {$name}");
 
         return redirect()->route('admin.teachers.index')
             ->with('success', "Teacher account for \"{$name}\" has been deleted.");

@@ -65,8 +65,9 @@
 
             {{-- Header --}}
             @php
-                $teacherDisplayName = \App\Models\Teacher::where('user_id', auth()->id())->value('name')
-                    ?? auth()->user()->name;
+                $teacherRecord      = \App\Models\Teacher::where('user_id', auth()->id())->first();
+                $teacherDisplayName = $teacherRecord?->name ?? auth()->user()->name;
+                $teacherProfilePic  = $teacherRecord?->profile_picture;
             @endphp
             <header class="flex items-center justify-between h-16 px-6 border-b bg-white shrink-0">
                 <div>
@@ -148,8 +149,12 @@
                     <div class="relative pl-4 border-l border-gray-200" id="teacher-profile-container">
                         <button onclick="toggleTeacherProfile(event)"
                                 class="flex items-center gap-2.5 hover:opacity-80 transition-opacity cursor-pointer">
-                            <div class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
-                                <i data-lucide="user" class="w-4 h-4 text-gray-500"></i>
+                            <div class="w-8 h-8 rounded-full overflow-hidden bg-gray-100 flex items-center justify-center shrink-0">
+                                @if($teacherProfilePic)
+                                    <img src="{{ $teacherProfilePic }}" alt="" style="width:100%;height:100%;object-fit:cover;">
+                                @else
+                                    <i data-lucide="user" class="w-4 h-4 text-gray-500"></i>
+                                @endif
                             </div>
                             <span class="text-sm font-medium text-gray-700 hidden sm:block">{{ $teacherDisplayName }}</span>
                             <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-gray-400 hidden sm:block"></i>
