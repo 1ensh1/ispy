@@ -3,14 +3,16 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\ActivityLog;
 use App\Models\Teacher;
 use App\Models\Ticket;
+use App\Traits\LogsActivity;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class TicketController extends Controller
 {
+    use LogsActivity;
+
     public function index(Request $request)
     {
         $tickets = Ticket::with('createdByUser')
@@ -60,13 +62,7 @@ class TicketController extends Controller
             'created_at'        => now(),
         ]);
 
-        ActivityLog::create([
-            'user_id'     => $admin->id,
-            'role'        => 'Admin',
-            'action'      => 'Ticket',
-            'description' => "Admin {$admin->name} created ticket '{$ticket->title}' on behalf of Teacher {$teacher->name}",
-            'created_at'  => now(),
-        ]);
+        self::log('Ticket', "created ticket #{$ticket->id}: {$ticket->title} on behalf of teacher {$teacher->name}");
 
         return back()->with('success', 'Ticket created successfully.');
     }
@@ -99,14 +95,12 @@ class TicketController extends Controller
             }
         }
 
-        $admin = auth()->user();
-        ActivityLog::create([
-            'user_id'     => $admin->id,
-            'role'        => 'Admin',
-            'action'      => 'Ticket',
-            'description' => "Admin {$admin->name} updated ticket '{$ticket->title}' to status {$request->status}",
-            'created_at'  => now(),
-        ]);
+        $statusPhrase = match ($request->status) {
+            'Resolved' => "resolved ticket #{$ticket->id}: {$ticket->title}",
+            'Closed'   => "closed ticket #{$ticket->id}: {$ticket->title}",
+            default    => "updated ticket #{$ticket->id}: {$ticket->title} to status {$request->status}",
+        };
+        self::log('Ticket', $statusPhrase);
 
         return response()->json(['success' => true]);
     }

@@ -58,11 +58,36 @@ class TeacherDashboardController extends Controller
         return view('teacher.students', compact('teacher', 'classList', 'students'));
     }
 
-    public function vocabulary()
+    public function vocabulary(Request $request)
     {
         $teacher = Teacher::where('user_id', auth()->id())->first();
 
-        $words = VocabularyLibrary::where('is_active', true)->paginate(15);
+        $search         = $request->query('search');
+        $categoryFilter = $request->query('category');
+        $audioFilter    = $request->query('audio_status');
+
+        $query = VocabularyLibrary::where('is_active', true);
+
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('english_label', 'ilike', "%{$search}%")
+                  ->orWhere('filipino_label', 'ilike', "%{$search}%");
+            });
+        }
+
+        if ($categoryFilter && in_array($categoryFilter, ['CVC', 'Multi-Syllabic'])) {
+            $query->where('category', $categoryFilter);
+        }
+
+        if ($audioFilter && in_array($audioFilter, ['Complete', 'Partial', 'Missing'])) {
+            $query->where('audio_status', $audioFilter);
+        }
+
+        $words = $query->orderBy('english_label')->paginate(15)->appends(array_filter([
+            'search'       => $search,
+            'category'     => $categoryFilter,
+            'audio_status' => $audioFilter,
+        ], fn($v) => $v !== null && $v !== ''));
 
         $suggestions = $teacher
             ? VocabularySuggestion::where('teacher_id', $teacher->id)
@@ -70,7 +95,7 @@ class TeacherDashboardController extends Controller
                 ->get()
             : collect();
 
-        return view('teacher.vocabulary', compact('teacher', 'words', 'suggestions'));
+        return view('teacher.vocabulary', compact('teacher', 'words', 'suggestions', 'search', 'categoryFilter', 'audioFilter'));
     }
 
     public function suggest(Request $request)
@@ -138,7 +163,7 @@ class TeacherDashboardController extends Controller
             ]);
         }
 
-        self::log('create', "Teacher submitted vocabulary suggestion: {$validated['english_label']}");
+        self::log('create', "submitted vocabulary suggestion '{$validated['english_label']}'");
 
         return back()->with('success', 'Word suggestion submitted successfully!');
     }
@@ -172,7 +197,7 @@ class TeacherDashboardController extends Controller
             'parent_password' => $validated['parent_password'] ?: \Illuminate\Support\Str::random(8),
         ]);
 
-        self::log('create', "Teacher enrolled student: {$validated['name']}");
+        self::log('create', "enrolled student {$validated['name']}");
 
         $adminUserIds = DB::table('administrators')->pluck('user_id');
         if ($adminUserIds->isEmpty()) {

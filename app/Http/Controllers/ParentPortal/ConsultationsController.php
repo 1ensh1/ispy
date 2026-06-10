@@ -107,7 +107,7 @@ class ConsultationsController extends Controller
             'created_at'        => now(),
         ]);
 
-        self::log('update', 'Parent cancelled consultation booking');
+        self::log('update', 'cancelled consultation booking');
 
         return back()->with('success', 'Booking cancelled successfully.');
     }
@@ -166,7 +166,7 @@ class ConsultationsController extends Controller
             ]);
         }
 
-        self::log('create', "Parent booked consultation with teacher: " . ($teacher?->name ?? 'Unknown'));
+        self::log('create', "booked consultation with teacher " . ($teacher?->name ?? 'Unknown'));
 
         return back()->with('success', 'Consultation booked successfully.');
     }

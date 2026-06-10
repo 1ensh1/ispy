@@ -90,6 +90,7 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
     Route::delete('/teachers/{teacher}', [TeacherController::class, 'destroy'])->name('admin.teachers.destroy');
     Route::get('/teachers/{teacher}/profile', [\App\Http\Controllers\Admin\UserManagementController::class, 'showTeacherProfile'])->name('admin.teachers.profile');
     Route::get('/parents/{user}/profile', [\App\Http\Controllers\Admin\UserManagementController::class, 'showParentProfile'])->name('admin.parents.profile');
+    Route::post('/admins', [\App\Http\Controllers\Admin\UserManagementController::class, 'storeAdmin'])->name('admin.admins.store');
 
     // Vocabulary Suggestions
     Route::get('/vocabulary-suggestions', [VocabularySuggestionsController::class, 'index'])->name('admin.vocabulary-suggestions.index');
@@ -124,7 +125,8 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
     Route::get('/consultations/export', [AdminConsultationController::class, 'export'])->name('admin.consultations.export');
     Route::get('/sync', fn() => view('admin.sync'))->name('admin.sync');
     Route::get('/snapshots', fn() => view('admin.snapshots'))->name('admin.snapshots');
-    Route::get('/activity-logs', [\App\Http\Controllers\Admin\ActivityLogController::class, 'index'])->name('admin.activity.logs');
+    Route::get('/activity-logs',        [\App\Http\Controllers\Admin\ActivityLogController::class, 'index'])->name('admin.activity.logs');
+    Route::get('/activity-logs/export', [\App\Http\Controllers\Admin\ActivityLogController::class, 'export'])->name('admin.activity-logs.export');
 
     // Substitute Management
     Route::post('/substitutes/assign',        [AdminSubstituteController::class, 'assign'])->name('admin.substitutes.assign');
@@ -139,6 +141,7 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
     // Profile & Password
     Route::get('/profile',          [AdminProfileController::class, 'index'])->name('admin.profile');
     Route::post('/profile',         [AdminProfileController::class, 'update'])->name('admin.profile.update');
+    Route::post('/profile/picture', [AdminProfileController::class, 'uploadPicture'])->name('admin.profile.upload-picture');
     Route::get('/password',         [AdminProfileController::class, 'passwordForm'])->name('admin.password');
     Route::post('/password',        [AdminProfileController::class, 'changePassword'])->name('admin.password.change');
 
@@ -209,8 +212,9 @@ Route::prefix('teacher')->middleware(['auth', 'teacher'])->group(function () {
 
     // Profile & Password
     Route::get('/profile',   [TeacherProfileController::class, 'index'])->name('teacher.profile');
-    Route::post('/profile',  [TeacherProfileController::class, 'update'])->name('teacher.profile.update');
-    Route::get('/password',  [TeacherProfileController::class, 'passwordForm'])->name('teacher.password');
+    Route::post('/profile',         [TeacherProfileController::class, 'update'])->name('teacher.profile.update');
+    Route::post('/profile/picture', [TeacherProfileController::class, 'uploadPicture'])->name('teacher.profile.upload-picture');
+    Route::get('/password',         [TeacherProfileController::class, 'passwordForm'])->name('teacher.password');
     Route::post('/password', [TeacherProfileController::class, 'changePassword'])->name('teacher.password.change');
 
     // Notification actions
@@ -256,8 +260,9 @@ Route::prefix('parent')->middleware(['auth', 'parent'])->name('parent.')->group(
 
     // Profile & Portal Password (web login — separate from mobile app password on dashboard)
     Route::get('/profile',   [ParentProfileController::class, 'index'])->name('profile');
-    Route::post('/profile',  [ParentProfileController::class, 'update'])->name('profile.update');
-    Route::get('/password',  [ParentProfileController::class, 'passwordForm'])->name('portal.password');
+    Route::post('/profile',         [ParentProfileController::class, 'update'])->name('profile.update');
+    Route::post('/profile/picture', [ParentProfileController::class, 'uploadPicture'])->name('profile.upload-picture');
+    Route::get('/password',         [ParentProfileController::class, 'passwordForm'])->name('portal.password');
     Route::post('/password', [ParentProfileController::class, 'changePassword'])->name('portal.password.change');
 
     // Notification actions

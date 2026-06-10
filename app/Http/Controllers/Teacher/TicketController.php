@@ -3,15 +3,17 @@
 namespace App\Http\Controllers\Teacher;
 
 use App\Http\Controllers\Controller;
-use App\Models\ActivityLog;
 use App\Models\Teacher;
 use App\Models\Ticket;
 use App\Models\User;
+use App\Traits\LogsActivity;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class TicketController extends Controller
 {
+    use LogsActivity;
+
     public function index(Request $request)
     {
         $userId = auth()->id();
@@ -62,13 +64,7 @@ class TicketController extends Controller
 
         DB::table('notifications')->insert($notifRows);
 
-        ActivityLog::create([
-            'user_id'     => $userId,
-            'role'        => 'Teacher',
-            'action'      => 'Ticket',
-            'description' => "Teacher {$teacher->name} submitted ticket '{$ticket->title}' with priority {$request->priority}",
-            'created_at'  => now(),
-        ]);
+        self::log('Ticket', "submitted ticket #{$ticket->id}: {$ticket->title}");
 
         return back()->with('success', 'Your ticket has been submitted successfully.');
     }

@@ -19,7 +19,7 @@ class ClassController extends Controller
         $classList->unified_classroom_pin = $pin;
         $classList->save();
 
-        self::log('create', "Admin generated PIN for class: {$classList->class_name}");
+        self::log('create', "generated PIN for class '{$classList->class_name}'");
 
         if ($request->filled('teacher_id')) {
             return redirect()->route('admin.teachers.profile', ['teacher' => $request->input('teacher_id')])

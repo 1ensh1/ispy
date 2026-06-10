@@ -3,16 +3,18 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\ActivityLog;
 use App\Models\ClassList;
 use App\Models\ClassSubstitute;
 use App\Models\Teacher;
+use App\Traits\LogsActivity;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 class AdminSubstituteController extends Controller
 {
+    use LogsActivity;
+
     public function assign(Request $request)
     {
         $request->validate([
@@ -43,13 +45,7 @@ class AdminSubstituteController extends Controller
 
         $subTeacher = Teacher::find($request->substitute_teacher_id);
 
-        ActivityLog::create([
-            'user_id'     => Auth::id(),
-            'role'        => 'Admin',
-            'action'      => 'Assign Substitute',
-            'description' => "Assigned {$subTeacher->name} as substitute for class \"{$class->class_name}\" starting {$request->start_date}.",
-            'created_at'  => now(),
-        ]);
+        self::log('Assign Substitute', "assigned substitute teacher {$subTeacher->name} to class {$class->class_name}");
 
         DB::table('notifications')->insert([
             'recipient_id'      => $subTeacher->id,
@@ -77,13 +73,7 @@ class AdminSubstituteController extends Controller
 
         $sub->delete();
 
-        ActivityLog::create([
-            'user_id'     => Auth::id(),
-            'role'        => 'Admin',
-            'action'      => 'Remove Substitute',
-            'description' => "Removed {$teacherName} as substitute for class \"{$className}\".",
-            'created_at'  => now(),
-        ]);
+        self::log('Remove Substitute', "removed substitute teacher {$teacherName} from class {$className}");
 
         DB::table('notifications')->insert([
             'recipient_id'      => $teacherId,

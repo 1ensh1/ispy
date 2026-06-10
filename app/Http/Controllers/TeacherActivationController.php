@@ -37,7 +37,7 @@ class TeacherActivationController extends Controller
             'user_id'     => $teacher->user_id,
             'role'        => 'Teacher',
             'action'      => 'activate',
-            'description' => 'Teacher account activated via email link',
+            'description' => "Teacher {$teacher->name} activated their account via email link",
             'created_at'  => now(),
         ]);
 

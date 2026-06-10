@@ -3,15 +3,17 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\ActivityLog;
 use App\Models\CmsAnnouncement;
 use App\Models\CmsContent;
 use App\Services\SupabaseStorageService;
+use App\Traits\LogsActivity;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 
 class CmsController extends Controller
 {
+    use LogsActivity;
+
     public function index()
     {
         $sections = CmsContent::all()->keyBy('section_key');
@@ -76,13 +78,7 @@ class CmsController extends Controller
         $section->updated_at = now();
         $section->save();
 
-        ActivityLog::create([
-            'user_id'     => auth()->id(),
-            'role'        => 'Admin',
-            'action'      => 'CMS Edit',
-            'description' => "Admin updated CMS section: {$sectionKey}",
-            'created_at'  => now(),
-        ]);
+        self::log('CMS Edit', "updated CMS section '" . ($section->title ?: $sectionKey) . "'");
 
         return response()->json([
             'success' => true,
@@ -119,13 +115,7 @@ class CmsController extends Controller
             'published_at' => $isPublished ? now() : null,
         ]);
 
-        ActivityLog::create([
-            'user_id'     => auth()->id(),
-            'role'        => 'Admin',
-            'action'      => 'CMS Edit',
-            'description' => "Admin created announcement: {$announcement->title}",
-            'created_at'  => now(),
-        ]);
+        self::log('CMS Edit', "created CMS announcement '{$announcement->title}'");
 
         return response()->json([
             'success' => true,
@@ -168,13 +158,7 @@ class CmsController extends Controller
 
         $announcement->save();
 
-        ActivityLog::create([
-            'user_id'     => auth()->id(),
-            'role'        => 'Admin',
-            'action'      => 'CMS Edit',
-            'description' => "Admin updated announcement ID {$id}",
-            'created_at'  => now(),
-        ]);
+        self::log('CMS Edit', "updated CMS announcement '{$announcement->title}'");
 
         return response()->json([
             'success' => true,
@@ -186,13 +170,7 @@ class CmsController extends Controller
         $announcement = CmsAnnouncement::findOrFail($id);
         $announcement->delete();
 
-        ActivityLog::create([
-            'user_id'     => auth()->id(),
-            'role'        => 'Admin',
-            'action'      => 'CMS Edit',
-            'description' => "Admin deleted announcement ID {$id}",
-            'created_at'  => now(),
-        ]);
+        self::log('CMS Edit', "deleted CMS announcement '{$announcement->title}'");
 
         return response()->json([
             'success' => true,

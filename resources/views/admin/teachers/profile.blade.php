@@ -56,11 +56,14 @@
         {{-- ===================== PROFILE CARD ===================== --}}
         <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6 mb-6">
             <div class="flex items-center gap-5">
-                {{-- Initials avatar (no profile_picture in schema) --}}
-                <div class="w-16 h-16 rounded-full bg-[#2f5597] flex items-center justify-center shrink-0">
-                    <span class="text-white text-2xl font-bold select-none">
-                        {{ strtoupper(substr($teacher->name, 0, 1)) }}
-                    </span>
+                <div class="w-16 h-16 rounded-full overflow-hidden bg-[#2f5597] flex items-center justify-center shrink-0">
+                    @if($teacher->profile_picture)
+                        <img src="{{ $teacher->profile_picture }}" alt="" style="width:100%;height:100%;object-fit:cover;">
+                    @else
+                        <span class="text-white text-2xl font-bold select-none">
+                            {{ strtoupper(substr($teacher->name, 0, 1)) }}
+                        </span>
+                    @endif
                 </div>
 
                 <div class="flex-1 min-w-0">

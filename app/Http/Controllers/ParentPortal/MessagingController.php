@@ -80,7 +80,7 @@ class MessagingController extends Controller
             ]);
         }
 
-        self::log('create', 'Parent sent message to teacher');
+        self::log('create', 'sent message to teacher ' . ($teacher?->name ?? 'Unknown'));
 
         return back()->with('success', 'Message sent.');
     }

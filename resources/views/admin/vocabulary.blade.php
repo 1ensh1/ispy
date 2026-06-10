@@ -140,7 +140,6 @@
                             <th class="px-6 py-4 font-medium">Filipino</th>
                             <th class="px-6 py-4 font-medium">English</th>
                             <th class="px-6 py-4 font-medium">Image</th>
-                            <th class="px-6 py-4 font-medium">Difficulty</th>
                             <th class="px-6 py-4 font-medium">Category</th>
                             <th class="px-6 py-4 font-medium">Audio</th>
                             <th class="px-6 py-4 font-medium">Status</th>
@@ -167,13 +166,12 @@
                                 @endif
                             </td>
                             <td class="px-6 py-4">
-                                @if($word->complexity_level == 1)
+                                @if($word->category === 'CVC')
                                     <span class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#2f5597] text-white">CVC</span>
                                 @else
-                                    <span class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-teal-500 text-white">Multi-syllabic</span>
+                                    <span class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-teal-500 text-white">Multi-Syllabic</span>
                                 @endif
                             </td>
-                            <td class="px-6 py-4 text-gray-500">{{ $word->category }}</td>
                             <td class="px-6 py-4 audio-cell">
                                 @if($word->audio_status === 'Complete')
                                     <span class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-teal-100 text-teal-700 border border-teal-200">Complete</span>
@@ -238,7 +236,7 @@
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="8" class="px-6 py-12 text-center text-gray-400 text-sm">
+                            <td colspan="7" class="px-6 py-12 text-center text-gray-400 text-sm">
                                 <i data-lucide="book-open" class="w-8 h-8 mx-auto mb-2 opacity-30"></i>
                                 <p>No vocabulary entries found.</p>
                                 @if($search || $audioFilter || $categoryFilter || $activeFilter)

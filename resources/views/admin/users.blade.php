@@ -1,6 +1,7 @@
 <x-app-layout>
     <div x-data="{
             activeTab: @js(request()->query('tab', 'teachers')),
+            showArchived: false,
 
             teacherCreateOpen: {{ ($errors->any() && request()->query('tab', 'teachers') === 'teachers') ? 'true' : 'false' }},
             teacherEditOpen: false,
@@ -15,18 +16,22 @@
             getAddLabel() {
                 if (this.activeTab === 'teachers') return 'Add Teacher';
                 if (this.activeTab === 'parents')  return 'Add Parent';
+                if (this.activeTab === 'admins')   return 'Add Admin';
                 return 'Add Student';
             },
             handleAdd() {
                 if (this.activeTab === 'teachers') { this.teacherCreateOpen = true; return; }
                 if (this.activeTab === 'parents')  { this.parentCreateOpen  = true; return; }
+                if (this.activeTab === 'admins')   { openAdminCreateModal(); return; }
                 document.getElementById('create-modal').style.display = 'flex';
             },
             switchTab(tab) {
                 this.activeTab = tab;
+                this.showArchived = false;
                 const url = new URL(window.location.href);
                 url.searchParams.set('tab', tab);
                 history.replaceState({}, '', url.toString());
+                this.$nextTick(() => { if (typeof lucide !== 'undefined') lucide.createIcons(); });
             }
          }" class="p-6 max-w-7xl mx-auto relative">
 
@@ -96,11 +101,14 @@
                 <h1 class="text-3xl font-bold text-gray-900 mb-1">User Management</h1>
                 <p class="text-sm text-gray-500">Manage faculty, parent, and student accounts</p>
             </div>
-            <button @click="handleAdd()"
-                    class="bg-[#2f5597] hover:bg-blue-800 text-white px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 transition-colors">
-                <i data-lucide="user-plus" class="w-4 h-4 shrink-0"></i>
-                <span x-text="getAddLabel()"></span>
-            </button>
+            <div style="display:flex;align-items:center;gap:0.5rem;">
+                <button x-show="activeTab === 'teachers' || activeTab === 'admins'"
+                        @click="handleAdd()"
+                        class="bg-[#2f5597] hover:bg-blue-800 text-white px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 transition-colors">
+                    <i data-lucide="user-plus" class="w-4 h-4 shrink-0"></i>
+                    <span x-text="getAddLabel()"></span>
+                </button>
+            </div>
         </div>
 
         {{-- ===== TEACHER CREATE MODAL ===== --}}
@@ -420,8 +428,56 @@
             </div>
         </div>
 
+        {{-- ===== ADMIN CREATE MODAL (vanilla JS) ===== --}}
+        <div id="admin-create-modal"
+             style="display:none;"
+             class="fixed inset-0 z-50 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+            <div class="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
+                <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50">
+                    <h3 class="text-lg font-bold text-gray-900">Add New Admin</h3>
+                    <button onclick="closeAdminCreateModal()" class="text-gray-400 hover:text-gray-600 transition-colors">
+                        <i data-lucide="x" class="w-5 h-5"></i>
+                    </button>
+                </div>
+                <form method="POST" action="{{ route('admin.admins.store') }}" class="p-6 space-y-4">
+                    @csrf
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Full Name <span class="text-red-500">*</span></label>
+                        <input type="text" name="name" value="{{ old('name') }}" required maxlength="255"
+                               class="w-full px-4 py-2 border {{ $errors->getBag('admin')->has('name') ? 'border-red-400' : 'border-gray-200' }} rounded-lg text-sm focus:ring-2 focus:ring-[#2f5597] outline-none">
+                        @if($errors->getBag('admin')->has('name'))
+                            <p class="mt-1 text-xs text-red-600">{{ $errors->getBag('admin')->first('name') }}</p>
+                        @endif
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Email Address <span class="text-red-500">*</span></label>
+                        <input type="email" name="email" value="{{ old('email') }}" required maxlength="255"
+                               class="w-full px-4 py-2 border {{ $errors->getBag('admin')->has('email') ? 'border-red-400' : 'border-gray-200' }} rounded-lg text-sm focus:ring-2 focus:ring-[#2f5597] outline-none">
+                        @if($errors->getBag('admin')->has('email'))
+                            <p class="mt-1 text-xs text-red-600">{{ $errors->getBag('admin')->first('email') }}</p>
+                        @endif
+                    </div>
+                    <div class="flex items-start gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+                        <i data-lucide="info" class="w-4 h-4 text-blue-600 shrink-0 mt-0.5"></i>
+                        <p class="text-xs text-blue-700">A 10-character temporary password will be auto-generated and emailed to the new admin. The account is immediately active — no activation step required.</p>
+                    </div>
+                    <div class="pt-2 flex gap-3 justify-end">
+                        <button type="button" onclick="closeAdminCreateModal()"
+                                class="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">Cancel</button>
+                        <button type="submit"
+                                class="px-4 py-2 text-sm font-medium text-white bg-[#2f5597] hover:bg-blue-800 rounded-lg transition-colors">Create Admin</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
         {{-- Tab navigation --}}
         <div class="flex gap-1 bg-gray-100 p-1 rounded-lg w-fit mb-6">
+            <button @click="switchTab('admins')"
+                    :class="activeTab === 'admins' ? 'bg-indigo-600 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:text-gray-800'"
+                    class="px-4 py-1.5 rounded-md text-sm font-medium transition-all">
+                Admins
+            </button>
             <button @click="switchTab('teachers')"
                     :class="activeTab === 'teachers' ? 'bg-blue-600 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:text-gray-800'"
                     class="px-4 py-1.5 rounded-md text-sm font-medium transition-all">
@@ -474,7 +530,19 @@
                                 <td class="px-6 py-4 text-gray-500 font-mono text-xs">
                                     T-{{ str_pad($user->id, 3, '0', STR_PAD_LEFT) }}
                                 </td>
-                                <td class="px-6 py-4 font-medium text-gray-900">{{ $user->name }}</td>
+                                <td class="px-6 py-4 font-medium text-gray-900">
+                                    @php $tPic = $classListsByUser[$user->id]['profile_picture'] ?? null; @endphp
+                                    <div class="flex items-center gap-2.5">
+                                        @if($tPic)
+                                            <img src="{{ $tPic }}" alt="" class="w-7 h-7 rounded-full object-cover shrink-0">
+                                        @else
+                                            <div class="w-7 h-7 rounded-full bg-[#2f5597]/10 flex items-center justify-center shrink-0">
+                                                <span class="text-[#2f5597] text-xs font-bold">{{ strtoupper(substr($user->name, 0, 1)) }}</span>
+                                            </div>
+                                        @endif
+                                        {{ $user->name }}
+                                    </div>
+                                </td>
                                 <td class="px-6 py-4 text-gray-500">{{ $user->email }}</td>
                                 <td class="px-6 py-4">
                                     @php $cl = $classListsByUser[$user->id] ?? null; @endphp
@@ -613,7 +681,19 @@
                                 <td class="px-6 py-4 text-gray-500 font-mono text-xs">
                                     P-{{ str_pad($user->id, 3, '0', STR_PAD_LEFT) }}
                                 </td>
-                                <td class="px-6 py-4 font-medium text-gray-900">{{ $user->name }}</td>
+                                <td class="px-6 py-4 font-medium text-gray-900">
+                                    @php $pPic = $extraData[$user->id]['profile_picture'] ?? null; @endphp
+                                    <div class="flex items-center gap-2.5">
+                                        @if($pPic)
+                                            <img src="{{ $pPic }}" alt="" class="w-7 h-7 rounded-full object-cover shrink-0">
+                                        @else
+                                            <div class="w-7 h-7 rounded-full bg-green-100 flex items-center justify-center shrink-0">
+                                                <span class="text-green-700 text-xs font-bold">{{ strtoupper(substr($user->name, 0, 1)) }}</span>
+                                            </div>
+                                        @endif
+                                        {{ $user->name }}
+                                    </div>
+                                </td>
                                 @php $children = $extraData[$user->id]['children'] ?? collect(); @endphp
                                 <td class="px-6 py-4 text-gray-500">{{ explode('@', $user->email)[0] }}</td>
                                 <td class="px-6 py-4 text-gray-500">
@@ -685,114 +765,262 @@
         {{-- ===================== STUDENTS TAB PANEL ===================== --}}
         <div x-show="activeTab === 'students'" style="display:none;">
 
-            {{-- Student search --}}
-            <div class="mb-4 relative max-w-md">
-                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <i data-lucide="search" class="w-4 h-4 text-gray-400"></i>
+            {{-- Toolbar: search + archived toggle --}}
+            <div class="mb-4 flex flex-wrap items-center gap-3">
+                <div class="relative flex-1 max-w-md">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <i data-lucide="search" class="w-4 h-4 text-gray-400"></i>
+                    </div>
+                    <input type="text" id="search-students"
+                           placeholder="Search students by name..."
+                           class="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#2f5597] focus:border-transparent outline-none">
                 </div>
-                <input type="text" id="search-students"
-                       placeholder="Search students by name..."
-                       class="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#2f5597] focus:border-transparent outline-none">
+                <button @click="showArchived = !showArchived"
+                        :class="showArchived ? 'bg-amber-100 text-amber-700 border-amber-300' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'"
+                        class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium border rounded-lg transition-colors">
+                    <i data-lucide="archive" class="w-4 h-4"></i>
+                    <span x-text="showArchived ? 'Hide Archived' : 'Show Archived'"></span>
+                </button>
             </div>
 
+            {{-- Active students --}}
+            <div x-show="!showArchived">
+                <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm text-left">
+                            <thead class="bg-gray-50 border-b border-gray-200 text-gray-500">
+                                <tr>
+                                    <th class="px-6 py-4 font-medium">Student</th>
+                                    <th class="px-6 py-4 font-medium">Parent</th>
+                                    <th class="px-6 py-4 font-medium">Class &amp; Teacher</th>
+                                    <th class="px-6 py-4 font-medium">Status</th>
+                                    <th class="px-6 py-4 font-medium text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbody-students" class="divide-y divide-gray-100">
+                                @forelse($students as $student)
+                                <tr class="hover:bg-gray-50 transition-colors" data-name="{{ strtolower($student->name) }}">
+                                    <td class="px-6 py-4">
+                                        <div class="flex items-center gap-3">
+                                            @php $iconEmoji = ['cat'=>'🐱','dog'=>'🐶','bear'=>'🐻','rabbit'=>'🐰','fox'=>'🦊','frog'=>'🐸','penguin'=>'🐧','lion'=>'🦁']; @endphp
+                                            @if($student->profile_icon && isset($iconEmoji[$student->profile_icon]))
+                                                <div class="w-8 h-8 rounded-full bg-[#2f5597]/10 flex items-center justify-center shrink-0 text-lg leading-none">
+                                                    {{ $iconEmoji[$student->profile_icon] }}
+                                                </div>
+                                            @else
+                                                <div class="w-8 h-8 rounded-full bg-[#2f5597]/10 flex items-center justify-center shrink-0">
+                                                    <span class="text-[#2f5597] text-xs font-bold">{{ strtoupper(substr($student->name, 0, 1)) }}</span>
+                                                </div>
+                                            @endif
+                                            <span class="font-medium text-gray-900">{{ $student->name }}</span>
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        @if($student->parentUser)
+                                            <span class="text-gray-700">{{ $student->parentUser->name }}</span>
+                                        @else
+                                            <span class="px-2.5 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700 border border-yellow-200">Unassigned</span>
+                                        @endif
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        @if($student->classList)
+                                            <div class="text-gray-700">{{ $student->classList->class_name }}</div>
+                                            @if($student->classList->teacher)
+                                                <div class="text-xs text-gray-400 mt-0.5">{{ $student->classList->teacher->name }}</div>
+                                            @endif
+                                        @else
+                                            <span class="px-2.5 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700 border border-yellow-200">Unassigned</span>
+                                        @endif
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        @if($student->parentUser && $student->classList)
+                                            <span class="px-3 py-1 rounded-full text-[11px] font-medium bg-teal-500 text-white tracking-wide">Complete</span>
+                                        @else
+                                            <span class="px-3 py-1 rounded-full text-[11px] font-medium bg-red-100 text-red-600 border border-red-200 tracking-wide">Incomplete</span>
+                                        @endif
+                                    </td>
+                                    <td class="px-6 py-4 text-right">
+                                        <div class="flex items-center justify-end gap-3">
+                                        <a href="{{ route('admin.students.profile', $student->id) }}" class="text-gray-400 hover:text-blue-600 transition-colors" title="View Profile">
+                                            <i data-lucide="eye" class="w-4 h-4"></i>
+                                        </a>
+                                        <button onclick="openAssignModal(
+                                                    {{ $student->id }},
+                                                    @js($student->name),
+                                                    {{ $student->parent_id ?? 'null' }},
+                                                    {{ $student->class_list_id ?? 'null' }},
+                                                    @js($student->profile_icon ?? 'cat'),
+                                                    @js($student->parent_password ?? '')
+                                                )"
+                                                class="text-sm px-3 py-1.5 rounded-md border border-gray-200 text-gray-600 hover:bg-gray-100 transition-colors inline-flex items-center gap-1.5">
+                                            <i data-lucide="{{ $student->parentUser && $student->classList ? 'pencil' : 'link' }}" class="w-3.5 h-3.5"></i>
+                                            {{ $student->parentUser && $student->classList ? 'Edit' : 'Assign' }}
+                                        </button>
+                                        <form method="POST" action="{{ route('admin.students.archive', $student->id) }}"
+                                              class="inline-block"
+                                              onsubmit="return confirm('Archive student \'{{ addslashes($student->name) }}\'? They will be hidden from active lists.')">
+                                            @csrf
+                                            <button type="submit" class="text-gray-400 hover:text-yellow-600 transition-colors" title="Archive student">
+                                                <i data-lucide="archive" class="w-4 h-4"></i>
+                                            </button>
+                                        </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                                @empty
+                                <tr>
+                                    <td colspan="5" class="px-6 py-12 text-center text-gray-400">
+                                        <i data-lucide="users" class="w-8 h-8 mx-auto mb-2 opacity-40"></i>
+                                        <p class="text-sm">No students yet. Click "Add Student" to create one.</p>
+                                    </td>
+                                </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                    @if($students->hasPages())
+                    <div class="px-6 py-4 border-t border-gray-200 bg-gray-50">
+                        {{ $students->links() }}
+                    </div>
+                    @endif
+                </div>
+            </div>
+
+            {{-- Archived students --}}
+            <div x-show="showArchived" style="display:none;">
+                <div class="mb-4">
+                    <a href="#" @click.prevent="showArchived = false"
+                       class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 border border-gray-300 rounded-full hover:bg-gray-50 transition-colors">
+                        <svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 011.06.02z" clip-rule="evenodd" />
+                        </svg>
+                        Back to Active
+                    </a>
+                </div>
+                <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm text-left">
+                            <thead class="bg-gray-50 border-b border-gray-200 text-gray-500">
+                                <tr>
+                                    <th class="px-6 py-4 font-medium">Student</th>
+                                    <th class="px-6 py-4 font-medium">Parent</th>
+                                    <th class="px-6 py-4 font-medium">Class &amp; Teacher</th>
+                                    <th class="px-6 py-4 font-medium">Archived</th>
+                                    <th class="px-6 py-4 font-medium text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100">
+                                @forelse($archivedStudents as $student)
+                                <tr class="hover:bg-gray-50 transition-colors">
+                                    <td class="px-6 py-4">
+                                        <div class="flex items-center gap-3">
+                                            @php $iconEmoji = ['cat'=>'🐱','dog'=>'🐶','bear'=>'🐻','rabbit'=>'🐰','fox'=>'🦊','frog'=>'🐸','penguin'=>'🐧','lion'=>'🦁']; @endphp
+                                            @if($student->profile_icon && isset($iconEmoji[$student->profile_icon]))
+                                                <div class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center shrink-0 text-lg leading-none">
+                                                    {{ $iconEmoji[$student->profile_icon] }}
+                                                </div>
+                                            @else
+                                                <div class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
+                                                    <span class="text-gray-400 text-xs font-bold">{{ strtoupper(substr($student->name, 0, 1)) }}</span>
+                                                </div>
+                                            @endif
+                                            <span class="font-medium text-gray-600">{{ $student->name }}</span>
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4 text-gray-500">
+                                        {{ $student->parentUser?->name ?? '—' }}
+                                    </td>
+                                    <td class="px-6 py-4 text-gray-500">
+                                        @if($student->classList)
+                                            <div>{{ $student->classList->class_name }}</div>
+                                            @if($student->classList->teacher)
+                                                <div class="text-xs text-gray-400 mt-0.5">{{ $student->classList->teacher->name }}</div>
+                                            @endif
+                                        @else
+                                            <span class="text-gray-400">—</span>
+                                        @endif
+                                    </td>
+                                    <td class="px-6 py-4 text-gray-400 text-xs">
+                                        {{ $student->archived_at?->format('M j, Y') ?? '—' }}
+                                    </td>
+                                    <td class="px-6 py-4 text-right">
+                                        <form method="POST" action="{{ route('admin.students.restore', $student->id) }}"
+                                              onsubmit="return confirm('Restore student \'{{ addslashes($student->name) }}\'?')">
+                                            @csrf
+                                            <button type="submit" class="text-sm px-3 py-1.5 rounded-md border border-gray-200 text-gray-600 hover:bg-gray-100 transition-colors inline-flex items-center gap-1.5">
+                                                <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+                                                Restore
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                @empty
+                                <tr>
+                                    <td colspan="5" class="px-6 py-12 text-center text-gray-400">
+                                        <i data-lucide="archive" class="w-8 h-8 mx-auto mb-2 opacity-40"></i>
+                                        <p class="text-sm">No archived students.</p>
+                                    </td>
+                                </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        {{-- ===================== ADMINS TAB PANEL ===================== --}}
+        <div x-show="activeTab === 'admins'" style="display:none;">
             <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                 <div class="overflow-x-auto">
                     <table class="w-full text-sm text-left">
                         <thead class="bg-gray-50 border-b border-gray-200 text-gray-500">
                             <tr>
-                                <th class="px-6 py-4 font-medium">Student</th>
-                                <th class="px-6 py-4 font-medium">Parent</th>
-                                <th class="px-6 py-4 font-medium">Class &amp; Teacher</th>
-                                <th class="px-6 py-4 font-medium">Status</th>
+                                <th class="px-6 py-4 font-medium w-24">ID</th>
+                                <th class="px-6 py-4 font-medium">Name</th>
+                                <th class="px-6 py-4 font-medium">Email</th>
                                 <th class="px-6 py-4 font-medium text-right">Actions</th>
                             </tr>
                         </thead>
-                        <tbody id="tbody-students" class="divide-y divide-gray-100">
-                            @forelse($students as $student)
-                            <tr class="hover:bg-gray-50 transition-colors" data-name="{{ strtolower($student->name) }}">
-                                <td class="px-6 py-4">
-                                    <div class="flex items-center gap-3">
-                                        @php $iconEmoji = ['cat'=>'🐱','dog'=>'🐶','bear'=>'🐻','rabbit'=>'🐰','fox'=>'🦊','frog'=>'🐸','penguin'=>'🐧','lion'=>'🦁']; @endphp
-                                        @if($student->profile_icon && isset($iconEmoji[$student->profile_icon]))
-                                            <div class="w-8 h-8 rounded-full bg-[#2f5597]/10 flex items-center justify-center shrink-0 text-lg leading-none">
-                                                {{ $iconEmoji[$student->profile_icon] }}
-                                            </div>
+                        <tbody class="divide-y divide-gray-100">
+                            @forelse($admins as $admin)
+                            <tr class="hover:bg-gray-50 transition-colors">
+                                <td class="px-6 py-4 text-gray-500 font-mono text-xs">
+                                    A-{{ str_pad($admin->id, 3, '0', STR_PAD_LEFT) }}
+                                </td>
+                                <td class="px-6 py-4 font-medium text-gray-900">
+                                    <div class="flex items-center gap-2.5">
+                                        @if($admin->profile_picture)
+                                            <img src="{{ $admin->profile_picture }}" alt="" class="w-7 h-7 rounded-full object-cover shrink-0">
                                         @else
-                                            <div class="w-8 h-8 rounded-full bg-[#2f5597]/10 flex items-center justify-center shrink-0">
-                                                <span class="text-[#2f5597] text-xs font-bold">{{ strtoupper(substr($student->name, 0, 1)) }}</span>
+                                            <div class="w-7 h-7 rounded-full bg-[#2f5597]/10 flex items-center justify-center shrink-0">
+                                                <span class="text-[#2f5597] text-xs font-bold">{{ strtoupper(substr($admin->name, 0, 1)) }}</span>
                                             </div>
                                         @endif
-                                        <span class="font-medium text-gray-900">{{ $student->name }}</span>
+                                        {{ $admin->name }}
                                     </div>
                                 </td>
-                                <td class="px-6 py-4">
-                                    @if($student->parentUser)
-                                        <span class="text-gray-700">{{ $student->parentUser->name }}</span>
-                                    @else
-                                        <span class="px-2.5 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700 border border-yellow-200">Unassigned</span>
-                                    @endif
-                                </td>
-                                <td class="px-6 py-4">
-                                    @if($student->classList)
-                                        <div class="text-gray-700">{{ $student->classList->class_name }}</div>
-                                        @if($student->classList->teacher)
-                                            <div class="text-xs text-gray-400 mt-0.5">{{ $student->classList->teacher->name }}</div>
-                                        @endif
-                                    @else
-                                        <span class="px-2.5 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700 border border-yellow-200">Unassigned</span>
-                                    @endif
-                                </td>
-                                <td class="px-6 py-4">
-                                    @if($student->parentUser && $student->classList)
-                                        <span class="px-3 py-1 rounded-full text-[11px] font-medium bg-teal-500 text-white tracking-wide">Complete</span>
-                                    @else
-                                        <span class="px-3 py-1 rounded-full text-[11px] font-medium bg-red-100 text-red-600 border border-red-200 tracking-wide">Incomplete</span>
-                                    @endif
-                                </td>
+                                <td class="px-6 py-4 text-gray-500">{{ $admin->email }}</td>
                                 <td class="px-6 py-4 text-right">
                                     <div class="flex items-center justify-end gap-3">
-                                    <a href="{{ route('admin.students.profile', $student->id) }}" class="text-gray-400 hover:text-blue-600 transition-colors" title="View Profile">
-                                        <i data-lucide="eye" class="w-4 h-4"></i>
-                                    </a>
-                                    <button onclick="openAssignModal(
-                                                {{ $student->id }},
-                                                @js($student->name),
-                                                {{ $student->parent_id ?? 'null' }},
-                                                {{ $student->class_list_id ?? 'null' }},
-                                                @js($student->profile_icon ?? 'cat'),
-                                                @js($student->parent_password ?? '')
-                                            )"
-                                            class="text-sm px-3 py-1.5 rounded-md border border-gray-200 text-gray-600 hover:bg-gray-100 transition-colors inline-flex items-center gap-1.5">
-                                        <i data-lucide="{{ $student->parentUser && $student->classList ? 'pencil' : 'link' }}" class="w-3.5 h-3.5"></i>
-                                        {{ $student->parentUser && $student->classList ? 'Edit' : 'Assign' }}
-                                    </button>
-                                    <form method="POST" action="{{ route('admin.students.archive', $student->id) }}"
-                                          class="inline-block"
-                                          onsubmit="return confirm('Archive student \'{{ addslashes($student->name) }}\'? They will be hidden from active lists.')">
-                                        @csrf
-                                        <button type="submit" class="text-gray-400 hover:text-yellow-600 transition-colors" title="Archive student">
-                                            <i data-lucide="archive" class="w-4 h-4"></i>
-                                        </button>
-                                    </form>
+                                        <a href="#" class="text-gray-400 hover:text-blue-600 transition-colors" title="Profile view coming soon">
+                                            <i data-lucide="eye" class="w-4 h-4"></i>
+                                        </a>
                                     </div>
                                 </td>
                             </tr>
                             @empty
                             <tr>
-                                <td colspan="5" class="px-6 py-12 text-center text-gray-400">
-                                    <i data-lucide="users" class="w-8 h-8 mx-auto mb-2 opacity-40"></i>
-                                    <p class="text-sm">No students yet. Click "Add Student" to create one.</p>
+                                <td colspan="4" class="px-6 py-12 text-center text-gray-400">
+                                    <i data-lucide="shield" class="w-8 h-8 mx-auto mb-2 opacity-40"></i>
+                                    <p class="text-sm">No admin accounts found.</p>
                                 </td>
                             </tr>
                             @endforelse
                         </tbody>
                     </table>
                 </div>
-                @if($students->hasPages())
-                <div class="px-6 py-4 border-t border-gray-200 bg-gray-50">
-                    {{ $students->links() }}
-                </div>
-                @endif
             </div>
         </div>
 
@@ -867,6 +1095,21 @@
         document.getElementById('create-modal').addEventListener('click', function (e) {
             if (e.target === this) closeCreateModal();
         });
+
+        // ---- Admin create modal ----
+        function openAdminCreateModal() {
+            document.getElementById('admin-create-modal').style.display = 'flex';
+        }
+        function closeAdminCreateModal() {
+            document.getElementById('admin-create-modal').style.display = 'none';
+        }
+        document.getElementById('admin-create-modal').addEventListener('click', function (e) {
+            if (e.target === this) closeAdminCreateModal();
+        });
+
+        @if($errors->getBag('admin')->any())
+            document.addEventListener('DOMContentLoaded', function () { openAdminCreateModal(); });
+        @endif
 
         @if($errors->any() && request()->query('tab') === 'students')
             document.addEventListener('DOMContentLoaded', function () { openCreateModal(); });

@@ -54,7 +54,7 @@ class StudentController extends Controller
             'parent_password' => $parentPassword,
         ]);
 
-        self::log('create', "Admin created student: {$validated['name']}");
+        self::log('create', "created student {$validated['name']}");
 
         return redirect()->route('admin.teachers.index', ['tab' => 'students'])
             ->with('new_student_name', $validated['name'])
@@ -102,9 +102,9 @@ class StudentController extends Controller
     {
         $student->update(['archived_at' => now()]);
 
-        self::log('archive', "Admin archived student: {$student->name}");
+        self::log('archive', "archived student {$student->name}");
 
-        return redirect()->route('admin.students')
+        return redirect()->route('admin.teachers.index', ['tab' => 'students'])
             ->with('success', "Student \"{$student->name}\" has been archived.");
     }
 
@@ -119,9 +119,9 @@ class StudentController extends Controller
 
         $student->update(['archived_at' => null]);
 
-        self::log('restore', "Admin restored student: {$student->name}");
+        self::log('restore', "restored student {$student->name}");
 
-        return redirect()->route('admin.students', ['show_archived' => 1])
+        return redirect()->route('admin.teachers.index', ['tab' => 'students'])
             ->with('success', "Student \"{$student->name}\" has been restored.");
     }
 }
