@@ -7,33 +7,27 @@ use App\Models\Teacher;
 use App\Models\Student;
 use App\Models\VocabularyLibrary;
 use App\Models\VocabularySuggestion;
+use App\Traits\LogsActivity;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 class TeacherDashboardController extends Controller
 {
-    private function getTeacherAndClass(): array
-    {
-        $teacher = Teacher::where('user_id', auth()->id())->first();
-        $classList = $teacher
-            ? ClassList::where('teacher_id', $teacher->id)->first()
-            : null;
+    use LogsActivity;
 
-        return [$teacher, $classList];
-    }
-
-    public function index()
+    public function index(Request $request)
     {
-        [$teacher, $classList] = $this->getTeacherAndClass();
+        $teacher   = Teacher::where('user_id', auth()->id())->first();
+        $classList = ClassList::find($request->active_class_id);
 
         $studentCount    = 0;
         $pendingMessages = 0;
         $students        = collect();
 
         if ($classList) {
-            $studentCount = Student::where('class_list_id', $classList->id)->count();
-            $students     = Student::where('class_list_id', $classList->id)
+            $studentCount = Student::active()->where('class_list_id', $classList->id)->count();
+            $students     = Student::active()->where('class_list_id', $classList->id)
                 ->with('parentUser')
                 ->get();
         }
@@ -52,22 +46,56 @@ class TeacherDashboardController extends Controller
         ));
     }
 
-    public function students()
+    public function students(Request $request)
     {
-        [$teacher, $classList] = $this->getTeacherAndClass();
+        $teacher   = Teacher::where('user_id', auth()->id())->first();
+        $classList = ClassList::find($request->active_class_id);
 
-        $students = $classList
-            ? Student::where('class_list_id', $classList->id)->with('parentUser')->get()
-            : collect();
+        $perPage = (int) $request->query('per_page', 10);
+        if (! in_array($perPage, [10, 20, 50], true)) {
+            $perPage = 10;
+        }
 
-        return view('teacher.students', compact('teacher', 'classList', 'students'));
+        $query = $classList
+            ? Student::active()->where('class_list_id', $classList->id)->with('parentUser')
+            : Student::active()->whereNull('id');
+
+        $students = $query->paginate($perPage)->appends(request()->query());
+
+        return view('teacher.students', compact('teacher', 'classList', 'students', 'perPage'));
     }
 
-    public function vocabulary()
+    public function vocabulary(Request $request)
     {
-        [$teacher] = $this->getTeacherAndClass();
+        $teacher = Teacher::where('user_id', auth()->id())->first();
 
-        $words = VocabularyLibrary::where('is_active', true)->paginate(15);
+        $search         = $request->query('search');
+        $categoryFilter = $request->query('category');
+        $audioFilter    = $request->query('audio_status');
+
+        $query = VocabularyLibrary::where('is_active', true);
+
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('english_label', 'ilike', "%{$search}%")
+                  ->orWhere('filipino_label', 'ilike', "%{$search}%");
+            });
+        }
+
+        if ($categoryFilter && in_array($categoryFilter, ['CVC', 'Multi-Syllabic'])) {
+            $query->where('category', $categoryFilter);
+        }
+
+        if ($audioFilter && in_array($audioFilter, ['Complete', 'Partial', 'Missing'])) {
+            $query->where('audio_status', $audioFilter);
+        }
+
+        $perPage = (int) $request->query('per_page', 10);
+        if (! in_array($perPage, [10, 20, 50], true)) {
+            $perPage = 10;
+        }
+
+        $words = $query->orderBy('english_label')->paginate($perPage)->appends(request()->query());
 
         $suggestions = $teacher
             ? VocabularySuggestion::where('teacher_id', $teacher->id)
@@ -75,12 +103,12 @@ class TeacherDashboardController extends Controller
                 ->get()
             : collect();
 
-        return view('teacher.vocabulary', compact('teacher', 'words', 'suggestions'));
+        return view('teacher.vocabulary', compact('teacher', 'words', 'suggestions', 'search', 'categoryFilter', 'audioFilter', 'perPage'));
     }
 
     public function suggest(Request $request)
     {
-        [$teacher] = $this->getTeacherAndClass();
+        $teacher = Teacher::where('user_id', auth()->id())->first();
 
         if (!$teacher) {
             return back()->withErrors(['english_label' => 'Teacher profile not found. Please contact the administrator.']);
@@ -116,23 +144,132 @@ class TeacherDashboardController extends Controller
             'submitted_at'   => now(),
         ]);
 
+        $adminUserIds = DB::table('administrators')->pluck('user_id');
+        if ($adminUserIds->isEmpty()) {
+            $adminUserIds = DB::table('users')->where('role', 'Admin')->pluck('id');
+        }
+
+        $now = now();
+        try {
+            foreach ($adminUserIds as $adminUserId) {
+                DB::table('notifications')->insert([
+                    'recipient_id'      => $adminUserId,
+                    'recipient_role'    => 'Admin',
+                    'notification_type' => 'Suggestion',
+                    'action_url'        => route('admin.vocabulary-suggestions.index'),
+                    'title'             => 'New Vocabulary Suggestion',
+                    'message'           => "{$teacher->name} suggested a new word: \"{$validated['english_label']}\".",
+                    'is_read'           => false,
+                    'created_at'        => $now,
+                ]);
+            }
+        } catch (\Throwable $e) {
+            \Log::error('Failed to insert vocabulary suggestion notification', [
+                'error'       => $e->getMessage(),
+                'teacher_id'  => $teacher->id,
+                'word'        => $validated['english_label'],
+            ]);
+        }
+
+        self::log('create', "submitted vocabulary suggestion '{$validated['english_label']}'");
+
         return back()->with('success', 'Word suggestion submitted successfully!');
     }
 
-    public function enrollment()
+    public function enrollment(Request $request)
     {
-        [$teacher, $classList] = $this->getTeacherAndClass();
+        $teacher    = Teacher::where('user_id', auth()->id())->first();
 
-        $students = $classList
-            ? Student::where('class_list_id', $classList->id)->with('parentUser')->get()
+        // Source the teacher's sections from class_subjects (not class_lists.teacher_id).
+        // Enrollment adds a student to a class, so dedupe by class_list_id; keep the
+        // subjects the teacher handles for that class as a display label.
+        $classLists = $teacher
+            ? \App\Models\ClassSubject::active()
+                ->where('teacher_id', $teacher->id)
+                ->with('classList')
+                ->get()
+                ->filter(fn ($cs) => $cs->classList && is_null($cs->classList->archived_at))
+                ->groupBy('class_list_id')
+                ->map(function ($rows) {
+                    $class = $rows->first()->classList;
+                    return (object) [
+                        'id'         => $class->id,
+                        'class_name' => $class->class_name,
+                        'subjects'   => $rows->pluck('subject')->unique()->values()->all(),
+                    ];
+                })
+                ->sortBy('class_name')
+                ->values()
             : collect();
 
-        return view('teacher.enrollment', compact('teacher', 'classList', 'students'));
+        $classList  = ClassList::find($request->active_class_id);
+
+        $perPage = (int) $request->query('per_page', 10);
+        if (! in_array($perPage, [10, 20, 50], true)) {
+            $perPage = 10;
+        }
+
+        $query = $classList
+            ? Student::active()->where('class_list_id', $classList->id)->with('parentUser', 'classList')
+            : Student::active()->whereNull('id');
+
+        $students = $query->paginate($perPage)->appends(request()->query());
+
+        return view('teacher.enrollment', compact('teacher', 'classLists', 'classList', 'students', 'perPage'));
     }
 
-    public function pin()
+    public function enrollmentStore(Request $request)
     {
-        [$teacher, $classList] = $this->getTeacherAndClass();
+        $teacher = Teacher::where('user_id', auth()->id())->firstOrFail();
+
+        $validated = $request->validate([
+            'name'         => 'required|string|max:255',
+            'profile_icon' => 'nullable|string|in:cat,dog,bear,rabbit,fox,frog,penguin,lion',
+        ]);
+
+        $activeClassId = $request->active_class_id;
+        if ($activeClassId) {
+            $classCount = Student::active()->where('class_list_id', $activeClassId)->count();
+            if ($classCount >= 20) {
+                return back()->withErrors(['class_list_id' => 'This class already has 20 students. No additional students can be enrolled.'])->withInput();
+            }
+        }
+
+        Student::create([
+            'name'            => $validated['name'],
+            'class_list_id'   => $activeClassId,
+            'profile_icon'    => $validated['profile_icon'] ?? 'cat',
+            'parent_password' => \Illuminate\Support\Str::random(8),
+        ]);
+
+        self::log('create', "enrolled student {$validated['name']}");
+
+        $adminUserIds = DB::table('administrators')->pluck('user_id');
+        if ($adminUserIds->isEmpty()) {
+            $adminUserIds = DB::table('users')->where('role', 'Admin')->pluck('id');
+        }
+
+        $now = now();
+        foreach ($adminUserIds as $adminUserId) {
+            DB::table('notifications')->insert([
+                'recipient_id'      => $adminUserId,
+                'recipient_role'    => 'Admin',
+                'notification_type' => 'Milestone',
+                'action_url'        => route('admin.students'),
+                'title'             => 'New Student Added',
+                'message'           => "{$teacher->name} added a new student: \"{$validated['name']}\". Please link a parent account to complete enrollment.",
+                'is_read'           => false,
+                'created_at'        => $now,
+            ]);
+        }
+
+        return back()->with('success', 'Student added to the roster.');
+    }
+
+    public function pin(Request $request)
+    {
+        $teacher   = Teacher::where('user_id', auth()->id())->first();
+        $classList = ClassList::find($request->active_class_id);
 
         return view('teacher.pin', compact('teacher', 'classList'));
     }

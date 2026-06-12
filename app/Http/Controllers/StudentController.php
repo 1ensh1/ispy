@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Traits\LogsActivity;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
@@ -11,25 +12,46 @@ use App\Models\ClassList;
 
 class StudentController extends Controller
 {
-    public function index()
+    use LogsActivity;
+    public function index(Request $request)
     {
-        $students   = Student::with(['parentUser', 'classList.teacher'])->paginate(15);
+        $showArchived = $request->boolean('show_archived');
+
+        $students = $showArchived
+            ? Student::archived()->with(['parentUser', 'classList.teacher'])->paginate(15)
+            : Student::active()->with(['parentUser', 'classList.teacher'])->paginate(15);
+
         $parents    = ParentUser::orderBy('name')->get();
         $classLists = ClassList::with('teacher')->orderBy('class_name')->get();
 
-        return view('admin.students.index', compact('students', 'parents', 'classLists'));
+        return view('admin.students.index', compact('students', 'parents', 'classLists', 'showArchived'));
     }
 
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'name'          => 'required|string|max:255',
-            'profile_icon'  => 'required|string|in:cat,dog,bear,rabbit,fox,frog,penguin,lion',
-            'parent_id'     => 'nullable|exists:parents,id',
-            'class_list_id' => 'nullable|exists:class_lists,id',
+            'name'            => 'required|string|max:255',
+            'profile_icon'    => 'required|string|in:cat,dog,bear,rabbit,fox,frog,penguin,lion',
+            'parent_id'       => 'nullable|exists:parents,id',
+            'class_list_id'   => 'nullable|exists:class_lists,id',
+            'parent_password' => 'nullable|string|max:255',
         ]);
 
-        $parentPassword = Str::random(6);
+        if (!empty($validated['parent_id'])) {
+            $activeCount = Student::active()->where('parent_id', $validated['parent_id'])->count();
+            if ($activeCount >= 10) {
+                return back()->withErrors(['parent_id' => 'This parent already has 10 active students.'])->withInput();
+            }
+        }
+
+        if (!empty($validated['class_list_id'])) {
+            $classCount = Student::active()->where('class_list_id', $validated['class_list_id'])->count();
+            if ($classCount >= 20) {
+                return back()->withErrors(['class_list_id' => 'This class already has 20 students. No additional students can be enrolled.'])->withInput();
+            }
+        }
+
+        $parentPassword = $request->input('parent_password') ?: Str::random(8);
 
         Student::create([
             'name'            => $validated['name'],
@@ -39,7 +61,9 @@ class StudentController extends Controller
             'parent_password' => $parentPassword,
         ]);
 
-        return redirect()->route('admin.students')
+        self::log('create', "created student {$validated['name']}");
+
+        return redirect()->route('admin.teachers.index', ['tab' => 'students'])
             ->with('new_student_name', $validated['name'])
             ->with('new_student_password', $parentPassword);
     }
@@ -47,29 +71,72 @@ class StudentController extends Controller
     public function update(Request $request, Student $student)
     {
         $validated = $request->validate([
-            'parent_id'     => 'nullable|exists:parents,id',
-            'class_list_id' => 'nullable|exists:class_lists,id',
+            'parent_id'       => 'nullable|exists:parents,id',
+            'class_list_id'   => 'nullable|exists:class_lists,id',
+            'profile_icon'    => 'required|string|in:cat,dog,bear,rabbit,fox,frog,penguin,lion',
+            'parent_password' => 'nullable|string|max:255',
         ]);
 
-        $student->update([
-            'parent_id'     => $validated['parent_id']     ?: null,
+        $newParentId = $validated['parent_id'] ?: null;
+
+        if ($newParentId && $newParentId != $student->parent_id) {
+            $activeCount = Student::active()
+                ->where('parent_id', $newParentId)
+                ->where('id', '!=', $student->id)
+                ->count();
+            if ($activeCount >= 10) {
+                return back()->withErrors(['parent_id' => 'This parent already has 10 active students.'])->withInput();
+            }
+        }
+
+        $newClassId = $validated['class_list_id'] ?: null;
+        if ($newClassId && $newClassId != $student->class_list_id) {
+            $classCount = Student::active()->where('class_list_id', $newClassId)->count();
+            if ($classCount >= 20) {
+                return back()->withErrors(['class_list_id' => 'This class already has 20 students. No additional students can be enrolled.'])->withInput();
+            }
+        }
+
+        $updateData = [
+            'parent_id'     => $newParentId,
             'class_list_id' => $validated['class_list_id'] ?: null,
-        ]);
+            'profile_icon'  => $validated['profile_icon'],
+        ];
 
-        return redirect()->route('admin.students')
+        if (!empty($validated['parent_password'])) {
+            $updateData['parent_password'] = $validated['parent_password'];
+        }
+
+        $student->update($updateData);
+
+        return redirect()->route('admin.teachers.index', ['tab' => 'students'])
             ->with('success', "Assignments for \"{$student->name}\" saved successfully.");
     }
 
-    public function destroy(Student $student)
+    public function archive(Student $student)
     {
-        $name = $student->name;
+        $student->update(['archived_at' => now()]);
 
-        DB::table('captured_objects')->where('student_id', $student->id)->delete();
-        DB::table('student_progress')->where('student_id', $student->id)->delete();
-        DB::table('mastery_scores')->where('student_id', $student->id)->delete();
-        $student->delete();
+        self::log('archive', "archived student {$student->name}");
 
-        return redirect()->route('admin.students')
-            ->with('success', "Student \"{$name}\" has been deleted.");
+        return redirect()->route('admin.teachers.index', ['tab' => 'students'])
+            ->with('success', "Student \"{$student->name}\" has been archived.");
+    }
+
+    public function restore(Student $student)
+    {
+        if ($student->parent_id) {
+            $activeCount = Student::active()->where('parent_id', $student->parent_id)->count();
+            if ($activeCount >= 10) {
+                return back()->withErrors(['restore' => 'Cannot restore: this parent already has 10 active students.']);
+            }
+        }
+
+        $student->update(['archived_at' => null]);
+
+        self::log('restore', "restored student {$student->name}");
+
+        return redirect()->route('admin.teachers.index', ['tab' => 'students'])
+            ->with('success', "Student \"{$student->name}\" has been restored.");
     }
 }

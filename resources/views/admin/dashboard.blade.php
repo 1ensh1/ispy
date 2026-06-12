@@ -5,7 +5,7 @@
             <p class="text-sm text-gray-500">System overview and management controls</p>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
             <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
                 <div class="flex items-center justify-between pb-2">
                     <h3 class="text-sm font-medium text-gray-500">Total Users</h3>
@@ -13,37 +13,44 @@
                 </div>
                 <div class="text-2xl font-bold">{{ $totalUsers }}</div>
                 <p class="text-xs text-emerald-600 mt-1 flex items-center gap-1">
-                    <i data-lucide="trending-up" class="w-3 h-3"></i> 12% this month
+                    <i data-lucide="trending-up" class="w-3 h-3"></i> All roles
                 </p>
             </div>
-            
+
             <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
                 <div class="flex items-center justify-between pb-2">
-                    <h3 class="text-sm font-medium text-gray-500">Active Students</h3>
-                    <i data-lucide="graduation-cap" class="w-5 h-5 text-gray-400"></i>
+                    <h3 class="text-sm font-medium text-gray-500">Total Admins</h3>
+                    <i data-lucide="shield-check" class="w-5 h-5 text-purple-400"></i>
                 </div>
-                <div class="text-2xl font-bold">15</div>
-                <p class="text-xs text-gray-500 mt-1">Enrolled</p>
+                <div class="text-2xl font-bold">{{ $totalAdmins }}</div>
+                <p class="text-xs text-gray-500 mt-1">Administrators</p>
             </div>
-            
+
             <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
                 <div class="flex items-center justify-between pb-2">
-                    <h3 class="text-sm font-medium text-gray-500">Vocabulary Items</h3>
-                    <i data-lucide="book-open" class="w-5 h-5 text-gray-400"></i>
+                    <h3 class="text-sm font-medium text-gray-500">Total Teachers</h3>
+                    <i data-lucide="presentation" class="w-5 h-5 text-indigo-400"></i>
                 </div>
-                <div class="text-2xl font-bold">0</div>
-                <p class="text-xs text-emerald-600 mt-1 flex items-center gap-1">
-                    <i data-lucide="trending-up" class="w-3 h-3"></i> 48 new this week
-                </p>
+                <div class="text-2xl font-bold">{{ $teacherCount }}</div>
+                <p class="text-xs text-gray-500 mt-1">Registered teachers</p>
             </div>
-            
+
             <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
                 <div class="flex items-center justify-between pb-2">
-                    <h3 class="text-sm font-medium text-gray-500">System Health</h3>
-                    <i data-lucide="shield" class="w-5 h-5 text-gray-400"></i>
+                    <h3 class="text-sm font-medium text-gray-500">Total Parents</h3>
+                    <i data-lucide="users-round" class="w-5 h-5 text-teal-400"></i>
                 </div>
-                <div class="text-2xl font-bold">98.5%</div>
-                <p class="text-xs text-gray-500 mt-1">All services running</p>
+                <div class="text-2xl font-bold">{{ $parentCount }}</div>
+                <p class="text-xs text-gray-500 mt-1">Registered parents</p>
+            </div>
+
+            <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+                <div class="flex items-center justify-between pb-2">
+                    <h3 class="text-sm font-medium text-gray-500">Total Students</h3>
+                    <i data-lucide="graduation-cap" class="w-5 h-5 text-blue-400"></i>
+                </div>
+                <div class="text-2xl font-bold">{{ $studentCount }}</div>
+                <p class="text-xs text-gray-500 mt-1">Enrolled students</p>
             </div>
         </div>
 
@@ -66,20 +73,26 @@
         <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
             <h3 class="font-semibold mb-4 text-gray-800">Recent Activity</h3>
             <div class="space-y-3">
-                @foreach($recentLogs as $log)
-                <div class="flex items-center justify-between py-3 border-b last:border-0 border-gray-100">
-                    <div class="flex items-center gap-3">
-                        <div class="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center border border-gray-100">
-                            <i data-lucide="activity" class="w-4 h-4 text-gray-500"></i>
+                @if($recentActivity->isEmpty())
+                    <p class="text-sm text-gray-400 py-4 text-center">No recent activity yet.</p>
+                @else
+                    @foreach($recentActivity as $notif)
+                    <div class="flex items-center justify-between py-3 border-b last:border-0 border-gray-100">
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center border border-gray-100">
+                                <i data-lucide="activity" class="w-4 h-4 text-gray-500"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm font-medium text-gray-900">{{ $notif->title }}</p>
+                                <p class="text-xs text-gray-500">{{ $notif->message }}</p>
+                            </div>
                         </div>
-                        <div>
-                            <p class="text-sm font-medium text-gray-900">{{ $log['user'] }}</p>
-                            <p class="text-xs text-gray-500">{{ $log['action'] }}</p>
-                        </div>
+                        <span class="text-xs text-gray-400">
+                            {{ \Carbon\Carbon::parse($notif->created_at)->diffForHumans() }}
+                        </span>
                     </div>
-                    <span class="text-xs text-gray-400">{{ $log['time'] }}</span>
-                </div>
-                @endforeach
+                    @endforeach
+                @endif
             </div>
         </div>
     </div>
@@ -100,7 +113,7 @@
                     labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
                     datasets: [{
                         label: 'Sessions',
-                        data: [42, 58, 35, 67, 52, 18, 12],
+                        data: {!! $weeklyActivityJson !!},
                         backgroundColor: '#1e40af', // Matches hsl(210,60%,38%)
                         borderRadius: 4
                     }]

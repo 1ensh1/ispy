@@ -70,6 +70,21 @@
             </span>
         </div>
 
+        {{-- Show Archived toggle --}}
+        <div class="flex items-center gap-3 mb-4">
+            <a href="{{ $showArchived ? route('admin.students') : route('admin.students', ['show_archived' => 1]) }}"
+               class="inline-flex items-center gap-2 text-sm font-medium px-3 py-1.5 rounded-lg border transition-colors
+                      {{ $showArchived ? 'bg-amber-50 border-amber-300 text-amber-700' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50' }}">
+                <i data-lucide="{{ $showArchived ? 'archive-restore' : 'archive' }}" class="w-4 h-4"></i>
+                {{ $showArchived ? 'Showing Archived Students' : 'Show Archived' }}
+            </a>
+            @if($showArchived)
+                <a href="{{ route('admin.students') }}" class="text-xs text-gray-400 hover:text-gray-600 underline">
+                    Back to Active
+                </a>
+            @endif
+        </div>
+
         {{-- Table --}}
         <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
             <div class="overflow-x-auto">
@@ -152,7 +167,14 @@
 
                             {{-- Status column --}}
                             <td class="px-6 py-4">
-                                @if($student->parentUser && $student->classList)
+                                @if($showArchived)
+                                    <span class="px-3 py-1 rounded-full text-[11px] font-medium bg-amber-100 text-amber-700 border border-amber-200 tracking-wide">
+                                        Archived
+                                    </span>
+                                    @if($student->archived_at)
+                                        <div class="text-[10px] text-gray-400 mt-0.5">{{ $student->archived_at->format('M d, Y') }}</div>
+                                    @endif
+                                @elseif($student->parentUser && $student->classList)
                                     <span class="px-3 py-1 rounded-full text-[11px] font-medium bg-teal-500 text-white tracking-wide">
                                         Complete
                                     </span>
@@ -165,33 +187,54 @@
 
                             {{-- Actions column --}}
                             <td class="px-6 py-4 text-right space-x-2">
-                                <button
-                                    onclick="openAssignModal(
-                                        {{ $student->id }},
-                                        @js($student->name),
-                                        {{ $student->parent_id ?? 'null' }},
-                                        {{ $student->class_list_id ?? 'null' }}
-                                    )"
-                                    class="text-sm px-3 py-1.5 rounded-md border border-gray-200 text-gray-600 hover:bg-gray-100 transition-colors inline-flex items-center gap-1.5">
-                                    <i data-lucide="{{ $student->parentUser && $student->classList ? 'pencil' : 'link' }}" class="w-3.5 h-3.5"></i>
-                                    {{ $student->parentUser && $student->classList ? 'Edit' : 'Assign' }}
-                                </button>
-                                <form method="POST" action="{{ route('admin.students.destroy', $student->id) }}"
-                                      class="inline-block"
-                                      onsubmit="return confirm('Delete student \'{{ addslashes($student->name) }}\'? This cannot be undone.')">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button type="submit" class="text-gray-400 hover:text-red-600 transition-colors">
-                                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                @if($showArchived)
+                                    {{-- Restore button --}}
+                                    <form method="POST" action="{{ route('admin.students.restore', $student->id) }}"
+                                          class="inline-block">
+                                        @csrf
+                                        <button type="submit"
+                                                class="text-sm px-3 py-1.5 rounded-md border border-green-200 text-green-700 hover:bg-green-50 transition-colors inline-flex items-center gap-1.5">
+                                            <i data-lucide="archive-restore" class="w-3.5 h-3.5"></i>
+                                            Restore
+                                        </button>
+                                    </form>
+                                @else
+                                    <button
+                                        onclick="openAssignModal(
+                                            {{ $student->id }},
+                                            @js($student->name),
+                                            {{ $student->parent_id ?? 'null' }},
+                                            {{ $student->class_list_id ?? 'null' }},
+                                            @js($student->profile_icon ?? 'cat'),
+                                            @js($student->parent_password ?? '')
+                                        )"
+                                        class="text-sm px-3 py-1.5 rounded-md border border-gray-200 text-gray-600 hover:bg-gray-100 transition-colors inline-flex items-center gap-1.5">
+                                        <i data-lucide="{{ $student->parentUser && $student->classList ? 'pencil' : 'link' }}" class="w-3.5 h-3.5"></i>
+                                        {{ $student->parentUser && $student->classList ? 'Edit' : 'Assign' }}
                                     </button>
-                                </form>
+                                    {{-- Archive button --}}
+                                    <form method="POST" action="{{ route('admin.students.archive', $student->id) }}"
+                                          class="inline-block"
+                                          onsubmit="return confirm('Archive this student? They will be hidden from active lists.')">
+                                        @csrf
+                                        <button type="submit" class="text-gray-400 hover:text-amber-600 transition-colors" title="Archive">
+                                            <i data-lucide="archive" class="w-4 h-4"></i>
+                                        </button>
+                                    </form>
+                                @endif
                             </td>
                         </tr>
                         @empty
                         <tr>
                             <td colspan="6" class="px-6 py-12 text-center text-gray-400">
-                                <i data-lucide="users" class="w-8 h-8 mx-auto mb-2 opacity-40"></i>
-                                <p class="text-sm">No students yet. Click "Add Student" to create one.</p>
+                                <i data-lucide="{{ $showArchived ? 'archive' : 'users' }}" class="w-8 h-8 mx-auto mb-2 opacity-40"></i>
+                                <p class="text-sm">
+                                    @if($showArchived)
+                                        No archived students.
+                                    @else
+                                        No students yet. Click "Add Student" to create one.
+                                    @endif
+                                </p>
                             </td>
                         </tr>
                         @endforelse
@@ -290,6 +333,21 @@
                     </select>
                 </div>
 
+                {{-- Parent Password --}}
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Parent Password</label>
+                    <div class="flex gap-2">
+                        <input type="text" id="create-parent-password" name="parent_password"
+                               value="{{ old('parent_password') }}"
+                               class="flex-1 px-4 py-2 border border-gray-200 rounded-lg text-sm font-mono focus:ring-2 focus:ring-[#2f5597] outline-none" readonly>
+                        <button type="button" onclick="generateCreatePassword()"
+                                class="px-3 py-2 text-sm font-medium text-white bg-[#2f5597] hover:bg-blue-800 rounded-lg transition-colors whitespace-nowrap">
+                            🔄 Regenerate
+                        </button>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-1">Given to the parent for the mobile app. Stored as plain text.</p>
+                </div>
+
                 <div class="pt-4 flex gap-3 justify-end">
                     <button type="button" onclick="closeCreateModal()"
                             class="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
@@ -325,6 +383,33 @@
                 @csrf
                 <input type="hidden" name="_method" value="PATCH">
 
+                {{-- Profile Icon Picker --}}
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Profile Icon</label>
+                    <input type="hidden" id="assign-profile-icon" name="profile_icon" value="cat">
+                    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.5rem;">
+                        @foreach([
+                            'cat'     => '🐱',
+                            'dog'     => '🐶',
+                            'bear'    => '🐻',
+                            'rabbit'  => '🐰',
+                            'fox'     => '🦊',
+                            'frog'    => '🐸',
+                            'penguin' => '🐧',
+                            'lion'    => '🦁',
+                        ] as $iconName => $emoji)
+                            <button type="button"
+                                    onclick="selectAssignIcon('{{ $iconName }}')"
+                                    id="assign-icon-btn-{{ $iconName }}"
+                                    class="assign-icon-btn flex flex-col items-center gap-1 p-3 rounded-lg border-2 border-gray-200 hover:border-[#2f5597] transition-colors cursor-pointer"
+                                    data-icon="{{ $iconName }}">
+                                <span class="text-2xl leading-none">{{ $emoji }}</span>
+                                <span class="text-[10px] text-gray-500 capitalize">{{ $iconName }}</span>
+                            </button>
+                        @endforeach
+                    </div>
+                </div>
+
                 {{-- Parent dropdown --}}
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Parent</label>
@@ -351,6 +436,20 @@
                     </select>
                 </div>
 
+                {{-- Parent Password --}}
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Parent Password</label>
+                    <div class="flex gap-2">
+                        <input type="text" id="assign-parent-password" name="parent_password"
+                               class="flex-1 px-4 py-2 border border-gray-200 rounded-lg text-sm font-mono focus:ring-2 focus:ring-[#2f5597] outline-none">
+                        <button type="button" onclick="generateAssignPassword()"
+                                class="px-3 py-2 text-sm font-medium text-white bg-[#2f5597] hover:bg-blue-800 rounded-lg transition-colors whitespace-nowrap">
+                            🔄 Regenerate
+                        </button>
+                    </div>
+                    <p class="mt-1 text-xs text-gray-400">This password is used by the student's mobile app at home.</p>
+                </div>
+
                 <div class="pt-4 flex gap-3 justify-end">
                     <button type="button" onclick="closeAssignModal()"
                             class="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
@@ -367,8 +466,17 @@
 
     <script>
         // ---- Create modal ----
+        function generateCreatePassword() {
+            var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+            var pw = '';
+            for (var i = 0; i < 8; i++) pw += chars.charAt(Math.floor(Math.random() * chars.length));
+            document.getElementById('create-parent-password').value = pw;
+        }
+
         function openCreateModal() {
             document.getElementById('create-modal').style.display = 'flex';
+            var pwField = document.getElementById('create-parent-password');
+            if (pwField && pwField.value === '') generateCreatePassword();
             // Restore selected icon if returning from validation error
             var saved = document.getElementById('create-profile-icon').value;
             if (saved) selectIcon(saved);
@@ -378,8 +486,9 @@
             document.getElementById('create-modal').style.display = 'none';
             // Reset name input
             document.querySelector('#create-form input[name="name"]').value = '';
-            // Clear icon selection
+            // Clear icon selection and password so re-open auto-generates fresh
             document.getElementById('create-profile-icon').value = '';
+            document.getElementById('create-parent-password').value = '';
             document.querySelectorAll('.icon-btn').forEach(function (btn) {
                 btn.classList.remove('border-[#2f5597]', 'bg-[#2f5597]/5');
                 btn.classList.add('border-gray-200');
@@ -408,12 +517,34 @@
         @endif
 
         // ---- Assign modal ----
-        function openAssignModal(studentId, studentName, parentId, classListId) {
+        function selectAssignIcon(name) {
+            document.getElementById('assign-profile-icon').value = name;
+            document.querySelectorAll('.assign-icon-btn').forEach(function (btn) {
+                if (btn.dataset.icon === name) {
+                    btn.classList.add('border-[#2f5597]', 'bg-[#2f5597]/5');
+                    btn.classList.remove('border-gray-200');
+                } else {
+                    btn.classList.remove('border-[#2f5597]', 'bg-[#2f5597]/5');
+                    btn.classList.add('border-gray-200');
+                }
+            });
+        }
+
+        function openAssignModal(studentId, studentName, parentId, classListId, profileIcon, parentPassword) {
             document.getElementById('assign-student-name').textContent = studentName;
-            document.getElementById('assign-form').action = '/admin/students/' + studentId;
+            document.getElementById('assign-form').action = '{{ url("/admin/students") }}/' + studentId;
             document.getElementById('assign-parent').value = parentId  ?? '';
             document.getElementById('assign-class').value  = classListId ?? '';
+            document.getElementById('assign-parent-password').value = parentPassword ?? '';
+            selectAssignIcon(profileIcon || 'cat');
             document.getElementById('assign-modal').style.display = 'flex';
+        }
+
+        function generateAssignPassword() {
+            var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+            var pw = '';
+            for (var i = 0; i < 8; i++) pw += chars.charAt(Math.floor(Math.random() * chars.length));
+            document.getElementById('assign-parent-password').value = pw;
         }
 
         function closeAssignModal() {

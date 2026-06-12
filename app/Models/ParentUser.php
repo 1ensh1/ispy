@@ -8,7 +8,7 @@ class ParentUser extends Model
 {
     protected $table = 'parents';
 
-    protected $fillable = ['user_id', 'name', 'contact_number'];
+    protected $fillable = ['user_id', 'name', 'contact_number', 'profile_picture'];
 
     public function user()
     {

@@ -2,85 +2,59 @@
 
 namespace App\Http\Controllers;
 
+use App\Traits\LogsActivity;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 
 class AdminController extends Controller
 {
+    use LogsActivity;
     public function dashboard()
     {
-        // 1. Pull REAL counts from the database
-        $totalUsers = User::count();
-        $teacherCount = User::where('role', 'teacher')->count();
-        $parentCount = User::where('role', 'parent')->count();
-        $studentCount = DB::table('students')->count();
+        $totalUsers     = User::count();
+        $totalAdmins    = DB::table('administrators')->count();
+        $teacherCount   = DB::table('teachers')->count();
+        $parentCount    = DB::table('parents')->count();
+        $studentCount   = DB::table('students')->count();
+        $activeStudents = DB::table('students')->whereNotNull('parent_id')->count();
+        $vocabCount     = DB::table('vocabulary_library')->where('is_active', true)->count();
 
-        $vocabCount = 100; 
+        $weekStart    = Carbon::now()->startOfWeek(Carbon::MONDAY);
+        $activityRows = DB::table('student_progress')
+            ->selectRaw('DATE(attempted_at) as day, SUM(attempts) as total')
+            ->where('attempted_at', '>=', $weekStart)
+            ->where('attempted_at', '<', $weekStart->copy()->addDays(7))
+            ->groupBy('day')
+            ->get()
+            ->keyBy('day');
 
-        $recentLogs = [
-            ['user' => auth()->user()->name, 'action' => 'Accessed Admin Portal', 'time' => 'Just now'],
-            ['user' => 'System', 'action' => 'Database connection active', 'time' => '1 min ago'],
-        ];
+        $weeklyData = [];
+        for ($i = 0; $i < 7; $i++) {
+            $date         = $weekStart->copy()->addDays($i)->toDateString();
+            $weeklyData[] = $activityRows->has($date) ? (int) $activityRows->get($date)->total : 0;
+        }
+        $weeklyActivityJson = json_encode($weeklyData);
+
+        $recentActivity = DB::table('notifications')
+            ->where('recipient_role', 'Admin')
+            ->orderByDesc('created_at')
+            ->limit(10)
+            ->get();
 
         return view('admin.dashboard', compact(
-            'totalUsers', 'teacherCount', 'parentCount', 'studentCount', 'vocabCount', 'recentLogs'
+            'totalUsers', 'totalAdmins', 'teacherCount', 'parentCount', 'studentCount',
+            'activeStudents', 'vocabCount', 'weeklyActivityJson', 'recentActivity'
         ));
     }
 
     public function users(\Illuminate\Http\Request $request)
     {
-        $activeTab = $request->query('tab', 'teacher');
-        $search    = $request->query('search');
-
-        if ($activeTab === 'teacher') {
-            return redirect()->route('admin.teachers.index', array_filter(['search' => $search]));
-        }
-
-        $query = User::where('role', $activeTab);
-
-        if ($search) {
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('email', 'like', "%{$search}%");
-            });
-        }
-
-        $users = $query->latest()->paginate(10)->appends([
-            'tab'    => $activeTab,
-            'search' => $search,
-        ]);
-
-        $extraData          = [];
-        $studentCountsByUser = [];
-
-        if ($activeTab === 'parent') {
-            $userIds = $users->pluck('id')->toArray();
-
-            $parentRecords = DB::table('parents')
-                ->whereIn('user_id', $userIds)
-                ->get()
-                ->keyBy('user_id');
-
-            $parentIds = $parentRecords->pluck('id')->toArray();
-
-            $childrenByParent = DB::table('students')
-                ->whereIn('parent_id', $parentIds)
-                ->get()
-                ->groupBy('parent_id');
-
-            foreach ($users as $user) {
-                $parentRecord = $parentRecords->get($user->id);
-                $parentId     = $parentRecord ? $parentRecord->id : null;
-                $extraData[$user->id] = [
-                    'children' => ($parentId && $childrenByParent->has($parentId))
-                        ? $childrenByParent->get($parentId)
-                        : collect(),
-                ];
-            }
-        }
-
-        return view('admin.users', compact('users', 'activeTab', 'search', 'extraData', 'studentCountsByUser'));
+        return redirect()->route('admin.teachers.index', array_filter([
+            'tab'    => $request->query('tab'),
+            'search' => $request->query('search'),
+        ]));
     }
 
     public function update(\Illuminate\Http\Request $request, User $user)
@@ -98,7 +72,8 @@ class AdminController extends Controller
         }
         $user->save();
 
-        return redirect()->route('admin.users', ['tab' => $user->role])
+        $redirectTab = $user->role === 'parent' ? 'parents' : $user->role;
+        return redirect()->route('admin.teachers.index', ['tab' => $redirectTab])
                          ->with('success', "Account for \"{$user->name}\" updated successfully.");
     }
 
@@ -118,7 +93,7 @@ class AdminController extends Controller
             if ($parentRecord) {
                 $linkedStudents = DB::table('students')->where('parent_id', $parentRecord->id)->count();
                 if ($linkedStudents > 0) {
-                    return redirect()->route('admin.users', ['tab' => 'parent'])
+                    return redirect()->route('admin.teachers.index', ['tab' => 'parents'])
                         ->with('error', "Cannot delete \"{$name}\". They have active student(s) linked to their account. Please reassign the student(s) first.");
                 }
                 DB::table('parents')->where('user_id', $user->id)->delete();
@@ -127,7 +102,8 @@ class AdminController extends Controller
 
         $user->delete();
 
-        return redirect()->route('admin.users', ['tab' => $role])
+        $redirectTab = $role === 'parent' ? 'parents' : $role;
+        return redirect()->route('admin.teachers.index', ['tab' => $redirectTab])
                          ->with('success', "Account for \"{$name}\" has been deleted.");
     }
 
@@ -165,8 +141,12 @@ class AdminController extends Controller
             ]);
         }
 
-        // 4. Redirect back with a success message, switching to their newly assigned tab
-        return redirect()->route('admin.users', ['tab' => $validated['role']])
+        if ($validated['role'] === 'parent') {
+            self::log('create', "created parent account for {$user->name}");
+        }
+
+        $redirectTab = $validated['role'] === 'parent' ? 'parents' : $validated['role'];
+        return redirect()->route('admin.teachers.index', ['tab' => $redirectTab])
                          ->with('success', 'User account created successfully!');
     }
 }

@@ -1,15 +1,51 @@
 <x-app-layout>
     <div x-data="{
-            isModalOpen: {{ $errors->any() ? 'true' : 'false' }},
-            editOpen: false,
-            editUser: { id: null, name: '', email: '', class_name: '' },
-            openEdit(user) {
-                this.editUser = { ...user };
-                this.editOpen = true;
+            activeTab: @js(request()->query('tab', 'teachers')),
+            showArchived: false,
+
+            teacherCreateOpen: {{ ($errors->any() && request()->query('tab', 'teachers') === 'teachers') ? 'true' : 'false' }},
+            teacherEditOpen: false,
+            editTeacher: { id: null, name: '', email: '', class_list_id: '', subjects: [] },
+            openEditTeacher(user) {
+                this.editTeacher = {
+                    id: user.id,
+                    name: user.name,
+                    email: user.email,
+                    class_list_id: user.class_list_id ? String(user.class_list_id) : '',
+                    subjects: Array.isArray(user.subjects) ? user.subjects : [],
+                };
+                this.teacherEditOpen = true;
+                this.$nextTick(() => { if (typeof lucide !== 'undefined') lucide.createIcons(); });
+            },
+
+            parentCreateOpen: {{ ($errors->any() && request()->query('tab') === 'parents') ? 'true' : 'false' }},
+            parentEditOpen: false,
+            editParent: { id: null, name: '', email: '' },
+            openEditParent(user) { this.editParent = { ...user }; this.parentEditOpen = true; },
+
+            getAddLabel() {
+                if (this.activeTab === 'teachers') return 'Add Teacher';
+                if (this.activeTab === 'parents')  return 'Add Parent';
+                if (this.activeTab === 'admins')   return 'Add Admin';
+                return 'Add Student';
+            },
+            handleAdd() {
+                if (this.activeTab === 'teachers') { this.teacherCreateOpen = true; return; }
+                if (this.activeTab === 'parents')  { this.parentCreateOpen  = true; return; }
+                if (this.activeTab === 'admins')   { openAdminCreateModal(); return; }
+                document.getElementById('create-modal').style.display = 'flex';
+            },
+            switchTab(tab) {
+                this.activeTab = tab;
+                this.showArchived = false;
+                const url = new URL(window.location.href);
+                url.searchParams.set('tab', tab);
+                history.replaceState({}, '', url.toString());
+                this.$nextTick(() => { if (typeof lucide !== 'undefined') lucide.createIcons(); });
             }
          }" class="p-6 max-w-7xl mx-auto relative">
 
-        {{-- Success notice --}}
+        {{-- Flash: success --}}
         @if(session('success'))
             <div class="mb-4 p-4 bg-green-50 border border-green-200 text-green-700 rounded-lg flex items-center gap-3 shadow-sm">
                 <i data-lucide="check-circle" class="w-5 h-5 shrink-0"></i>
@@ -17,7 +53,7 @@
             </div>
         @endif
 
-        {{-- Error notice --}}
+        {{-- Flash: error --}}
         @if(session('error'))
             <div class="mb-4 p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg flex items-center gap-3 shadow-sm">
                 <i data-lucide="alert-circle" class="w-5 h-5 shrink-0"></i>
@@ -39,68 +75,60 @@
             </div>
         @endif
 
-        {{-- Classroom PIN generated --}}
+        {{-- Flash: classroom PIN --}}
         @if(session('new_class_pin'))
             <div class="mb-4 p-4 bg-amber-50 border border-amber-300 rounded-lg shadow-sm">
                 <div class="flex items-start gap-3">
                     <i data-lucide="key" class="w-5 h-5 text-amber-600 shrink-0 mt-0.5"></i>
                     <div>
-                        <p class="text-sm font-semibold text-amber-800">
-                            Classroom PIN for {{ session('new_class_name') }}
-                        </p>
-                        <p class="mt-1 font-mono text-xl font-bold text-amber-900 tracking-widest select-all">
-                            {{ session('new_class_pin') }}
-                        </p>
-                        <p class="mt-1 text-xs text-amber-600">
-                            Share this PIN with the teacher to connect their class on the Android app.
-                        </p>
+                        <p class="text-sm font-semibold text-amber-800">Classroom PIN for {{ session('new_class_name') }}</p>
+                        <p class="mt-1 font-mono text-xl font-bold text-amber-900 tracking-widest select-all">{{ session('new_class_pin') }}</p>
+                        <p class="mt-1 text-xs text-amber-600">Share this PIN with the teacher to connect their class on the Android app.</p>
                     </div>
                 </div>
             </div>
         @endif
 
-        {{-- One-time temporary password notice --}}
-        @if(session('new_teacher_password'))
+        {{-- Teacher temp password flash removed: credentials are now sent by email --}}
+
+        {{-- Flash: new student parent password --}}
+        @if(session('new_student_password'))
             <div class="mb-4 p-4 bg-amber-50 border border-amber-300 rounded-lg shadow-sm">
                 <div class="flex items-start gap-3">
                     <i data-lucide="key" class="w-5 h-5 text-amber-600 shrink-0 mt-0.5"></i>
                     <div>
-                        <p class="text-sm font-semibold text-amber-800">
-                            Temporary Password for {{ session('new_teacher_name') }}
-                        </p>
-                        <p class="mt-1 font-mono text-xl font-bold text-amber-900 tracking-widest select-all">
-                            {{ session('new_teacher_password') }}
-                        </p>
-                        <p class="mt-1 text-xs text-amber-600">
-                            Copy this now — it will not be shown again.
-                        </p>
+                        <p class="text-sm font-semibold text-amber-800">Parent Password for {{ session('new_student_name') }}</p>
+                        <p class="mt-1 font-mono text-xl font-bold text-amber-900 tracking-widest select-all">{{ session('new_student_password') }}</p>
+                        <p class="mt-1 text-xs text-amber-600">Copy this now — it will not be shown again.</p>
                     </div>
                 </div>
             </div>
         @endif
 
+        {{-- Page header --}}
         <div class="flex justify-between items-center mb-6">
             <div>
                 <h1 class="text-3xl font-bold text-gray-900 mb-1">User Management</h1>
                 <p class="text-sm text-gray-500">Manage faculty, parent, and student accounts</p>
             </div>
-            <button @click="isModalOpen = true"
-                    class="bg-[#2f5597] hover:bg-blue-800 text-white px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 transition-colors">
-                <i data-lucide="user-plus" class="w-4 h-4"></i>
-                @if($activeTab === 'teacher') Add Teacher @else Add User @endif
-            </button>
+            <div style="display:flex;align-items:center;gap:0.5rem;">
+                <button @click="handleAdd()"
+                        class="bg-[#2f5597] hover:bg-blue-800 text-white px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 transition-colors">
+                    <i data-lucide="user-plus" class="w-4 h-4 shrink-0"></i>
+                    <span x-text="getAddLabel()"></span>
+                </button>
+            </div>
         </div>
 
-        {{-- ===================== TEACHER: CREATE MODAL ===================== --}}
-        @if($activeTab === 'teacher')
-        <div x-show="isModalOpen"
+        {{-- ===== TEACHER CREATE MODAL ===== --}}
+        <div x-show="teacherCreateOpen"
              style="display:none;"
              class="fixed inset-0 z-50 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center p-4">
-            <div @click.away="isModalOpen = false"
+            <div @click.away="teacherCreateOpen = false"
                  class="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
                 <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50">
                     <h3 class="text-lg font-bold text-gray-900">Add New Teacher</h3>
-                    <button @click="isModalOpen = false" class="text-gray-400 hover:text-gray-600 transition-colors">
+                    <button @click="teacherCreateOpen = false" class="text-gray-400 hover:text-gray-600 transition-colors">
                         <i data-lucide="x" class="w-5 h-5"></i>
                     </button>
                 </div>
@@ -112,100 +140,136 @@
                                class="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#2f5597] outline-none">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Class Name</label>
-                        <input type="text" name="class_name" required
-                               placeholder="e.g. Kinder A, Grade 1 - Sampaguita"
-                               class="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#2f5597] outline-none">
-                    </div>
-                    <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
                         <input type="email" name="email" required
                                class="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#2f5597] outline-none">
                     </div>
+                    <div x-data="{ classId: '{{ old('class_list_id') }}' }">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                            Class <span class="text-gray-400 font-normal">(optional)</span>
+                        </label>
+                        <select name="class_list_id" x-model="classId"
+                                class="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-[#2f5597] outline-none">
+                            <option value="">-- Select a Class --</option>
+                            @foreach($classLists as $cl)
+                                <option value="{{ $cl->id }}" {{ (string) old('class_list_id') === (string) $cl->id ? 'selected' : '' }}>{{ $cl->class_name }}</option>
+                            @endforeach
+                        </select>
+                        <div x-show="classId !== ''" style="display:none;" class="mt-3">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Subject(s)</label>
+                            <div style="display:flex; gap:1.25rem;">
+                                @php $oldSubjects = is_array(old('subjects')) ? old('subjects') : []; @endphp
+                                <label class="flex items-center gap-2 text-sm text-gray-700">
+                                    <input type="checkbox" name="subjects[]" value="English"
+                                           {{ in_array('English', $oldSubjects, true) ? 'checked' : '' }}
+                                           class="rounded border-gray-300 text-[#2f5597] focus:ring-[#2f5597]">
+                                    English
+                                </label>
+                                <label class="flex items-center gap-2 text-sm text-gray-700">
+                                    <input type="checkbox" name="subjects[]" value="Filipino"
+                                           {{ in_array('Filipino', $oldSubjects, true) ? 'checked' : '' }}
+                                           class="rounded border-gray-300 text-[#2f5597] focus:ring-[#2f5597]">
+                                    Filipino
+                                </label>
+                            </div>
+                            <p class="mt-1 text-xs text-gray-400">Optional — a class can be assigned without a subject.</p>
+                        </div>
+                    </div>
                     <div class="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
                         <i data-lucide="info" class="w-4 h-4 text-amber-600 shrink-0 mt-0.5"></i>
-                        <p class="text-xs text-amber-700">
-                            A random 8-character password will be auto-generated and shown once after creation.
-                        </p>
+                        <p class="text-xs text-amber-700">A 10-character temporary password will be auto-generated and emailed to the teacher. The account will be set to <strong>Inactive</strong> until the teacher activates it. Need a new class? Create it on the <strong>Manage Classes</strong> page first.</p>
                     </div>
                     <div class="pt-2 flex gap-3 justify-end">
-                        <button type="button" @click="isModalOpen = false"
-                                class="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
-                            Cancel
-                        </button>
+                        <button type="button" @click="teacherCreateOpen = false"
+                                class="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">Cancel</button>
                         <button type="submit"
-                                class="px-4 py-2 text-sm font-medium text-white bg-[#2f5597] hover:bg-blue-800 rounded-lg transition-colors">
-                            Create Teacher
-                        </button>
+                                class="px-4 py-2 text-sm font-medium text-white bg-[#2f5597] hover:bg-blue-800 rounded-lg transition-colors">Create Teacher</button>
                     </div>
                 </form>
             </div>
         </div>
 
-        {{-- ===================== TEACHER: EDIT MODAL ===================== --}}
-        <div x-show="editOpen"
+        {{-- ===== TEACHER EDIT MODAL ===== --}}
+        <div x-show="teacherEditOpen"
              style="display:none;"
              class="fixed inset-0 z-50 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center p-4">
-            <div @click.away="editOpen = false"
+            <div @click.away="teacherEditOpen = false"
                  class="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
                 <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50">
                     <div>
                         <h3 class="text-lg font-bold text-gray-900">Edit Teacher</h3>
-                        <p class="text-xs text-gray-500 mt-0.5" x-text="editUser.name"></p>
+                        <p class="text-xs text-gray-500 mt-0.5" x-text="editTeacher.name"></p>
                     </div>
-                    <button @click="editOpen = false" class="text-gray-400 hover:text-gray-600 transition-colors">
+                    <button @click="teacherEditOpen = false" class="text-gray-400 hover:text-gray-600 transition-colors">
                         <i data-lucide="x" class="w-5 h-5"></i>
                     </button>
                 </div>
-                <form method="POST" :action="'/admin/teachers/' + editUser.id" class="p-6 space-y-4">
+                <form method="POST" :action="`{{ url('/admin/teachers') }}/` + editTeacher.id" class="p-6 space-y-4">
                     @csrf
                     <input type="hidden" name="_method" value="PUT">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
-                        <input type="text" name="name" x-model="editUser.name" required
-                               class="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#2f5597] outline-none">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Class Name</label>
-                        <input type="text" name="class_name" x-model="editUser.class_name" required
-                               placeholder="e.g. Kinder A, Grade 1 - Sampaguita"
+                        <input type="text" name="name" x-model="editTeacher.name" required
                                class="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#2f5597] outline-none">
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
-                        <input type="email" name="email" x-model="editUser.email" required
+                        <input type="email" name="email" x-model="editTeacher.email" required
                                class="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#2f5597] outline-none">
                     </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                            Class <span class="text-gray-400 font-normal">(optional)</span>
+                        </label>
+                        <select name="class_list_id" x-model="editTeacher.class_list_id"
+                                class="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-[#2f5597] outline-none">
+                            <option value="">-- Select a Class --</option>
+                            @foreach($classLists as $cl)
+                                <option value="{{ $cl->id }}">{{ $cl->class_name }}</option>
+                            @endforeach
+                        </select>
+                        <div x-show="editTeacher.class_list_id !== '' && editTeacher.class_list_id !== null" class="mt-3">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Subject(s)</label>
+                            <div style="display:flex; gap:1.25rem;">
+                                <label class="flex items-center gap-2 text-sm text-gray-700">
+                                    <input type="checkbox" name="subjects[]" value="English" x-model="editTeacher.subjects"
+                                           class="rounded border-gray-300 text-[#2f5597] focus:ring-[#2f5597]">
+                                    English
+                                </label>
+                                <label class="flex items-center gap-2 text-sm text-gray-700">
+                                    <input type="checkbox" name="subjects[]" value="Filipino" x-model="editTeacher.subjects"
+                                           class="rounded border-gray-300 text-[#2f5597] focus:ring-[#2f5597]">
+                                    Filipino
+                                </label>
+                            </div>
+                            <p class="mt-1 text-xs text-gray-400">Optional — a class can be assigned without a subject.</p>
+                        </div>
+                    </div>
                     <div class="pt-4 flex gap-3 justify-end">
-                        <button type="button" @click="editOpen = false"
-                                class="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
-                            Cancel
-                        </button>
+                        <button type="button" @click="teacherEditOpen = false"
+                                class="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">Cancel</button>
                         <button type="submit"
-                                class="px-4 py-2 text-sm font-medium text-white bg-[#2f5597] hover:bg-blue-800 rounded-lg transition-colors">
-                            Save Changes
-                        </button>
+                                class="px-4 py-2 text-sm font-medium text-white bg-[#2f5597] hover:bg-blue-800 rounded-lg transition-colors">Save Changes</button>
                     </div>
                 </form>
             </div>
         </div>
 
-        @else
-        {{-- ===================== GENERIC: CREATE USER MODAL ===================== --}}
-        <div x-show="isModalOpen"
+        {{-- ===== PARENT CREATE MODAL ===== --}}
+        <div x-show="parentCreateOpen"
              style="display:none;"
              class="fixed inset-0 z-50 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center p-4">
-            <div @click.away="isModalOpen = false"
+            <div @click.away="parentCreateOpen = false"
                  class="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
                 <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50">
-                    <h3 class="text-lg font-bold text-gray-900">Create New User</h3>
-                    <button @click="isModalOpen = false" class="text-gray-400 hover:text-gray-600 transition-colors">
+                    <h3 class="text-lg font-bold text-gray-900">Create New Parent</h3>
+                    <button @click="parentCreateOpen = false" class="text-gray-400 hover:text-gray-600 transition-colors">
                         <i data-lucide="x" class="w-5 h-5"></i>
                     </button>
                 </div>
                 <form method="POST" action="{{ route('admin.users.store') }}" class="p-6 space-y-4">
                     @csrf
-                    <input type="hidden" name="role" value="{{ $activeTab }}">
+                    <input type="hidden" name="role" value="parent">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
                         <input type="text" name="name" required
@@ -216,185 +280,511 @@
                         <input type="email" name="email" required
                                class="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#2f5597] outline-none">
                     </div>
-                    @if($activeTab === 'parent')
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">
-                            Contact Number
-                            <span class="text-gray-400 font-normal">(optional)</span>
+                            Contact Number <span class="text-gray-400 font-normal">(optional)</span>
                         </label>
-                        <input type="text" name="contact_number"
-                               class="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#2f5597] outline-none"
-                               placeholder="e.g. 09171234567">
-                    </div>
-                    @endif
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Temporary Password</label>
-                        <input type="password" name="password" required
+                        <input type="text" name="contact_number" placeholder="e.g. 09171234567"
                                class="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#2f5597] outline-none">
                     </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Temporary Password</label>
+                        <div class="flex gap-2">
+                            <input type="text" id="parent-temp-password" name="password" required
+                                   class="flex-1 px-4 py-2 border border-gray-200 rounded-lg text-sm font-mono focus:ring-2 focus:ring-[#2f5597] outline-none">
+                            <button type="button" onclick="generateParentPassword()"
+                                    class="px-3 py-2 text-sm font-medium text-white bg-[#2f5597] hover:bg-blue-800 rounded-lg transition-colors whitespace-nowrap">Generate</button>
+                        </div>
+                    </div>
                     <div class="pt-4 flex gap-3 justify-end">
-                        <button type="button" @click="isModalOpen = false"
-                                class="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
-                            Cancel
-                        </button>
+                        <button type="button" @click="parentCreateOpen = false"
+                                class="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">Cancel</button>
                         <button type="submit"
-                                class="px-4 py-2 text-sm font-medium text-white bg-[#2f5597] hover:bg-blue-800 rounded-lg transition-colors">
-                            Create {{ $activeTab === 'parent' ? 'Parent' : 'Account' }}
-                        </button>
+                                class="px-4 py-2 text-sm font-medium text-white bg-[#2f5597] hover:bg-blue-800 rounded-lg transition-colors">Create Parent</button>
                     </div>
                 </form>
             </div>
         </div>
 
-        {{-- ===================== GENERIC: EDIT USER MODAL ===================== --}}
-        <div x-show="editOpen"
+        {{-- ===== PARENT EDIT MODAL ===== --}}
+        <div x-show="parentEditOpen"
              style="display:none;"
              class="fixed inset-0 z-50 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center p-4">
-            <div @click.away="editOpen = false"
+            <div @click.away="parentEditOpen = false"
                  class="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
                 <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50">
                     <div>
-                        <h3 class="text-lg font-bold text-gray-900">Edit User</h3>
-                        <p class="text-xs text-gray-500 mt-0.5" x-text="editUser.name"></p>
+                        <h3 class="text-lg font-bold text-gray-900">Edit Parent</h3>
+                        <p class="text-xs text-gray-500 mt-0.5" x-text="editParent.name"></p>
                     </div>
-                    <button @click="editOpen = false" class="text-gray-400 hover:text-gray-600 transition-colors">
+                    <button @click="parentEditOpen = false" class="text-gray-400 hover:text-gray-600 transition-colors">
                         <i data-lucide="x" class="w-5 h-5"></i>
                     </button>
                 </div>
-                <form method="POST" :action="'/admin/users/' + editUser.id" class="p-6 space-y-4">
+                <form method="POST" :action="`{{ url('/admin/users') }}/` + editParent.id" class="p-6 space-y-4">
                     @csrf
                     <input type="hidden" name="_method" value="PUT">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
-                        <input type="text" name="name" x-model="editUser.name" required
+                        <input type="text" name="name" x-model="editParent.name" required
                                class="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#2f5597] outline-none">
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
-                        <input type="email" name="email" x-model="editUser.email" required
+                        <input type="email" name="email" x-model="editParent.email" required
                                class="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#2f5597] outline-none">
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">
-                            New Password
-                            <span class="text-gray-400 font-normal">(leave blank to keep current)</span>
+                            New Password <span class="text-gray-400 font-normal">(leave blank to keep current)</span>
                         </label>
                         <input type="password" name="password" placeholder="••••••"
                                class="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#2f5597] outline-none">
                     </div>
                     <div class="pt-4 flex gap-3 justify-end">
-                        <button type="button" @click="editOpen = false"
-                                class="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
-                            Cancel
-                        </button>
+                        <button type="button" @click="parentEditOpen = false"
+                                class="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">Cancel</button>
                         <button type="submit"
-                                class="px-4 py-2 text-sm font-medium text-white bg-[#2f5597] hover:bg-blue-800 rounded-lg transition-colors">
-                            Save Changes
-                        </button>
+                                class="px-4 py-2 text-sm font-medium text-white bg-[#2f5597] hover:bg-blue-800 rounded-lg transition-colors">Save Changes</button>
                     </div>
                 </form>
             </div>
         </div>
-        @endif
+
+        {{-- ===== STUDENT CREATE MODAL (vanilla JS) ===== --}}
+        <div id="create-modal"
+             style="display:none;"
+             class="fixed inset-0 z-50 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+            <div class="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
+                <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50">
+                    <div>
+                        <h3 class="text-lg font-bold text-gray-900">Add Student</h3>
+                        <p class="text-xs text-gray-500 mt-0.5">A parent password will be auto-generated.</p>
+                    </div>
+                    <button onclick="closeCreateModal()" class="text-gray-400 hover:text-gray-600 transition-colors">
+                        <i data-lucide="x" class="w-5 h-5"></i>
+                    </button>
+                </div>
+                <form id="create-form" method="POST" action="{{ route('admin.students.store') }}" class="p-6 space-y-4">
+                    @csrf
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Name <span class="text-red-500">*</span></label>
+                        <input type="text" name="name" value="{{ old('name') }}" required
+                               placeholder="Student full name"
+                               class="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#2f5597] outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Profile Icon <span class="text-red-500">*</span></label>
+                        <input type="hidden" id="create-profile-icon" name="profile_icon" value="{{ old('profile_icon') }}">
+                        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.5rem;">
+                            @foreach(['cat'=>'🐱','dog'=>'🐶','bear'=>'🐻','rabbit'=>'🐰','fox'=>'🦊','frog'=>'🐸','penguin'=>'🐧','lion'=>'🦁'] as $iconName => $emoji)
+                                <button type="button" onclick="selectIcon('{{ $iconName }}')"
+                                        id="icon-btn-{{ $iconName }}"
+                                        class="icon-btn flex flex-col items-center gap-1 p-3 rounded-lg border-2 border-gray-200 hover:border-[#2f5597] transition-colors cursor-pointer"
+                                        data-icon="{{ $iconName }}">
+                                    <span class="text-2xl leading-none">{{ $emoji }}</span>
+                                    <span class="text-[10px] text-gray-500 capitalize">{{ $iconName }}</span>
+                                </button>
+                            @endforeach
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Parent</label>
+                        <select name="parent_id" class="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#2f5597] outline-none bg-white">
+                            <option value="">— Assign Later —</option>
+                            @foreach($parentsList as $parent)
+                                <option value="{{ $parent->id }}" {{ old('parent_id') == $parent->id ? 'selected' : '' }}>{{ $parent->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Class</label>
+                        <select name="class_list_id" class="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#2f5597] outline-none bg-white">
+                            <option value="">— Assign Later —</option>
+                            @foreach($classLists as $cl)
+                                <option value="{{ $cl->id }}" {{ old('class_list_id') == $cl->id ? 'selected' : '' }}>
+                                    {{ $cl->class_name }}{{ $cl->teacher ? ' — ' . $cl->teacher->name : '' }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="pt-4 flex gap-3 justify-end">
+                        <button type="button" onclick="closeCreateModal()"
+                                class="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">Cancel</button>
+                        <button type="submit"
+                                class="px-4 py-2 text-sm font-medium text-white bg-[#2f5597] hover:bg-blue-800 rounded-lg transition-colors">Create Student</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        {{-- ===== STUDENT ASSIGN MODAL (vanilla JS) ===== --}}
+        <div id="assign-modal"
+             style="display:none;"
+             class="fixed inset-0 z-50 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+            <div class="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
+                <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50">
+                    <div>
+                        <h3 class="text-lg font-bold text-gray-900">Assign Student</h3>
+                        <p class="text-xs text-gray-500 mt-0.5" id="assign-student-name"></p>
+                    </div>
+                    <button onclick="closeAssignModal()" class="text-gray-400 hover:text-gray-600 transition-colors">
+                        <i data-lucide="x" class="w-5 h-5"></i>
+                    </button>
+                </div>
+                <form id="assign-form" method="POST" class="p-6 space-y-4">
+                    @csrf
+                    <input type="hidden" name="_method" value="PATCH">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Profile Icon</label>
+                        <input type="hidden" id="assign-profile-icon" name="profile_icon" value="cat">
+                        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.5rem;">
+                            @foreach(['cat'=>'🐱','dog'=>'🐶','bear'=>'🐻','rabbit'=>'🐰','fox'=>'🦊','frog'=>'🐸','penguin'=>'🐧','lion'=>'🦁'] as $iconName => $emoji)
+                                <button type="button" onclick="selectAssignIcon('{{ $iconName }}')"
+                                        id="assign-icon-btn-{{ $iconName }}"
+                                        class="assign-icon-btn flex flex-col items-center gap-1 p-3 rounded-lg border-2 border-gray-200 hover:border-[#2f5597] transition-colors cursor-pointer"
+                                        data-icon="{{ $iconName }}">
+                                    <span class="text-2xl leading-none">{{ $emoji }}</span>
+                                    <span class="text-[10px] text-gray-500 capitalize">{{ $iconName }}</span>
+                                </button>
+                            @endforeach
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Parent</label>
+                        <select id="assign-parent" name="parent_id" class="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#2f5597] outline-none bg-white">
+                            <option value="">— None —</option>
+                            @foreach($parentsList as $parent)
+                                <option value="{{ $parent->id }}">{{ $parent->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Class</label>
+                        <select id="assign-class" name="class_list_id" class="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#2f5597] outline-none bg-white">
+                            <option value="">— None —</option>
+                            @foreach($classLists as $cl)
+                                <option value="{{ $cl->id }}">{{ $cl->class_name }}{{ $cl->teacher ? ' — ' . $cl->teacher->name : '' }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Parent Password</label>
+                        <div class="flex gap-2">
+                            <input type="text" id="assign-parent-password" name="parent_password"
+                                   class="flex-1 px-4 py-2 border border-gray-200 rounded-lg text-sm font-mono focus:ring-2 focus:ring-[#2f5597] outline-none">
+                            <button type="button" onclick="generateAssignPassword()"
+                                    class="px-3 py-2 text-sm font-medium text-white bg-[#2f5597] hover:bg-blue-800 rounded-lg transition-colors whitespace-nowrap">Generate</button>
+                        </div>
+                        <p class="mt-1 text-xs text-gray-400">This password is used by the student's mobile app at home.</p>
+                    </div>
+                    <div class="pt-4 flex gap-3 justify-end">
+                        <button type="button" onclick="closeAssignModal()"
+                                class="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">Cancel</button>
+                        <button type="submit"
+                                class="px-4 py-2 text-sm font-medium text-white bg-[#2f5597] hover:bg-blue-800 rounded-lg transition-colors">Save Assignments</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        {{-- ===== ADMIN CREATE MODAL (vanilla JS) ===== --}}
+        <div id="admin-create-modal"
+             style="display:none;"
+             class="fixed inset-0 z-50 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+            <div class="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
+                <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50">
+                    <h3 class="text-lg font-bold text-gray-900">Add New Admin</h3>
+                    <button onclick="closeAdminCreateModal()" class="text-gray-400 hover:text-gray-600 transition-colors">
+                        <i data-lucide="x" class="w-5 h-5"></i>
+                    </button>
+                </div>
+                <form method="POST" action="{{ route('admin.admins.store') }}" class="p-6 space-y-4">
+                    @csrf
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Full Name <span class="text-red-500">*</span></label>
+                        <input type="text" name="name" value="{{ old('name') }}" required maxlength="255"
+                               class="w-full px-4 py-2 border {{ $errors->getBag('admin')->has('name') ? 'border-red-400' : 'border-gray-200' }} rounded-lg text-sm focus:ring-2 focus:ring-[#2f5597] outline-none">
+                        @if($errors->getBag('admin')->has('name'))
+                            <p class="mt-1 text-xs text-red-600">{{ $errors->getBag('admin')->first('name') }}</p>
+                        @endif
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Email Address <span class="text-red-500">*</span></label>
+                        <input type="email" name="email" value="{{ old('email') }}" required maxlength="255"
+                               class="w-full px-4 py-2 border {{ $errors->getBag('admin')->has('email') ? 'border-red-400' : 'border-gray-200' }} rounded-lg text-sm focus:ring-2 focus:ring-[#2f5597] outline-none">
+                        @if($errors->getBag('admin')->has('email'))
+                            <p class="mt-1 text-xs text-red-600">{{ $errors->getBag('admin')->first('email') }}</p>
+                        @endif
+                    </div>
+                    <div class="flex items-start gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+                        <i data-lucide="info" class="w-4 h-4 text-blue-600 shrink-0 mt-0.5"></i>
+                        <p class="text-xs text-blue-700">A 10-character temporary password will be auto-generated and emailed to the new admin. The account is immediately active — no activation step required.</p>
+                    </div>
+                    <div class="pt-2 flex gap-3 justify-end">
+                        <button type="button" onclick="closeAdminCreateModal()"
+                                class="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">Cancel</button>
+                        <button type="submit"
+                                class="px-4 py-2 text-sm font-medium text-white bg-[#2f5597] hover:bg-blue-800 rounded-lg transition-colors">Create Admin</button>
+                    </div>
+                </form>
+            </div>
+        </div>
 
         {{-- Tab navigation --}}
         <div class="flex gap-1 bg-gray-100 p-1 rounded-lg w-fit mb-6">
-            <a href="{{ route('admin.teachers.index') }}"
-               class="{{ $activeTab === 'teacher' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700' }} px-4 py-1.5 rounded-md text-sm font-medium transition-all">
+            <button @click="switchTab('admins')"
+                    :class="activeTab === 'admins' ? 'bg-indigo-600 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:text-gray-800'"
+                    class="px-4 py-1.5 rounded-md text-sm font-medium transition-all">
+                Admins
+            </button>
+            <button @click="switchTab('teachers')"
+                    :class="activeTab === 'teachers' ? 'bg-blue-600 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:text-gray-800'"
+                    class="px-4 py-1.5 rounded-md text-sm font-medium transition-all">
                 Teachers
-            </a>
-            <a href="{{ route('admin.users', ['tab' => 'parent']) }}"
-               class="{{ $activeTab === 'parent' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700' }} px-4 py-1.5 rounded-md text-sm font-medium transition-all">
+            </button>
+            <button @click="switchTab('parents')"
+                    :class="activeTab === 'parents' ? 'bg-green-600 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:text-gray-800'"
+                    class="px-4 py-1.5 rounded-md text-sm font-medium transition-all">
                 Parents
-            </a>
-            <a href="{{ route('admin.students') }}"
-               class="text-gray-500 hover:text-gray-700 px-4 py-1.5 rounded-md text-sm font-medium transition-all">
-                Student Mapping
-            </a>
+            </button>
+            <button @click="switchTab('students')"
+                    :class="activeTab === 'students' ? 'bg-amber-500 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:text-gray-800'"
+                    class="px-4 py-1.5 rounded-md text-sm font-medium transition-all">
+                Students
+            </button>
         </div>
 
-        {{-- Search bar --}}
-        <div class="mb-4 relative max-w-md">
-            @if($activeTab === 'teacher')
-            <form method="GET" action="{{ route('admin.teachers.index') }}">
-                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <i data-lucide="search" class="w-4 h-4 text-gray-400"></i>
-                </div>
-                <input type="text" name="search" value="{{ $search ?? '' }}"
-                       placeholder="Search teachers by name or email..."
-                       class="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#2f5597] focus:border-transparent outline-none">
-            </form>
-            @else
-            <form method="GET" action="{{ route('admin.users') }}">
-                <input type="hidden" name="tab" value="{{ $activeTab }}">
-                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <i data-lucide="search" class="w-4 h-4 text-gray-400"></i>
-                </div>
-                <input type="text" name="search" value="{{ $search ?? '' }}"
-                       placeholder="Search by name or email..."
-                       class="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#2f5597] focus:border-transparent outline-none">
-            </form>
-            @endif
-        </div>
+        {{-- ===================== TEACHERS TAB PANEL ===================== --}}
+        <div x-show="activeTab === 'teachers'">
 
-        {{-- Table --}}
-        <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-            <div class="overflow-x-auto">
-                <table class="w-full text-sm text-left">
-                    <thead class="bg-gray-50 border-b border-gray-200 text-gray-500">
-                        <tr>
-                            <th class="px-6 py-4 font-medium w-24">ID</th>
-                            <th class="px-6 py-4 font-medium">Name</th>
-                            @if($activeTab === 'teacher')
+            {{-- Teacher search --}}
+            <div class="mb-4 flex items-center gap-2 max-w-md">
+                <form method="GET" action="{{ route('admin.teachers.index') }}" class="relative flex-1">
+                    <input type="hidden" name="tab" value="teachers">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <i data-lucide="search" class="w-4 h-4 text-gray-400"></i>
+                    </div>
+                    <input type="text" id="search-teachers" name="search" value="{{ $search ?? '' }}"
+                           placeholder="Search teachers by name..."
+                           class="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#2f5597] focus:border-transparent outline-none">
+                </form>
+                @if($search)
+                    <a href="{{ route('admin.teachers.index', array_merge(request()->except(['search', 'page']), ['tab' => 'teachers'])) }}"
+                       class="text-sm text-gray-400 hover:text-gray-600 whitespace-nowrap">Clear</a>
+                @endif
+            </div>
+
+            {{-- Per-page selector --}}
+            <div class="mb-3 flex items-center gap-2">
+                <label class="text-xs font-medium text-gray-500">Rows per page</label>
+                <select onchange="changePerPage('teachers_per_page', 'page', 'teachers', this.value)"
+                        class="px-2 py-1.5 border border-gray-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-[#2f5597] outline-none">
+                    <option value="10" {{ $teachersPerPage === 10 ? 'selected' : '' }}>10</option>
+                    <option value="20" {{ $teachersPerPage === 20 ? 'selected' : '' }}>20</option>
+                    <option value="50" {{ $teachersPerPage === 50 ? 'selected' : '' }}>50</option>
+                </select>
+            </div>
+
+            <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm text-left">
+                        <thead class="bg-gray-50 border-b border-gray-200 text-gray-500">
+                            <tr>
+                                <th class="px-6 py-4 font-medium w-24">ID</th>
+                                <th class="px-6 py-4 font-medium">Name</th>
                                 <th class="px-6 py-4 font-medium">Email</th>
+                                <th class="px-6 py-4 font-medium">Classes</th>
                                 <th class="px-6 py-4 font-medium">Students</th>
-                                <th class="px-6 py-4 font-medium">Classroom PIN</th>
-                            @else
-                                <th class="px-6 py-4 font-medium">Web Login</th>
-                                <th class="px-6 py-4 font-medium">Children</th>
-                                <th class="px-6 py-4 font-medium">Parent Password</th>
-                            @endif
-                            <th class="px-6 py-4 font-medium">Status</th>
-                            <th class="px-6 py-4 font-medium text-right">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-100">
-                        @forelse($users as $user)
-                        <tr class="hover:bg-gray-50 transition-colors">
-                            <td class="px-6 py-4 text-gray-500 font-mono text-xs">
-                                {{ strtoupper(substr($user->role, 0, 1)) }}-{{ str_pad($user->id, 3, '0', STR_PAD_LEFT) }}
-                            </td>
-                            <td class="px-6 py-4 font-medium text-gray-900">{{ $user->name }}</td>
-
-                            @if($activeTab === 'teacher')
+                                <th class="px-6 py-4 font-medium">Status</th>
+                                <th class="px-6 py-4 font-medium text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody-teachers" class="divide-y divide-gray-100">
+                            @forelse($users as $user)
+                            <tr class="hover:bg-gray-50 transition-colors" data-name="{{ strtolower($user->name) }} {{ strtolower($user->email) }}">
+                                <td class="px-6 py-4 text-gray-500 font-mono text-xs">
+                                    T-{{ str_pad($user->id, 3, '0', STR_PAD_LEFT) }}
+                                </td>
+                                <td class="px-6 py-4 font-medium text-gray-900">
+                                    @php $tPic = $classListsByUser[$user->id]['profile_picture'] ?? null; @endphp
+                                    <div class="flex items-center gap-2.5">
+                                        @if($tPic)
+                                            <img src="{{ $tPic }}" alt="" class="w-7 h-7 rounded-full object-cover shrink-0">
+                                        @else
+                                            <div class="w-7 h-7 rounded-full bg-[#2f5597]/10 flex items-center justify-center shrink-0">
+                                                <span class="text-[#2f5597] text-xs font-bold">{{ strtoupper(substr($user->name, 0, 1)) }}</span>
+                                            </div>
+                                        @endif
+                                        {{ $user->name }}
+                                    </div>
+                                </td>
                                 <td class="px-6 py-4 text-gray-500">{{ $user->email }}</td>
+                                <td class="px-6 py-4">
+                                    @php $cl = $classListsByUser[$user->id] ?? null; @endphp
+                                    @if($cl && !empty($cl['class_assignments']))
+                                        <div class="space-y-1">
+                                            @foreach($cl['class_assignments'] as $cls)
+                                                <div class="flex items-center gap-1.5 flex-wrap text-sm text-gray-700">
+                                                    <span>@foreach($cls['subjects'] as $i => $subj){{ $i ? ', ' : '' }}{{ $cls['class_name'] }} — {{ $subj }}@endforeach</span>
+                                                    @if($cls['pin'])
+                                                        <span class="text-gray-400">—</span>
+                                                        <span class="font-mono text-xs font-bold text-gray-600 tracking-widest">{{ $cls['pin'] }}</span>
+                                                    @else
+                                                        <span class="text-gray-400 text-xs">— no PIN</span>
+                                                    @endif
+                                                    <form method="POST" action="{{ route('admin.classes.generatePin', $cls['class_list_id']) }}" class="inline">
+                                                        @csrf
+                                                        @if($cls['pin'])
+                                                            <button type="submit"
+                                                                    class="px-2.5 py-1 text-xs font-medium rounded-md border border-gray-200 bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors">
+                                                                Regen
+                                                            </button>
+                                                        @else
+                                                            <button type="submit"
+                                                                    class="px-2.5 py-1 text-xs font-medium rounded-md bg-[#2f5597] text-white hover:bg-blue-800 transition-colors">
+                                                                Generate
+                                                            </button>
+                                                        @endif
+                                                    </form>
+                                                </div>
+                                            @endforeach
+                                        </div>
+                                    @else
+                                        <span class="text-gray-400 text-xs">—</span>
+                                    @endif
+                                </td>
                                 <td class="px-6 py-4 text-gray-500">
                                     {{ $studentCountsByUser[$user->id] ?? 0 }}
                                 </td>
                                 <td class="px-6 py-4">
-                                    @php $cl = $classListsByUser[$user->id] ?? null; @endphp
-                                    <div class="flex items-center gap-2 flex-wrap">
-                                        @if($cl && $cl['unified_classroom_pin'])
-                                            <span class="font-mono text-sm font-bold text-gray-800 tracking-widest select-all">
-                                                {{ $cl['unified_classroom_pin'] }}
-                                            </span>
-                                        @else
-                                            <span class="px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-500 border border-gray-200">
-                                                No PIN
-                                            </span>
-                                        @endif
-                                        @if($cl && $cl['id'])
-                                            <form method="POST" action="{{ route('admin.classes.generatePin', $cl['id']) }}" class="inline">
-                                                @csrf
-                                                <button type="submit"
-                                                        class="text-xs px-2.5 py-1 rounded-md border border-gray-200 text-gray-600 hover:bg-gray-100 transition-colors whitespace-nowrap">
-                                                    {{ $cl['unified_classroom_pin'] ? 'Regenerate' : 'Generate PIN' }}
-                                                </button>
-                                            </form>
-                                        @endif
+                                    @php $teacherStatus = $classListsByUser[$user->id]['status'] ?? 'Active'; @endphp
+                                    @if($teacherStatus === 'Active')
+                                        <span class="px-3 py-1 rounded-full text-[11px] font-medium bg-[#2f5597] text-white tracking-wide">Active</span>
+                                    @else
+                                        <span class="px-3 py-1 rounded-full text-[11px] font-medium bg-gray-200 text-gray-600 tracking-wide">Inactive</span>
+                                    @endif
+                                </td>
+                                <td class="px-6 py-4 text-right">
+                                    @php $clForEdit = $classListsByUser[$user->id] ?? null; @endphp
+                                    <div class="flex items-center justify-end gap-3">
+                                    @if($clForEdit && !empty($clForEdit['teacher_id']))
+                                        <a href="{{ route('admin.teachers.profile', $clForEdit['teacher_id']) }}"
+                                           class="text-gray-400 hover:text-[#2f5597] transition-colors" title="View profile">
+                                            <i data-lucide="eye" class="w-4 h-4"></i>
+                                        </a>
+                                    @endif
+                                    <button @click="openEditTeacher({ id: {{ $user->id }}, name: @js($user->name), email: @js($user->email), class_list_id: @js((string) ($clForEdit['edit_class_list_id'] ?? '')), subjects: @js(array_values($clForEdit['edit_subjects'] ?? [])) })"
+                                            class="text-gray-400 hover:text-gray-700 transition-colors">
+                                        <i data-lucide="pencil" class="w-4 h-4"></i>
+                                    </button>
+                                    @if(($classListsByUser[$user->id]['status'] ?? 'Active') === 'Inactive')
+                                    <form method="POST" action="{{ route('admin.teachers.resend-activation', $user->id) }}"
+                                          class="inline-block"
+                                          onsubmit="return confirm('Resend the activation email to \'{{ addslashes($user->email) }}\'?')">
+                                        @csrf
+                                        <button type="submit" class="text-gray-400 hover:text-amber-600 transition-colors" title="Resend activation email">
+                                            <i data-lucide="mail" class="w-4 h-4"></i>
+                                        </button>
+                                    </form>
+                                    @endif
+                                    <form method="POST" action="{{ route('admin.teachers.destroy', $user->id) }}"
+                                          class="inline-block"
+                                          onsubmit="return confirm('Delete teacher account for \'{{ addslashes($user->name) }}\'?\n\nNote: deletion will be blocked if this teacher has active students.')">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit" class="text-gray-400 hover:text-red-600 transition-colors">
+                                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                        </button>
+                                    </form>
                                     </div>
                                 </td>
-                            @else
+                            </tr>
+                            @empty
+                            <tr>
+                                <td colspan="7" class="px-6 py-12 text-center text-gray-400">
+                                    <i data-lucide="users" class="w-8 h-8 mx-auto mb-2 opacity-40"></i>
+                                    @if($search)
+                                        <p class="text-sm">No teachers found matching "<span class="font-medium">{{ $search }}</span>".</p>
+                                    @else
+                                        <p class="text-sm">No teachers found.</p>
+                                    @endif
+                                </td>
+                            </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+                <div class="px-6 py-4 border-t border-gray-200 bg-gray-50">
+                    {{ $users->links() }}
+                </div>
+            </div>
+        </div>
+
+        {{-- ===================== PARENTS TAB PANEL ===================== --}}
+        <div x-show="activeTab === 'parents'" style="display:none;">
+
+            {{-- Parent search --}}
+            <div class="mb-4 flex items-center gap-2 max-w-md">
+                <form method="GET" action="{{ route('admin.teachers.index') }}" class="relative flex-1">
+                    <input type="hidden" name="tab" value="parents">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <i data-lucide="search" class="w-4 h-4 text-gray-400"></i>
+                    </div>
+                    <input type="text" id="search-parents" name="parent_search" value="{{ $parentSearch ?? '' }}"
+                           placeholder="Search parents by name..."
+                           class="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#2f5597] focus:border-transparent outline-none">
+                </form>
+                @if($parentSearch)
+                    <a href="{{ route('admin.teachers.index', array_merge(request()->except(['parent_search', 'parent_page']), ['tab' => 'parents'])) }}"
+                       class="text-sm text-gray-400 hover:text-gray-600 whitespace-nowrap">Clear</a>
+                @endif
+            </div>
+
+            {{-- Per-page selector --}}
+            <div class="mb-3 flex items-center gap-2">
+                <label class="text-xs font-medium text-gray-500">Rows per page</label>
+                <select onchange="changePerPage('parents_per_page', 'parent_page', 'parents', this.value)"
+                        class="px-2 py-1.5 border border-gray-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-[#2f5597] outline-none">
+                    <option value="10" {{ $parentsPerPage === 10 ? 'selected' : '' }}>10</option>
+                    <option value="20" {{ $parentsPerPage === 20 ? 'selected' : '' }}>20</option>
+                    <option value="50" {{ $parentsPerPage === 50 ? 'selected' : '' }}>50</option>
+                </select>
+            </div>
+
+            <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm text-left">
+                        <thead class="bg-gray-50 border-b border-gray-200 text-gray-500">
+                            <tr>
+                                <th class="px-6 py-4 font-medium w-24">ID</th>
+                                <th class="px-6 py-4 font-medium">Name</th>
+                                <th class="px-6 py-4 font-medium">Web Login</th>
+                                <th class="px-6 py-4 font-medium">Children</th>
+                                <th class="px-6 py-4 font-medium">Parent Password</th>
+                                <th class="px-6 py-4 font-medium">Status</th>
+                                <th class="px-6 py-4 font-medium text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody-parents" class="divide-y divide-gray-100">
+                            @forelse($parentUsers as $user)
+                            <tr class="hover:bg-gray-50 transition-colors" data-name="{{ strtolower($user->name) }} {{ strtolower($user->email) }}">
+                                <td class="px-6 py-4 text-gray-500 font-mono text-xs">
+                                    P-{{ str_pad($user->id, 3, '0', STR_PAD_LEFT) }}
+                                </td>
+                                <td class="px-6 py-4 font-medium text-gray-900">
+                                    @php $pPic = $extraData[$user->id]['profile_picture'] ?? null; @endphp
+                                    <div class="flex items-center gap-2.5">
+                                        @if($pPic)
+                                            <img src="{{ $pPic }}" alt="" class="w-7 h-7 rounded-full object-cover shrink-0">
+                                        @else
+                                            <div class="w-7 h-7 rounded-full bg-green-100 flex items-center justify-center shrink-0">
+                                                <span class="text-green-700 text-xs font-bold">{{ strtoupper(substr($user->name, 0, 1)) }}</span>
+                                            </div>
+                                        @endif
+                                        {{ $user->name }}
+                                    </div>
+                                </td>
                                 @php $children = $extraData[$user->id]['children'] ?? collect(); @endphp
                                 <td class="px-6 py-4 text-gray-500">{{ explode('@', $user->email)[0] }}</td>
                                 <td class="px-6 py-4 text-gray-500">
@@ -418,70 +808,441 @@
                                         <span class="text-gray-400 text-xs">—</span>
                                     @endforelse
                                 </td>
-                            @endif
-
-                            <td class="px-6 py-4">
-                                <span class="px-3 py-1 rounded-full text-[11px] font-medium bg-[#2f5597] text-white tracking-wide">
-                                    active
-                                </span>
-                            </td>
-                            <td class="px-6 py-4 text-right space-x-2">
-                                @php $clForEdit = $classListsByUser[$user->id] ?? null; @endphp
-                                <button @click="openEdit({ id: {{ $user->id }}, name: @js($user->name), email: @js($user->email), class_name: @js($clForEdit['class_name'] ?? '') })"
-                                        class="text-gray-400 hover:text-gray-700 transition-colors">
-                                    <i data-lucide="pencil" class="w-4 h-4"></i>
-                                </button>
-
-                                @if($activeTab === 'teacher')
-                                <form method="POST" action="{{ route('admin.teachers.destroy', $user->id) }}"
-                                      class="inline-block"
-                                      onsubmit="return confirm('Delete teacher account for \'{{ addslashes($user->name) }}\'?\n\nNote: deletion will be blocked if this teacher has active students.')">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button type="submit" class="text-gray-400 hover:text-red-600 transition-colors">
-                                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                <td class="px-6 py-4">
+                                    <span class="px-3 py-1 rounded-full text-[11px] font-medium bg-[#2f5597] text-white tracking-wide">active</span>
+                                </td>
+                                <td class="px-6 py-4 text-right">
+                                    <div class="flex items-center justify-end gap-3">
+                                    <a href="{{ route('admin.parents.profile', $user->id) }}" class="text-gray-400 hover:text-blue-600 transition-colors" title="View Profile">
+                                        <i data-lucide="eye" class="w-4 h-4"></i>
+                                    </a>
+                                    <button @click="openEditParent({ id: {{ $user->id }}, name: @js($user->name), email: @js($user->email) })"
+                                            class="text-gray-400 hover:text-gray-700 transition-colors">
+                                        <i data-lucide="pencil" class="w-4 h-4"></i>
                                     </button>
-                                </form>
-                                @else
-                                <form method="POST" action="{{ route('admin.users.destroy', $user->id) }}"
-                                      class="inline-block"
-                                      onsubmit="return confirm('Delete account for \'{{ addslashes($user->name) }}\'? This cannot be undone.')">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button type="submit" class="text-gray-400 hover:text-red-600 transition-colors">
-                                        <i data-lucide="trash-2" class="w-4 h-4"></i>
-                                    </button>
-                                </form>
-                                @endif
-                            </td>
-                        </tr>
-                        @empty
-                        <tr>
-                            <td colspan="{{ $activeTab === 'teacher' ? 7 : 7 }}"
-                                class="px-6 py-12 text-center text-gray-400">
-                                <i data-lucide="users" class="w-8 h-8 mx-auto mb-2 opacity-40"></i>
-                                <p class="text-sm">
-                                    No {{ $activeTab === 'teacher' ? 'teachers' : 'users' }} found
-                                    @if($search) matching "<span class="font-medium">{{ $search }}</span>" @endif.
-                                </p>
-                            </td>
-                        </tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
-
-            <div class="px-6 py-4 border-t border-gray-200 bg-gray-50">
-                {{ $users->links() }}
+                                    <form method="POST" action="{{ route('admin.users.destroy', $user->id) }}"
+                                          class="inline-block"
+                                          onsubmit="return confirm('Delete account for \'{{ addslashes($user->name) }}\'? This cannot be undone.')">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit" class="text-gray-400 hover:text-red-600 transition-colors">
+                                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                        </button>
+                                    </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            @empty
+                            <tr>
+                                <td colspan="7" class="px-6 py-12 text-center text-gray-400">
+                                    <i data-lucide="users" class="w-8 h-8 mx-auto mb-2 opacity-40"></i>
+                                    @if($parentSearch)
+                                        <p class="text-sm">No parents found matching "<span class="font-medium">{{ $parentSearch }}</span>".</p>
+                                    @else
+                                        <p class="text-sm">No parents found.</p>
+                                    @endif
+                                </td>
+                            </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+                <div class="px-6 py-4 border-t border-gray-200 bg-gray-50">
+                    {{ $parentUsers->links() }}
+                </div>
             </div>
         </div>
+
+        {{-- ===================== STUDENTS TAB PANEL ===================== --}}
+        <div x-show="activeTab === 'students'" style="display:none;">
+
+            {{-- Toolbar: search + archived toggle --}}
+            <div class="mb-4 flex flex-wrap items-center gap-3">
+                <form method="GET" action="{{ route('admin.teachers.index') }}" class="relative flex-1 max-w-md">
+                    <input type="hidden" name="tab" value="students">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <i data-lucide="search" class="w-4 h-4 text-gray-400"></i>
+                    </div>
+                    <input type="text" id="search-students" name="student_search" value="{{ $studentSearch ?? '' }}"
+                           placeholder="Search students by name..."
+                           class="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#2f5597] focus:border-transparent outline-none">
+                </form>
+                @if($studentSearch)
+                    <a href="{{ route('admin.teachers.index', array_merge(request()->except(['student_search', 'student_page']), ['tab' => 'students'])) }}"
+                       class="text-sm text-gray-400 hover:text-gray-600 whitespace-nowrap">Clear</a>
+                @endif
+                <button @click="showArchived = !showArchived"
+                        :class="showArchived ? 'bg-amber-100 text-amber-700 border-amber-300' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'"
+                        class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium border rounded-lg transition-colors">
+                    <i data-lucide="archive" class="w-4 h-4"></i>
+                    <span x-text="showArchived ? 'Hide Archived' : 'Show Archived'"></span>
+                </button>
+
+                {{-- Per-page selector (active students) --}}
+                <div x-show="!showArchived" class="flex items-center gap-2 ml-auto">
+                    <label class="text-xs font-medium text-gray-500">Rows per page</label>
+                    <select onchange="changePerPage('students_per_page', 'student_page', 'students', this.value)"
+                            class="px-2 py-1.5 border border-gray-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-[#2f5597] outline-none">
+                        <option value="10" {{ $studentsPerPage === 10 ? 'selected' : '' }}>10</option>
+                        <option value="20" {{ $studentsPerPage === 20 ? 'selected' : '' }}>20</option>
+                        <option value="50" {{ $studentsPerPage === 50 ? 'selected' : '' }}>50</option>
+                    </select>
+                </div>
+            </div>
+
+            {{-- Active students --}}
+            <div x-show="!showArchived">
+                <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm text-left">
+                            <thead class="bg-gray-50 border-b border-gray-200 text-gray-500">
+                                <tr>
+                                    <th class="px-6 py-4 font-medium">Student</th>
+                                    <th class="px-6 py-4 font-medium">Parent</th>
+                                    <th class="px-6 py-4 font-medium">Class &amp; Teacher</th>
+                                    <th class="px-6 py-4 font-medium">Status</th>
+                                    <th class="px-6 py-4 font-medium text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbody-students" class="divide-y divide-gray-100">
+                                @forelse($students as $student)
+                                <tr class="hover:bg-gray-50 transition-colors" data-name="{{ strtolower($student->name) }}">
+                                    <td class="px-6 py-4">
+                                        <div class="flex items-center gap-3">
+                                            @php $iconEmoji = ['cat'=>'🐱','dog'=>'🐶','bear'=>'🐻','rabbit'=>'🐰','fox'=>'🦊','frog'=>'🐸','penguin'=>'🐧','lion'=>'🦁']; @endphp
+                                            @if($student->profile_icon && isset($iconEmoji[$student->profile_icon]))
+                                                <div class="w-8 h-8 rounded-full bg-[#2f5597]/10 flex items-center justify-center shrink-0 text-lg leading-none">
+                                                    {{ $iconEmoji[$student->profile_icon] }}
+                                                </div>
+                                            @else
+                                                <div class="w-8 h-8 rounded-full bg-[#2f5597]/10 flex items-center justify-center shrink-0">
+                                                    <span class="text-[#2f5597] text-xs font-bold">{{ strtoupper(substr($student->name, 0, 1)) }}</span>
+                                                </div>
+                                            @endif
+                                            <span class="font-medium text-gray-900">{{ $student->name }}</span>
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        @if($student->parentUser)
+                                            <span class="text-gray-700">{{ $student->parentUser->name }}</span>
+                                        @else
+                                            <span class="px-2.5 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700 border border-yellow-200">Unassigned</span>
+                                        @endif
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        @if($student->classList)
+                                            <div class="text-gray-700">{{ $student->classList->class_name }}</div>
+                                            @if($student->classList->teacher)
+                                                <div class="text-xs text-gray-400 mt-0.5">{{ $student->classList->teacher->name }}</div>
+                                            @endif
+                                        @else
+                                            <span class="px-2.5 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700 border border-yellow-200">Unassigned</span>
+                                        @endif
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        @if($student->parentUser && $student->classList)
+                                            <span class="px-3 py-1 rounded-full text-[11px] font-medium bg-teal-500 text-white tracking-wide">Complete</span>
+                                        @else
+                                            <span class="px-3 py-1 rounded-full text-[11px] font-medium bg-red-100 text-red-600 border border-red-200 tracking-wide">Incomplete</span>
+                                        @endif
+                                    </td>
+                                    <td class="px-6 py-4 text-right">
+                                        <div class="flex items-center justify-end gap-3">
+                                        <a href="{{ route('admin.students.profile', $student->id) }}" class="text-gray-400 hover:text-blue-600 transition-colors" title="View Profile">
+                                            <i data-lucide="eye" class="w-4 h-4"></i>
+                                        </a>
+                                        <button onclick="openAssignModal(
+                                                    {{ $student->id }},
+                                                    @js($student->name),
+                                                    {{ $student->parent_id ?? 'null' }},
+                                                    {{ $student->class_list_id ?? 'null' }},
+                                                    @js($student->profile_icon ?? 'cat'),
+                                                    @js($student->parent_password ?? '')
+                                                )"
+                                                class="text-sm px-3 py-1.5 rounded-md border border-gray-200 text-gray-600 hover:bg-gray-100 transition-colors inline-flex items-center gap-1.5">
+                                            <i data-lucide="{{ $student->parentUser && $student->classList ? 'pencil' : 'link' }}" class="w-3.5 h-3.5"></i>
+                                            {{ $student->parentUser && $student->classList ? 'Edit' : 'Assign' }}
+                                        </button>
+                                        <form method="POST" action="{{ route('admin.students.archive', $student->id) }}"
+                                              class="inline-block"
+                                              onsubmit="return confirm('Archive student \'{{ addslashes($student->name) }}\'? They will be hidden from active lists.')">
+                                            @csrf
+                                            <button type="submit" class="text-gray-400 hover:text-yellow-600 transition-colors" title="Archive student">
+                                                <i data-lucide="archive" class="w-4 h-4"></i>
+                                            </button>
+                                        </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                                @empty
+                                <tr>
+                                    <td colspan="5" class="px-6 py-12 text-center text-gray-400">
+                                        <i data-lucide="users" class="w-8 h-8 mx-auto mb-2 opacity-40"></i>
+                                        <p class="text-sm">No students yet. Click "Add Student" to create one.</p>
+                                    </td>
+                                </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                    @if($students->hasPages())
+                    <div class="px-6 py-4 border-t border-gray-200 bg-gray-50">
+                        {{ $students->links() }}
+                    </div>
+                    @endif
+                </div>
+            </div>
+
+            {{-- Archived students --}}
+            <div x-show="showArchived" style="display:none;">
+                <div class="mb-4">
+                    <a href="#" @click.prevent="showArchived = false"
+                       class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 border border-gray-300 rounded-full hover:bg-gray-50 transition-colors">
+                        <svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 011.06.02z" clip-rule="evenodd" />
+                        </svg>
+                        Back to Active
+                    </a>
+                </div>
+                <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm text-left">
+                            <thead class="bg-gray-50 border-b border-gray-200 text-gray-500">
+                                <tr>
+                                    <th class="px-6 py-4 font-medium">Student</th>
+                                    <th class="px-6 py-4 font-medium">Parent</th>
+                                    <th class="px-6 py-4 font-medium">Class &amp; Teacher</th>
+                                    <th class="px-6 py-4 font-medium">Archived</th>
+                                    <th class="px-6 py-4 font-medium text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100">
+                                @forelse($archivedStudents as $student)
+                                <tr class="hover:bg-gray-50 transition-colors">
+                                    <td class="px-6 py-4">
+                                        <div class="flex items-center gap-3">
+                                            @php $iconEmoji = ['cat'=>'🐱','dog'=>'🐶','bear'=>'🐻','rabbit'=>'🐰','fox'=>'🦊','frog'=>'🐸','penguin'=>'🐧','lion'=>'🦁']; @endphp
+                                            @if($student->profile_icon && isset($iconEmoji[$student->profile_icon]))
+                                                <div class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center shrink-0 text-lg leading-none">
+                                                    {{ $iconEmoji[$student->profile_icon] }}
+                                                </div>
+                                            @else
+                                                <div class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
+                                                    <span class="text-gray-400 text-xs font-bold">{{ strtoupper(substr($student->name, 0, 1)) }}</span>
+                                                </div>
+                                            @endif
+                                            <span class="font-medium text-gray-600">{{ $student->name }}</span>
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4 text-gray-500">
+                                        {{ $student->parentUser?->name ?? '—' }}
+                                    </td>
+                                    <td class="px-6 py-4 text-gray-500">
+                                        @if($student->classList)
+                                            <div>{{ $student->classList->class_name }}</div>
+                                            @if($student->classList->teacher)
+                                                <div class="text-xs text-gray-400 mt-0.5">{{ $student->classList->teacher->name }}</div>
+                                            @endif
+                                        @else
+                                            <span class="text-gray-400">—</span>
+                                        @endif
+                                    </td>
+                                    <td class="px-6 py-4 text-gray-400 text-xs">
+                                        {{ $student->archived_at?->format('M j, Y') ?? '—' }}
+                                    </td>
+                                    <td class="px-6 py-4 text-right">
+                                        <form method="POST" action="{{ route('admin.students.restore', $student->id) }}"
+                                              onsubmit="return confirm('Restore student \'{{ addslashes($student->name) }}\'?')">
+                                            @csrf
+                                            <button type="submit" class="text-sm px-3 py-1.5 rounded-md border border-gray-200 text-gray-600 hover:bg-gray-100 transition-colors inline-flex items-center gap-1.5">
+                                                <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+                                                Restore
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                @empty
+                                <tr>
+                                    <td colspan="5" class="px-6 py-12 text-center text-gray-400">
+                                        <i data-lucide="archive" class="w-8 h-8 mx-auto mb-2 opacity-40"></i>
+                                        <p class="text-sm">No archived students.</p>
+                                    </td>
+                                </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        {{-- ===================== ADMINS TAB PANEL ===================== --}}
+        <div x-show="activeTab === 'admins'" style="display:none;">
+            <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm text-left">
+                        <thead class="bg-gray-50 border-b border-gray-200 text-gray-500">
+                            <tr>
+                                <th class="px-6 py-4 font-medium w-24">ID</th>
+                                <th class="px-6 py-4 font-medium">Name</th>
+                                <th class="px-6 py-4 font-medium">Email</th>
+                                <th class="px-6 py-4 font-medium text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100">
+                            @forelse($admins as $admin)
+                            <tr class="hover:bg-gray-50 transition-colors">
+                                <td class="px-6 py-4 text-gray-500 font-mono text-xs">
+                                    A-{{ str_pad($admin->id, 3, '0', STR_PAD_LEFT) }}
+                                </td>
+                                <td class="px-6 py-4 font-medium text-gray-900">
+                                    <div class="flex items-center gap-2.5">
+                                        @if($admin->profile_picture)
+                                            <img src="{{ $admin->profile_picture }}" alt="" class="w-7 h-7 rounded-full object-cover shrink-0">
+                                        @else
+                                            <div class="w-7 h-7 rounded-full bg-[#2f5597]/10 flex items-center justify-center shrink-0">
+                                                <span class="text-[#2f5597] text-xs font-bold">{{ strtoupper(substr($admin->name, 0, 1)) }}</span>
+                                            </div>
+                                        @endif
+                                        {{ $admin->name }}
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 text-gray-500">{{ $admin->email }}</td>
+                                <td class="px-6 py-4 text-right">
+                                    <div class="flex items-center justify-end gap-3">
+                                        <a href="#" class="text-gray-400 hover:text-blue-600 transition-colors" title="Profile view coming soon">
+                                            <i data-lucide="eye" class="w-4 h-4"></i>
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                            @empty
+                            <tr>
+                                <td colspan="4" class="px-6 py-12 text-center text-gray-400">
+                                    <i data-lucide="shield" class="w-8 h-8 mx-auto mb-2 opacity-40"></i>
+                                    <p class="text-sm">No admin accounts found.</p>
+                                </td>
+                            </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
     </div>
 
     <script>
+        // ---- Per-page selector ----
+        // Sets the chosen per_page for a tab, drops that tab's page param (reset to page 1),
+        // keeps the tab active and preserves all other query params (filters + other tabs' state).
+        function changePerPage(perPageKey, pageKey, tab, value) {
+            const url = new URL(window.location.href);
+            url.searchParams.set(perPageKey, value);
+            url.searchParams.delete(pageKey);
+            url.searchParams.set('tab', tab);
+            window.location.assign(url.toString());
+        }
+
+        // ---- Student create modal ----
+        function openCreateModal() {
+            document.getElementById('create-modal').style.display = 'flex';
+            var saved = document.getElementById('create-profile-icon').value;
+            if (saved) selectIcon(saved);
+        }
+        function closeCreateModal() {
+            document.getElementById('create-modal').style.display = 'none';
+            document.querySelector('#create-form input[name="name"]').value = '';
+            document.getElementById('create-profile-icon').value = '';
+            document.querySelectorAll('.icon-btn').forEach(function (btn) {
+                btn.classList.remove('border-[#2f5597]', 'bg-[#2f5597]/5');
+                btn.classList.add('border-gray-200');
+            });
+            document.querySelector('#create-form select[name="parent_id"]').selectedIndex = 0;
+            document.querySelector('#create-form select[name="class_list_id"]').selectedIndex = 0;
+        }
+        function selectIcon(name) {
+            document.getElementById('create-profile-icon').value = name;
+            document.querySelectorAll('.icon-btn').forEach(function (btn) {
+                if (btn.dataset.icon === name) {
+                    btn.classList.add('border-[#2f5597]', 'bg-[#2f5597]/5');
+                    btn.classList.remove('border-gray-200');
+                } else {
+                    btn.classList.remove('border-[#2f5597]', 'bg-[#2f5597]/5');
+                    btn.classList.add('border-gray-200');
+                }
+            });
+        }
+
+        // ---- Student assign modal ----
+        function selectAssignIcon(name) {
+            document.getElementById('assign-profile-icon').value = name;
+            document.querySelectorAll('.assign-icon-btn').forEach(function (btn) {
+                if (btn.dataset.icon === name) {
+                    btn.classList.add('border-[#2f5597]', 'bg-[#2f5597]/5');
+                    btn.classList.remove('border-gray-200');
+                } else {
+                    btn.classList.remove('border-[#2f5597]', 'bg-[#2f5597]/5');
+                    btn.classList.add('border-gray-200');
+                }
+            });
+        }
+        function openAssignModal(studentId, studentName, parentId, classListId, profileIcon, parentPassword) {
+            document.getElementById('assign-student-name').textContent = studentName;
+            document.getElementById('assign-form').action = '{{ url("/admin/students") }}/' + studentId;
+            document.getElementById('assign-parent').value = parentId  ?? '';
+            document.getElementById('assign-class').value  = classListId ?? '';
+            document.getElementById('assign-parent-password').value = parentPassword ?? '';
+            selectAssignIcon(profileIcon || 'cat');
+            document.getElementById('assign-modal').style.display = 'flex';
+        }
+        function closeAssignModal() {
+            document.getElementById('assign-modal').style.display = 'none';
+        }
+        function generateAssignPassword() {
+            var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+            var pw = '';
+            for (var i = 0; i < 8; i++) pw += chars.charAt(Math.floor(Math.random() * chars.length));
+            document.getElementById('assign-parent-password').value = pw;
+        }
+
+        document.getElementById('assign-modal').addEventListener('click', function (e) {
+            if (e.target === this) closeAssignModal();
+        });
+        document.getElementById('create-modal').addEventListener('click', function (e) {
+            if (e.target === this) closeCreateModal();
+        });
+
+        // ---- Parent temp password generate ----
+        function generateParentPassword() {
+            var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+            var pw = '';
+            for (var i = 0; i < 10; i++) pw += chars.charAt(Math.floor(Math.random() * chars.length));
+            document.getElementById('parent-temp-password').value = pw;
+        }
+
+        // ---- Admin create modal ----
+        function openAdminCreateModal() {
+            document.getElementById('admin-create-modal').style.display = 'flex';
+        }
+        function closeAdminCreateModal() {
+            document.getElementById('admin-create-modal').style.display = 'none';
+        }
+        document.getElementById('admin-create-modal').addEventListener('click', function (e) {
+            if (e.target === this) closeAdminCreateModal();
+        });
+
+        @if($errors->getBag('admin')->any())
+            document.addEventListener('DOMContentLoaded', function () { openAdminCreateModal(); });
+        @endif
+
+        @if($errors->any() && request()->query('tab') === 'students')
+            document.addEventListener('DOMContentLoaded', function () { openCreateModal(); });
+        @endif
+
         document.addEventListener('DOMContentLoaded', function () {
-            if (typeof lucide !== 'undefined') {
-                lucide.createIcons();
-            }
+            if (typeof lucide !== 'undefined') lucide.createIcons();
         });
     </script>
 </x-app-layout>
