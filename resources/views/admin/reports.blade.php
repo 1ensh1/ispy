@@ -76,7 +76,7 @@
     </div>
 
     {{-- Filters --}}
-    <form method="GET" action="{{ route('admin.reports') }}" id="filter-form" class="flex flex-wrap items-end gap-3" onsubmit="return false;">
+    <form method="GET" action="{{ route('admin.reports') }}" id="filter-form" class="flex flex-wrap items-end gap-3">
 
         {{-- Search --}}
         <div class="relative">
@@ -84,7 +84,6 @@
             <input type="text" name="search" id="search-students-report"
                    value="{{ request('search') }}"
                    placeholder="Search students…"
-                   oninput="filterStudentReportRows()"
                    class="pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 outline-none w-52">
         </div>
 
@@ -110,6 +109,17 @@
                 <option value="Mastered"   {{ request('proficiency') === 'Mastered'   ? 'selected' : '' }}>Mastered</option>
                 <option value="Developing" {{ request('proficiency') === 'Developing' ? 'selected' : '' }}>Developing</option>
                 <option value="Beginning"  {{ request('proficiency') === 'Beginning'  ? 'selected' : '' }}>Beginning</option>
+            </select>
+            <svg class="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
+        </div>
+
+        {{-- Per-page selector --}}
+        <div class="relative">
+            <select name="per_page" onchange="document.getElementById('filter-form').submit()"
+                    class="pl-3 pr-8 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 outline-none bg-white appearance-none min-w-[120px]">
+                <option value="10" {{ $perPage === 10 ? 'selected' : '' }}>10 / page</option>
+                <option value="20" {{ $perPage === 20 ? 'selected' : '' }}>20 / page</option>
+                <option value="50" {{ $perPage === 50 ? 'selected' : '' }}>50 / page</option>
             </select>
             <svg class="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
         </div>
@@ -176,39 +186,24 @@
                 </tbody>
             </table>
         </div>
+        @if($students->total() > 0)
+            <div class="px-5 py-4 border-t border-gray-200 bg-gray-50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 no-print">
+                <p class="text-sm text-gray-500">
+                    Showing {{ $students->firstItem() }}–{{ $students->lastItem() }} of {{ $students->total() }} students
+                </p>
+                @if($students->hasPages())
+                    <div>{{ $students->links() }}</div>
+                @endif
+            </div>
+        @endif
     </div>
 
 </div>
 
 @push('scripts')
 <script>
-function filterStudentReportRows() {
-    const input = document.getElementById('search-students-report');
-    const tbody = document.getElementById('tbody-students-report');
-    if (!input || !tbody) return;
-
-    const query = input.value.toLowerCase().trim();
-    const rows  = tbody.querySelectorAll('tr:not([data-empty])');
-    let visibleCount = 0;
-
-    rows.forEach(function (row) {
-        const name = (row.dataset.name || '').toLowerCase();
-        if (query === '' || name.includes(query)) {
-            row.style.display = '';
-            visibleCount++;
-        } else {
-            row.style.display = 'none';
-        }
-    });
-
-    let emptyRow = tbody.querySelector('[data-empty]');
-    if (!emptyRow) {
-        emptyRow = document.createElement('tr');
-        emptyRow.setAttribute('data-empty', '1');
-        emptyRow.innerHTML = '<td colspan="10" class="text-center py-8 text-gray-400 text-sm">No students found.</td>';
-        tbody.appendChild(emptyRow);
-    }
-    emptyRow.style.display = visibleCount === 0 ? '' : 'none';
+if (typeof lucide !== 'undefined') {
+    lucide.createIcons();
 }
 </script>
 @endpush

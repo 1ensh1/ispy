@@ -12,6 +12,15 @@
         </p>
     </div>
 
+    <div class="flex justify-end mb-3">
+        <select onchange="(function(v){const u=new URL(window.location.href);u.searchParams.set('per_page',v);u.searchParams.delete('page');window.location.assign(u.toString());})(this.value)"
+                class="px-3 py-1.5 text-sm border border-gray-200 rounded-lg bg-white text-gray-600 focus:outline-none focus:ring-2 focus:ring-[#2f5597]/30">
+            <option value="10" {{ $perPage === 10 ? 'selected' : '' }}>10 / page</option>
+            <option value="20" {{ $perPage === 20 ? 'selected' : '' }}>20 / page</option>
+            <option value="50" {{ $perPage === 50 ? 'selected' : '' }}>50 / page</option>
+        </select>
+    </div>
+
     <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
         <div class="overflow-x-auto">
             <table class="w-full text-sm text-left">
@@ -79,6 +88,11 @@
                 </tbody>
             </table>
         </div>
+        @if($students->hasPages())
+            <div class="px-6 py-4 border-t border-gray-200 bg-gray-50">
+                {{ $students->links() }}
+            </div>
+        @endif
     </div>
 
 </div>

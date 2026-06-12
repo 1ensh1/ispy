@@ -31,4 +31,9 @@ class ClassList extends Model
     {
         return $this->hasMany(Student::class, 'class_list_id');
     }
+
+    public function classSubjects()
+    {
+        return $this->hasMany(ClassSubject::class);
+    }
 }

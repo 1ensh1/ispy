@@ -51,11 +51,18 @@ class TeacherDashboardController extends Controller
         $teacher   = Teacher::where('user_id', auth()->id())->first();
         $classList = ClassList::find($request->active_class_id);
 
-        $students = $classList
-            ? Student::active()->where('class_list_id', $classList->id)->with('parentUser')->get()
-            : collect();
+        $perPage = (int) $request->query('per_page', 10);
+        if (! in_array($perPage, [10, 20, 50], true)) {
+            $perPage = 10;
+        }
 
-        return view('teacher.students', compact('teacher', 'classList', 'students'));
+        $query = $classList
+            ? Student::active()->where('class_list_id', $classList->id)->with('parentUser')
+            : Student::active()->whereNull('id');
+
+        $students = $query->paginate($perPage)->appends(request()->query());
+
+        return view('teacher.students', compact('teacher', 'classList', 'students', 'perPage'));
     }
 
     public function vocabulary(Request $request)
@@ -83,11 +90,12 @@ class TeacherDashboardController extends Controller
             $query->where('audio_status', $audioFilter);
         }
 
-        $words = $query->orderBy('english_label')->paginate(15)->appends(array_filter([
-            'search'       => $search,
-            'category'     => $categoryFilter,
-            'audio_status' => $audioFilter,
-        ], fn($v) => $v !== null && $v !== ''));
+        $perPage = (int) $request->query('per_page', 10);
+        if (! in_array($perPage, [10, 20, 50], true)) {
+            $perPage = 10;
+        }
+
+        $words = $query->orderBy('english_label')->paginate($perPage)->appends(request()->query());
 
         $suggestions = $teacher
             ? VocabularySuggestion::where('teacher_id', $teacher->id)
@@ -95,7 +103,7 @@ class TeacherDashboardController extends Controller
                 ->get()
             : collect();
 
-        return view('teacher.vocabulary', compact('teacher', 'words', 'suggestions', 'search', 'categoryFilter', 'audioFilter'));
+        return view('teacher.vocabulary', compact('teacher', 'words', 'suggestions', 'search', 'categoryFilter', 'audioFilter', 'perPage'));
     }
 
     public function suggest(Request $request)
@@ -170,14 +178,44 @@ class TeacherDashboardController extends Controller
 
     public function enrollment(Request $request)
     {
-        $teacher   = Teacher::where('user_id', auth()->id())->first();
-        $classList = ClassList::find($request->active_class_id);
+        $teacher    = Teacher::where('user_id', auth()->id())->first();
 
-        $students = $classList
-            ? Student::active()->where('class_list_id', $classList->id)->with('parentUser', 'classList')->get()
+        // Source the teacher's sections from class_subjects (not class_lists.teacher_id).
+        // Enrollment adds a student to a class, so dedupe by class_list_id; keep the
+        // subjects the teacher handles for that class as a display label.
+        $classLists = $teacher
+            ? \App\Models\ClassSubject::active()
+                ->where('teacher_id', $teacher->id)
+                ->with('classList')
+                ->get()
+                ->filter(fn ($cs) => $cs->classList && is_null($cs->classList->archived_at))
+                ->groupBy('class_list_id')
+                ->map(function ($rows) {
+                    $class = $rows->first()->classList;
+                    return (object) [
+                        'id'         => $class->id,
+                        'class_name' => $class->class_name,
+                        'subjects'   => $rows->pluck('subject')->unique()->values()->all(),
+                    ];
+                })
+                ->sortBy('class_name')
+                ->values()
             : collect();
 
-        return view('teacher.enrollment', compact('teacher', 'classList', 'students'));
+        $classList  = ClassList::find($request->active_class_id);
+
+        $perPage = (int) $request->query('per_page', 10);
+        if (! in_array($perPage, [10, 20, 50], true)) {
+            $perPage = 10;
+        }
+
+        $query = $classList
+            ? Student::active()->where('class_list_id', $classList->id)->with('parentUser', 'classList')
+            : Student::active()->whereNull('id');
+
+        $students = $query->paginate($perPage)->appends(request()->query());
+
+        return view('teacher.enrollment', compact('teacher', 'classLists', 'classList', 'students', 'perPage'));
     }
 
     public function enrollmentStore(Request $request)
@@ -185,16 +223,23 @@ class TeacherDashboardController extends Controller
         $teacher = Teacher::where('user_id', auth()->id())->firstOrFail();
 
         $validated = $request->validate([
-            'name'            => 'required|string|max:255',
-            'profile_icon'    => 'nullable|string|in:cat,dog,bear,rabbit,fox,frog,penguin,lion',
-            'parent_password' => 'nullable|string|max:255',
+            'name'         => 'required|string|max:255',
+            'profile_icon' => 'nullable|string|in:cat,dog,bear,rabbit,fox,frog,penguin,lion',
         ]);
+
+        $activeClassId = $request->active_class_id;
+        if ($activeClassId) {
+            $classCount = Student::active()->where('class_list_id', $activeClassId)->count();
+            if ($classCount >= 20) {
+                return back()->withErrors(['class_list_id' => 'This class already has 20 students. No additional students can be enrolled.'])->withInput();
+            }
+        }
 
         Student::create([
             'name'            => $validated['name'],
-            'class_list_id'   => $request->active_class_id,
+            'class_list_id'   => $activeClassId,
             'profile_icon'    => $validated['profile_icon'] ?? 'cat',
-            'parent_password' => $validated['parent_password'] ?: \Illuminate\Support\Str::random(8),
+            'parent_password' => \Illuminate\Support\Str::random(8),
         ]);
 
         self::log('create', "enrolled student {$validated['name']}");

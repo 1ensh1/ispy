@@ -50,15 +50,14 @@ class VocabularyController extends Controller
             $query->orderBy('english_label');
         }
 
-        $words = $query->paginate(15)->appends(array_filter([
-            'search'       => $search,
-            'audio_status' => $audioFilter,
-            'category'     => $categoryFilter,
-            'is_active'    => $activeFilter,
-            'highlight'    => $highlightId ?: null,
-        ], fn($v) => $v !== null && $v !== ''));
+        $perPage = (int) $request->query('per_page', 10);
+        if (! in_array($perPage, [10, 20, 50], true)) {
+            $perPage = 10;
+        }
 
-        return view('admin.vocabulary', compact('words', 'search', 'audioFilter', 'categoryFilter', 'activeFilter', 'highlightId'));
+        $words = $query->paginate($perPage)->appends(request()->query());
+
+        return view('admin.vocabulary', compact('words', 'search', 'audioFilter', 'categoryFilter', 'activeFilter', 'highlightId', 'perPage'));
     }
 
     public function store(Request $request)

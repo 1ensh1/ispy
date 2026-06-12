@@ -74,6 +74,12 @@
                    class="px-4 py-2 text-sm border border-gray-300 rounded-lg bg-white text-gray-600 hover:bg-gray-50 transition-colors">
                     Reset Filters
                 </a>
+                <select name="per_page" onchange="this.form.submit()"
+                        class="px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400">
+                    <option value="10" {{ $perPage === 10 ? 'selected' : '' }}>10 / page</option>
+                    <option value="20" {{ $perPage === 20 ? 'selected' : '' }}>20 / page</option>
+                    <option value="50" {{ $perPage === 50 ? 'selected' : '' }}>50 / page</option>
+                </select>
             </div>
         </form>
 
@@ -153,6 +159,11 @@
                     </tbody>
                 </table>
             </div>
+            @if($tickets->hasPages())
+                <div class="px-4 py-4 border-t border-gray-200 bg-gray-50">
+                    {{ $tickets->links() }}
+                </div>
+            @endif
         </div>
 
     </div>

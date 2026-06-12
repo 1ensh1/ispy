@@ -10,27 +10,51 @@ use Illuminate\Http\Request;
 
 class ConsultationController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         $teachers = Teacher::orderBy('name')->get();
 
-        $bookings = FaceToFaceBooking::with(['slot', 'teacher', 'parentProfile.students'])
-            ->join('consultation_slots', 'face_to_face_bookings.slot_id', '=', 'consultation_slots.id')
-            ->orderByDesc('consultation_slots.scheduled_date')
-            ->orderBy('consultation_slots.time_start')
+        $perPage = (int) $request->query('per_page', 10);
+        if (! in_array($perPage, [10, 20, 50], true)) {
+            $perPage = 10;
+        }
+
+        // Stat cards are computed across ALL bookings (independent of filters / current page).
+        $allBookings = FaceToFaceBooking::with('slot')
             ->select('face_to_face_bookings.*')
             ->get();
 
         $today     = today()->toDateString();
-        $upcoming  = $bookings->filter(
+        $upcoming  = $allBookings->filter(
             fn($b) => in_array($b->status, ['Pending', 'Confirmed'])
                    && ($b->slot?->scheduled_date?->toDateString() ?? '') >= $today
         )->count();
-        $completed = $bookings->where('status', 'Completed')->count();
-        $cancelled = $bookings->where('status', 'Cancelled')->count();
-        $noshow    = $bookings->where('status', 'No-show')->count();
+        $completed = $allBookings->where('status', 'Completed')->count();
+        $cancelled = $allBookings->where('status', 'Cancelled')->count();
+        $noshow    = $allBookings->where('status', 'No-show')->count();
 
-        $rows = $bookings->map(fn($b) => [
+        // Table data: filtered + paginated server-side.
+        $query = FaceToFaceBooking::with(['slot', 'teacher', 'parentProfile.students'])
+            ->join('consultation_slots', 'face_to_face_bookings.slot_id', '=', 'consultation_slots.id')
+            ->orderByDesc('consultation_slots.scheduled_date')
+            ->orderBy('consultation_slots.time_start')
+            ->select('face_to_face_bookings.*');
+
+        if ($request->filled('teacher_id') && $request->teacher_id !== 'all') {
+            $query->where('face_to_face_bookings.teacher_id', $request->teacher_id);
+        }
+
+        if ($request->filled('search')) {
+            $term = $request->search;
+            $query->where(function ($q) use ($term) {
+                $q->whereHas('parentProfile', fn($p) => $p->where('name', 'like', "%{$term}%"))
+                  ->orWhereHas('parentProfile.students', fn($s) => $s->where('name', 'like', "%{$term}%"));
+            });
+        }
+
+        $rows = $query->paginate($perPage)->appends(request()->query());
+
+        $rows->getCollection()->transform(fn($b) => [
             'teacher_id' => $b->teacher_id,
             'teacher'    => $b->teacher?->name ?? '—',
             'parent'     => $b->parentProfile?->name ?? '—',
@@ -39,10 +63,10 @@ class ConsultationController extends Controller
             'time'       => $b->slot ? Carbon::parse($b->slot->time_start)->format('g:i A') : '—',
             'purpose'    => $b->purpose_of_meeting ?? '',
             'status'     => $b->status,
-        ])->values()->toArray();
+        ]);
 
         return view('admin.consultations', compact(
-            'rows', 'teachers', 'upcoming', 'completed', 'cancelled', 'noshow'
+            'rows', 'teachers', 'upcoming', 'completed', 'cancelled', 'noshow', 'perPage'
         ));
     }
 

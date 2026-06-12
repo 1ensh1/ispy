@@ -82,7 +82,7 @@
                 <div>
                     <p class="text-xs text-gray-400 font-medium uppercase tracking-wide mb-1">Subject</p>
                     <p class="text-sm text-gray-700">
-                        {{ $classes->pluck('subject')->filter()->unique()->sort()->implode(', ') ?: '—' }}
+                        {{ $classes->flatMap(fn($c) => $c->teacherSubjects->pluck('subject'))->filter()->unique()->sort()->implode(', ') ?: '—' }}
                     </p>
                 </div>
                 <div>
@@ -124,24 +124,15 @@
                             <tr class="hover:bg-gray-50 transition-colors">
                                 <td class="px-6 py-3 font-medium text-gray-900">{{ $class->class_name }}</td>
                                 <td class="px-6 py-3">
-                                    <form method="POST"
-                                          action="{{ route('admin.classes.update-subject') }}"
-                                          class="flex items-center gap-2">
-                                        @csrf
-                                        @method('PATCH')
-                                        <input type="hidden" name="class_list_id" value="{{ $class->id }}">
-                                        <input type="hidden" name="teacher_id" value="{{ $teacher->id }}">
-                                        <select name="subject"
-                                                class="px-2 py-1 border border-gray-200 rounded-md text-sm focus:ring-2 focus:ring-[#2f5597] outline-none bg-white">
-                                            <option value="" {{ !$class->subject ? 'selected' : '' }}>— Select —</option>
-                                            <option value="English"  {{ $class->subject === 'English'  ? 'selected' : '' }}>English</option>
-                                            <option value="Filipino" {{ $class->subject === 'Filipino' ? 'selected' : '' }}>Filipino</option>
-                                        </select>
-                                        <button type="submit"
-                                                class="px-2.5 py-1 text-xs font-medium rounded-md bg-gray-100 border border-gray-200 text-gray-600 hover:bg-gray-200 transition-colors">
-                                            Save
-                                        </button>
-                                    </form>
+                                    <div class="flex flex-wrap gap-1">
+                                        @forelse($class->teacherSubjects as $cs)
+                                            <span class="inline-block px-2 py-0.5 text-xs font-medium rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                                                {{ $cs->subject }}
+                                            </span>
+                                        @empty
+                                            <span class="text-gray-400 text-xs">—</span>
+                                        @endforelse
+                                    </div>
                                 </td>
                                 <td class="px-6 py-3">
                                     <div class="flex items-center gap-2">
@@ -231,9 +222,19 @@
                                 @foreach($archivedClasses as $archived)
                                 <tr class="hover:bg-gray-50 transition-colors">
                                     <td class="px-6 py-3 font-medium text-gray-700">{{ $archived->class_name }}</td>
-                                    <td class="px-6 py-3 text-gray-500">{{ $archived->subject ?? '—' }}</td>
+                                    <td class="px-6 py-3">
+                                        <div class="flex flex-wrap gap-1">
+                                            @forelse($archived->teacherSubjects as $cs)
+                                                <span class="inline-block px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-600 border border-gray-200">
+                                                    {{ $cs->subject }}
+                                                </span>
+                                            @empty
+                                                <span class="text-gray-400 text-xs">—</span>
+                                            @endforelse
+                                        </div>
+                                    </td>
                                     <td class="px-6 py-3 text-gray-400 text-xs whitespace-nowrap">
-                                        {{ $archived->archived_at ? $archived->archived_at->format('M d, Y') : '—' }}
+                                        {{ $archived->subjects_archived_at ? \Carbon\Carbon::parse($archived->subjects_archived_at)->format('M d, Y') : '—' }}
                                     </td>
                                     <td class="px-6 py-3 text-right">
                                         <form method="POST"
@@ -278,10 +279,28 @@
                                 <option value="">— Select a class —</option>
                                 @foreach($unassignedClasses as $uc)
                                     <option value="{{ $uc->id }}" {{ old('class_list_id') == $uc->id ? 'selected' : '' }}>
-                                        {{ $uc->class_name }}{{ $uc->subject ? ' ('.$uc->subject.')' : '' }}
+                                        {{ $uc->class_name }} (available: {{ implode(', ', $uc->available_subjects) }})
                                     </option>
                                 @endforeach
                             </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Subject(s)</label>
+                            <div class="flex items-center gap-4 h-[38px]">
+                                <label class="inline-flex items-center gap-1.5 text-sm text-gray-700">
+                                    <input type="checkbox" name="subjects[]" value="English"
+                                           {{ is_array(old('subjects')) && in_array('English', old('subjects')) ? 'checked' : '' }}
+                                           class="rounded border-gray-300 text-[#2f5597] focus:ring-[#2f5597]">
+                                    English
+                                </label>
+                                <label class="inline-flex items-center gap-1.5 text-sm text-gray-700">
+                                    <input type="checkbox" name="subjects[]" value="Filipino"
+                                           {{ is_array(old('subjects')) && in_array('Filipino', old('subjects')) ? 'checked' : '' }}
+                                           class="rounded border-gray-300 text-[#2f5597] focus:ring-[#2f5597]">
+                                    Filipino
+                                </label>
+                            </div>
                         </div>
 
                         <div>
@@ -291,6 +310,9 @@
                             </button>
                         </div>
                     </form>
+                    @error('subjects')
+                        <p class="mt-2 text-xs text-red-600">{{ $message }}</p>
+                    @enderror
                 @endif
             </div>
         </div>

@@ -106,7 +106,14 @@
                    class="text-sm text-gray-500 hover:text-gray-700 underline">Clear filters</a>
             @endif
 
-            <span class="px-3 py-1 rounded-full border border-gray-200 bg-white text-sm text-gray-600 font-medium ml-auto">
+            <select name="per_page" onchange="this.form.submit()"
+                    class="px-3 pr-8 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#2f5597] outline-none bg-white text-gray-700 ml-auto">
+                <option value="10" {{ $perPage === 10 ? 'selected' : '' }}>10 / page</option>
+                <option value="20" {{ $perPage === 20 ? 'selected' : '' }}>20 / page</option>
+                <option value="50" {{ $perPage === 50 ? 'selected' : '' }}>50 / page</option>
+            </select>
+
+            <span class="px-3 py-1 rounded-full border border-gray-200 bg-white text-sm text-gray-600 font-medium">
                 {{ $words->total() }} {{ Str::plural('entry', $words->total()) }}
             </span>
         </form>

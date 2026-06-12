@@ -24,9 +24,14 @@ class VocabularySuggestionsController extends Controller
             $query->where('status', $status);
         }
 
-        $suggestions = $query->paginate(20)->withQueryString();
+        $perPage = (int) $request->query('per_page', 10);
+        if (! in_array($perPage, [10, 20, 50], true)) {
+            $perPage = 10;
+        }
 
-        return view('admin.vocabulary-suggestions.index', compact('suggestions', 'status'));
+        $suggestions = $query->paginate($perPage)->appends(request()->query());
+
+        return view('admin.vocabulary-suggestions.index', compact('suggestions', 'status', 'perPage'));
     }
 
     public function approve(VocabularySuggestion $suggestion)

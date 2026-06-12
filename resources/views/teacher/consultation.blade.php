@@ -221,6 +221,14 @@
 
         {{-- ── Tab: Appointments ── --}}
         <div id="panel-appointments" class="mt-4 hidden">
+            <div class="flex justify-end mb-3">
+                <select onchange="(function(v){const u=new URL(window.location.href);u.searchParams.set('per_page',v);u.searchParams.delete('page');u.searchParams.set('tab','appointments');window.location.assign(u.toString());})(this.value)"
+                        class="px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white text-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-400/30">
+                    <option value="10" {{ $perPage === 10 ? 'selected' : '' }}>10 / page</option>
+                    <option value="20" {{ $perPage === 20 ? 'selected' : '' }}>20 / page</option>
+                    <option value="50" {{ $perPage === 50 ? 'selected' : '' }}>50 / page</option>
+                </select>
+            </div>
             <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                 <div class="overflow-x-auto">
                     <table class="w-full text-sm text-left">
@@ -367,6 +375,11 @@
                         </tbody>
                     </table>
                 </div>
+                @if($bookings->hasPages())
+                    <div class="px-4 py-4 border-t border-gray-200 bg-gray-50">
+                        {{ $bookings->links() }}
+                    </div>
+                @endif
             </div>
         </div>
 
@@ -835,6 +848,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
     @if($errors->any())
         switchTab('weekly');
+    @else
+        switchTab('{{ $activeTab }}');
     @endif
 });
 </script>

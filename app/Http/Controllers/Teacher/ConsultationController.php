@@ -132,6 +132,14 @@ class ConsultationController extends Controller
             'purpose'        => $calendarBookingData->has($s->id) ? $calendarBookingData->get($s->id)->purpose_of_meeting : null,
         ])->values()->toArray();
 
+        $perPage = (int) $request->query('per_page', 10);
+        if (! in_array($perPage, [10, 20, 50], true)) {
+            $perPage = 10;
+        }
+
+        $validTabs = ['weekly', 'calendar', 'appointments'];
+        $activeTab = in_array($request->query('tab'), $validTabs) ? $request->query('tab') : 'weekly';
+
         $bookings = DB::table('face_to_face_bookings')
             ->join('consultation_slots', 'face_to_face_bookings.slot_id', '=', 'consultation_slots.id')
             ->leftJoin('parents', 'face_to_face_bookings.parent_id', '=', 'parents.id')
@@ -149,10 +157,12 @@ class ConsultationController extends Controller
                 'parents.name as parent_name',
                 DB::raw('(SELECT s.name FROM students s WHERE s.parent_id = face_to_face_bookings.parent_id LIMIT 1) as student_name')
             )
-            ->get();
+            ->paginate($perPage)
+            ->appends(request()->query());
 
         return view('teacher.consultation', compact(
-            'upcomingCount', 'allSlots', 'slotDates', 'calendarSlots', 'bookings', 'maxPerDay', 'todayMonday'
+            'upcomingCount', 'allSlots', 'slotDates', 'calendarSlots', 'bookings', 'maxPerDay', 'todayMonday',
+            'perPage', 'activeTab'
         ));
     }
 

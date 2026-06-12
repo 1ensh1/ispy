@@ -2,9 +2,16 @@
 <div class="p-6 max-w-7xl mx-auto space-y-6">
 
     {{-- Page header --}}
-    <div>
-        <h1 class="text-2xl font-bold text-gray-900">Activity Logs</h1>
-        <p class="text-sm text-gray-500 mt-0.5">Audit trail of all portal actions</p>
+    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900">Activity Logs</h1>
+            <p class="text-sm text-gray-500 mt-0.5">Audit trail of all portal actions</p>
+        </div>
+        <a href="{{ route('admin.activity-logs.export', array_filter(request()->only(['role', 'action', 'search']))) }}"
+           class="inline-flex items-center gap-1.5 px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors">
+            <i data-lucide="download" class="w-4 h-4"></i>
+            Export CSV
+        </a>
     </div>
 
     {{-- Filters --}}
@@ -71,16 +78,25 @@
             Filter
         </button>
 
+        {{-- Per-page selector (submits the form; dropping the page param resets to page 1) --}}
+        <div class="relative">
+            <select name="per_page" onchange="this.form.submit()"
+                    class="pl-3 pr-8 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 outline-none bg-white appearance-none min-w-[110px]">
+                <option value="10" {{ $perPage === 10 ? 'selected' : '' }}>10 / page</option>
+                <option value="20" {{ $perPage === 20 ? 'selected' : '' }}>20 / page</option>
+                <option value="50" {{ $perPage === 50 ? 'selected' : '' }}>50 / page</option>
+            </select>
+            <svg class="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
+                 xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/>
+            </svg>
+        </div>
+
         @if(request('role') || request('action') || request('search'))
             <a href="{{ route('admin.activity.logs') }}"
                class="text-sm text-gray-500 hover:text-gray-700 underline self-center">Clear</a>
         @endif
 
-        <a href="{{ route('admin.activity-logs.export', array_filter(request()->only(['role', 'action', 'search']))) }}"
-           class="inline-flex items-center gap-1.5 px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors">
-            <i data-lucide="download" class="w-4 h-4"></i>
-            Export CSV
-        </a>
 
     </form>
 
@@ -204,9 +220,16 @@
     </div>
 
     {{-- Pagination --}}
-    @if($logs->hasPages())
-        <div class="flex justify-end">
-            {{ $logs->links() }}
+    @if($logs->total() > 0)
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <p class="text-sm text-gray-500">
+                Showing {{ $logs->firstItem() }}–{{ $logs->lastItem() }} of {{ $logs->total() }} entries
+            </p>
+            @if($logs->hasPages())
+                <div>
+                    {{ $logs->links() }}
+                </div>
+            @endif
         </div>
     @endif
 

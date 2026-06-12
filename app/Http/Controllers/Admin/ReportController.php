@@ -10,6 +10,8 @@ use App\Models\StudentProgress;
 use App\Models\Teacher;
 use App\Models\VocabularyLibrary;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Facades\DB;
 
 class ReportController extends Controller
@@ -29,6 +31,10 @@ class ReportController extends Controller
 
         if ($request->filled('teacher_id')) {
             $query->whereHas('classList', fn($q) => $q->where('teacher_id', $request->teacher_id));
+        }
+
+        if ($request->filled('search')) {
+            $query->where('name', 'ILIKE', '%' . $request->search . '%');
         }
 
         $students = $query->get()->map(function ($student) {
@@ -51,8 +57,25 @@ class ReportController extends Controller
             $students = $students->filter(fn($s) => $s->dominant === $request->proficiency);
         }
 
+        // The dominant-proficiency filter runs on the mapped collection, so paginate
+        // the resulting collection manually rather than the underlying query.
+        $perPage = (int) $request->query('per_page', 10);
+        if (! in_array($perPage, [10, 20, 50], true)) {
+            $perPage = 10;
+        }
+
+        $students = $students->values();
+        $page     = Paginator::resolveCurrentPage('page');
+        $students = (new LengthAwarePaginator(
+            $students->forPage($page, $perPage)->values(),
+            $students->count(),
+            $perPage,
+            $page,
+            ['path' => Paginator::resolveCurrentPath()]
+        ))->appends(request()->query());
+
         return view('admin.reports', compact(
-            'students', 'teachers', 'totalStudents', 'avgMastery', 'profDist'
+            'students', 'teachers', 'totalStudents', 'avgMastery', 'profDist', 'perPage'
         ));
     }
 

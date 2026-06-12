@@ -14,13 +14,20 @@ class CmsController extends Controller
 {
     use LogsActivity;
 
-    public function index()
+    public function index(Request $request)
     {
         $sections = CmsContent::all()->keyBy('section_key');
 
-        $announcements = CmsAnnouncement::orderBy('created_at', 'desc')->get();
+        $perPage = (int) $request->query('per_page', 10);
+        if (! in_array($perPage, [10, 20, 50], true)) {
+            $perPage = 10;
+        }
 
-        return view('admin.cms.index', compact('sections', 'announcements'));
+        $announcements = CmsAnnouncement::orderBy('created_at', 'desc')
+            ->paginate($perPage)
+            ->appends(request()->query());
+
+        return view('admin.cms.index', compact('sections', 'announcements', 'perPage'));
     }
 
     public function updateSection(Request $request, $sectionKey)

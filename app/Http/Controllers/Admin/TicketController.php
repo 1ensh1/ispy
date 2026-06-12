@@ -15,6 +15,11 @@ class TicketController extends Controller
 
     public function index(Request $request)
     {
+        $perPage = (int) $request->query('per_page', 10);
+        if (! in_array($perPage, [10, 20, 50], true)) {
+            $perPage = 10;
+        }
+
         $tickets = Ticket::with('createdByUser')
             ->leftJoin('teachers', 'teachers.user_id', '=', 'tickets.created_by_user_id')
             ->select('tickets.*', 'teachers.name as teacher_display_name')
@@ -22,11 +27,12 @@ class TicketController extends Controller
             ->when($request->filled('priority'), fn($q) => $q->where('tickets.priority', $request->priority))
             ->when($request->filled('role'),     fn($q) => $q->where('tickets.created_by_role', $request->role))
             ->orderByDesc('tickets.created_at')
-            ->get();
+            ->paginate($perPage)
+            ->appends(request()->query());
 
         $teachers = Teacher::orderBy('name')->get();
 
-        return view('admin.tickets.index', compact('tickets', 'teachers'));
+        return view('admin.tickets.index', compact('tickets', 'teachers', 'perPage'));
     }
 
     public function store(Request $request)

@@ -9,17 +9,30 @@
     <div class="flex flex-col border-r border-gray-200 shrink-0" style="width:280px;">
 
         <div class="px-3 py-3 border-b border-gray-100 shrink-0">
-            <h2 class="text-sm font-semibold text-gray-800 mb-2 px-1">Messages</h2>
-            <div class="relative">
+            <div class="flex items-center justify-between mb-2 px-1">
+                <h2 class="text-sm font-semibold text-gray-800">Messages</h2>
+                <select onchange="(function(v){const u=new URL(window.location.href);u.searchParams.set('per_page',v);u.searchParams.delete('page');window.location.assign(u.toString());})(this.value)"
+                        class="text-xs border border-gray-200 rounded bg-white text-gray-500 focus:outline-none py-0.5 px-1">
+                    <option value="10" {{ $perPage === 10 ? 'selected' : '' }}>10</option>
+                    <option value="20" {{ $perPage === 20 ? 'selected' : '' }}>20</option>
+                    <option value="50" {{ $perPage === 50 ? 'selected' : '' }}>50</option>
+                </select>
+            </div>
+            <form method="GET" action="{{ route('teacher.messaging') }}" class="relative">
+                <input type="hidden" name="per_page" value="{{ $perPage }}">
+                @if(request('engagement_id'))
+                    <input type="hidden" name="engagement_id" value="{{ request('engagement_id') }}">
+                @endif
                 <i data-lucide="search"
                    class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"></i>
-                <input type="text" id="conv-search" placeholder="Search conversations..."
+                <input type="text" name="search" id="conv-search" value="{{ request('search') }}"
+                       placeholder="Search conversations..."
                        class="w-full pl-9 pr-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm
                               focus:ring-2 focus:ring-indigo-500 outline-none">
-            </div>
+            </form>
         </div>
 
-        <div class="flex-1 overflow-y-auto divide-y divide-gray-50" id="conv-list">
+        <div class="overflow-y-auto divide-y divide-gray-50" id="conv-list" style="flex:1;">
             @forelse($engagements as $eng)
                 @php
                     $parentName = $eng->parentProfile?->name ?? 'Unknown Parent';
@@ -68,6 +81,11 @@
                 </div>
             @endforelse
         </div>
+        @if($engagements->hasPages())
+            <div class="px-2 py-2 border-t border-gray-100 shrink-0 overflow-x-auto">
+                {{ $engagements->links() }}
+            </div>
+        @endif
     </div>
 
     {{-- Right panel: chat area --}}
@@ -151,15 +169,6 @@ document.addEventListener('DOMContentLoaded', function () {
     const chatArea = document.getElementById('chat-area');
     if (chatArea) chatArea.scrollTop = chatArea.scrollHeight;
 
-    const search = document.getElementById('conv-search');
-    if (search) {
-        search.addEventListener('input', function () {
-            const q = this.value.toLowerCase().trim();
-            document.querySelectorAll('.conv-item').forEach(function (el) {
-                el.style.display = !q || el.dataset.name.includes(q) ? '' : 'none';
-            });
-        });
-    }
 });
 </script>
 @endpush

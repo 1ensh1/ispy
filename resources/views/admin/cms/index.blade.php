@@ -259,6 +259,22 @@
                                 </tbody>
                             </table>
                         </div>
+
+                        {{-- Pagination + per-page selector --}}
+                        <div class="px-6 py-4 border-t border-gray-200 bg-gray-50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                            <div class="flex items-center gap-2">
+                                <label class="text-xs font-medium text-gray-500">Rows per page</label>
+                                <select onchange="cmsChangePerPage(this.value)"
+                                        class="px-2 py-1.5 border border-gray-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-[#2f5597] outline-none">
+                                    <option value="10" {{ $perPage === 10 ? 'selected' : '' }}>10</option>
+                                    <option value="20" {{ $perPage === 20 ? 'selected' : '' }}>20</option>
+                                    <option value="50" {{ $perPage === 50 ? 'selected' : '' }}>50</option>
+                                </select>
+                            </div>
+                            @if($announcements->hasPages())
+                                <div>{{ $announcements->links() }}</div>
+                            @endif
+                        </div>
                     </div>
                 </div>
 
@@ -407,9 +423,20 @@
             }
         }
 
+        // ---------- Per-page (announcements) ----------
+        // Reloads with the chosen per_page, drops the page param (reset to page 1),
+        // and keeps the announcements tab active via the URL hash.
+        function cmsChangePerPage(value) {
+            const url = new URL(window.location.href);
+            url.searchParams.set('per_page', value);
+            url.searchParams.delete('page');
+            url.hash = 'announcements';
+            window.location.assign(url.toString());
+        }
+
         // ---------- Init ----------
         document.addEventListener('DOMContentLoaded', function () {
-            cmsShowTab('hero');
+            cmsShowTab(window.location.hash === '#announcements' ? 'announcements' : 'hero');
             if (typeof lucide !== 'undefined') lucide.createIcons();
         });
     </script>

@@ -14,6 +14,7 @@ use App\Http\Controllers\Admin\NotificationController as AdminNotificationContro
 use App\Http\Controllers\Admin\ReportController as AdminReportController;
 use App\Http\Controllers\Admin\AdminSubstituteController;
 use App\Http\Controllers\Admin\AdminClassController;
+use App\Http\Controllers\Admin\ClassController as AdminManageClassController;
 use App\Http\Controllers\Admin\ConsultationController as AdminConsultationController;
 use App\Http\Controllers\Admin\TicketController as AdminTicketController;
 use App\Http\Controllers\Admin\CmsController as AdminCmsController;
@@ -80,6 +81,15 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
     Route::patch('/classes/{id}/restore',    [AdminClassController::class, 'restoreClass'])->name('admin.classes.restore');
     Route::post('/classes/create-assign',    [AdminClassController::class, 'createAndAssign'])->name('admin.classes.create-assign');
     Route::patch('/classes/update-subject',  [AdminClassController::class, 'updateSubject'])->name('admin.classes.update-subject');
+
+    // Standalone "Manage Classes" page (classes managed independently of teachers).
+    // Distinct names/URIs to avoid colliding with the teacher-profile routes above.
+    Route::get('/classes',                       [AdminManageClassController::class, 'index'])->name('admin.classes.index');
+    Route::post('/classes',                      [AdminManageClassController::class, 'store'])->name('admin.classes.store');
+    Route::get('/classes/{id}/edit',             [AdminManageClassController::class, 'edit'])->name('admin.classes.edit');
+    Route::put('/classes/{id}',                  [AdminManageClassController::class, 'update'])->name('admin.classes.update');
+    Route::patch('/classes/{id}/manage-archive', [AdminManageClassController::class, 'archive'])->name('admin.classes.manage-archive');
+    Route::patch('/classes/{id}/manage-restore', [AdminManageClassController::class, 'restore'])->name('admin.classes.manage-restore');
 
     // Teacher Management
     Route::get('/teachers/search', [TeacherController::class, 'search'])->name('admin.teachers.search');

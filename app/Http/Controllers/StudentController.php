@@ -44,6 +44,13 @@ class StudentController extends Controller
             }
         }
 
+        if (!empty($validated['class_list_id'])) {
+            $classCount = Student::active()->where('class_list_id', $validated['class_list_id'])->count();
+            if ($classCount >= 20) {
+                return back()->withErrors(['class_list_id' => 'This class already has 20 students. No additional students can be enrolled.'])->withInput();
+            }
+        }
+
         $parentPassword = $request->input('parent_password') ?: Str::random(8);
 
         Student::create([
@@ -79,6 +86,14 @@ class StudentController extends Controller
                 ->count();
             if ($activeCount >= 10) {
                 return back()->withErrors(['parent_id' => 'This parent already has 10 active students.'])->withInput();
+            }
+        }
+
+        $newClassId = $validated['class_list_id'] ?: null;
+        if ($newClassId && $newClassId != $student->class_list_id) {
+            $classCount = Student::active()->where('class_list_id', $newClassId)->count();
+            if ($classCount >= 20) {
+                return back()->withErrors(['class_list_id' => 'This class already has 20 students. No additional students can be enrolled.'])->withInput();
             }
         }
 

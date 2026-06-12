@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Mail\TeacherAccountCreated;
 use App\Models\ClassList;
+use App\Models\ClassSubject;
 use App\Models\ParentUser;
 use App\Models\Student;
 use App\Models\User;
@@ -13,22 +14,31 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 class TeacherController extends Controller
 {
     use LogsActivity;
+
+    /**
+     * Resolve a per-page query value, accepting only 10, 20, 50 (default 10).
+     */
+    private function perPage(Request $request, string $key): int
+    {
+        $value = (int) $request->query($key, 10);
+        return in_array($value, [10, 20, 50], true) ? $value : 10;
+    }
+
     public function index(Request $request)
     {
         // ===== TEACHERS =====
         $search = $request->query('search');
+        $teachersPerPage = $this->perPage($request, 'teachers_per_page');
         $teacherQuery = User::where('role', 'teacher');
         if ($search) {
-            $teacherQuery->where(function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('email', 'like', "%{$search}%");
-            });
+            $teacherQuery->where('name', 'ILIKE', "%{$search}%");
         }
-        $users = $teacherQuery->latest()->paginate(10)->appends(['search' => $search]);
+        $users = $teacherQuery->latest()->paginate($teachersPerPage)->appends(request()->query());
 
         $userIds = $users->pluck('id')->toArray();
 
@@ -54,6 +64,27 @@ class TeacherController extends Controller
         $teacherRowsByUserId = $allTeacherRows->groupBy('user_id');
         $teacherIds = $allTeacherRows->pluck('id')->unique()->values()->toArray();
 
+        // Active subject assignments (class_subjects) per teacher. This is the
+        // source of truth for the Classes column and the Edit Teacher modal —
+        // class_lists.teacher_id is no longer read for display.
+        $activeSubjectsByTeacher = $teacherIds
+            ? DB::table('class_subjects')
+                ->join('class_lists', 'class_subjects.class_list_id', '=', 'class_lists.id')
+                ->whereIn('class_subjects.teacher_id', $teacherIds)
+                ->whereNull('class_subjects.archived_at')
+                ->select(
+                    'class_subjects.teacher_id',
+                    'class_subjects.class_list_id',
+                    'class_subjects.subject',
+                    'class_lists.class_name',
+                    'class_lists.unified_classroom_pin'
+                )
+                ->orderBy('class_lists.class_name')
+                ->orderBy('class_subjects.subject')
+                ->get()
+                ->groupBy('teacher_id')
+            : collect();
+
         $rawCounts = DB::table('students')
             ->join('class_lists', 'students.class_list_id', '=', 'class_lists.id')
             ->whereIn('class_lists.teacher_id', $teacherIds)
@@ -68,37 +99,49 @@ class TeacherController extends Controller
             $firstRow = $rows->first();
             $teacherId = $firstRow->id;
             $studentCountsByUser[$userId] = $rawCounts[$teacherId] ?? 0;
-            $allClassNames = $rows->pluck('class_name')->filter()->unique()->join(', ');
-            $allClasses    = $rows->filter(fn($r) => $r->class_list_id !== null)
-                ->map(fn($r) => [
-                    'id'      => $r->class_list_id,
-                    'name'    => $r->class_name,
-                    'subject' => $r->subject,
-                    'pin'     => $r->unified_classroom_pin,
-                ])->values()->all();
+            // Class + subject assignments come from class_subjects (grouped per
+            // class so each class shows its subjects and a single PIN control).
+            $subjectRows      = $activeSubjectsByTeacher->get($teacherId, collect());
+            $classAssignments = $subjectRows
+                ->groupBy('class_list_id')
+                ->map(function ($classRows) {
+                    $first = $classRows->first();
+                    return [
+                        'class_list_id' => $first->class_list_id,
+                        'class_name'    => $first->class_name,
+                        'pin'           => $first->unified_classroom_pin,
+                        'subjects'      => $classRows->pluck('subject')->unique()->values()->all(),
+                    ];
+                })->values()->all();
+
+            // Edit-modal pre-fill: first active class assignment + its subjects.
+            $editClassListId  = $subjectRows->isNotEmpty() ? $subjectRows->first()->class_list_id : null;
+            $editSubjects     = $editClassListId
+                ? $subjectRows->where('class_list_id', $editClassListId)->pluck('subject')->unique()->values()->all()
+                : [];
+
             $classListsByUser[$userId] = [
                 'teacher_id'            => $firstRow->id,
                 'id'                    => $firstRow->class_list_id,
                 'class_name'            => $firstRow->class_name,
-                'all_class_names'       => $allClassNames ?: null,
                 'unified_classroom_pin' => $firstRow->unified_classroom_pin,
-                'all_classes'           => $allClasses,
+                'class_assignments'     => $classAssignments,
                 'status'                => $firstRow->status ?? 'Active',
                 'profile_picture'       => $firstRow->profile_picture ?? null,
+                'edit_class_list_id'    => $editClassListId,
+                'edit_subjects'         => $editSubjects,
             ];
         }
 
         // ===== PARENTS =====
         $parentSearch = $request->query('parent_search');
+        $parentsPerPage = $this->perPage($request, 'parents_per_page');
         $parentQuery = User::where('role', 'parent');
         if ($parentSearch) {
-            $parentQuery->where(function ($q) use ($parentSearch) {
-                $q->where('name', 'like', "%{$parentSearch}%")
-                  ->orWhere('email', 'like', "%{$parentSearch}%");
-            });
+            $parentQuery->where('name', 'ILIKE', "%{$parentSearch}%");
         }
-        $parentUsers = $parentQuery->latest()->paginate(10, ['*'], 'parent_page')
-            ->appends(['parent_search' => $parentSearch, 'tab' => 'parents']);
+        $parentUsers = $parentQuery->latest()->paginate($parentsPerPage, ['*'], 'parent_page')
+            ->appends(request()->query());
 
         $extraData = [];
         $parentUserIds = $parentUsers->pluck('id')->toArray();
@@ -121,9 +164,14 @@ class TeacherController extends Controller
         }
 
         // ===== STUDENTS =====
-        $students    = Student::active()->with(['parentUser', 'classList.teacher'])
-            ->paginate(15, ['*'], 'student_page')
-            ->appends(['tab' => 'students']);
+        $studentsPerPage = $this->perPage($request, 'students_per_page');
+        $studentSearch = $request->query('student_search');
+        $studentQuery = Student::active()->with(['parentUser', 'classList.teacher']);
+        if ($studentSearch) {
+            $studentQuery->where('name', 'ILIKE', '%' . $studentSearch . '%');
+        }
+        $students    = $studentQuery->paginate($studentsPerPage, ['*'], 'student_page')
+            ->appends(request()->query());
         $parentsList      = ParentUser::orderBy('name')->get();
         $classLists       = ClassList::active()->with('teacher')->orderBy('class_name')->get();
         $archivedStudents = Student::archived()->with(['parentUser', 'classList.teacher'])->get();
@@ -140,16 +188,20 @@ class TeacherController extends Controller
             'users', 'activeTab', 'search', 'extraData', 'studentCountsByUser', 'classListsByUser',
             'parentUsers', 'parentSearch',
             'students', 'archivedStudents', 'parentsList', 'classLists',
-            'admins'
+            'admins',
+            'teachersPerPage', 'parentsPerPage', 'studentsPerPage',
+            'studentSearch'
         ));
     }
 
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'name'       => 'required|string|max:255',
-            'class_name' => 'required|string|max:100',
-            'email'      => 'required|email|max:255|unique:users',
+            'name'          => 'required|string|max:255',
+            'email'         => 'required|email|max:255|unique:users',
+            'class_list_id' => ['nullable', 'integer', Rule::exists('class_lists', 'id')->whereNull('archived_at')],
+            'subjects'      => 'nullable|array',
+            'subjects.*'    => ['string', Rule::in(['English', 'Filipino'])],
         ]);
 
         $tempPassword = Str::random(10);
@@ -169,11 +221,13 @@ class TeacherController extends Controller
             'updated_at' => now(),
         ]);
 
-        ClassList::create([
-            'teacher_id'            => $teacherId,
-            'class_name'            => $validated['class_name'],
-            'unified_classroom_pin' => null,
-        ]);
+        // Classes are created on the Manage Classes page; here we only link the
+        // teacher to an existing class via class_subjects (never class_lists).
+        $this->syncTeacherClassSubjects(
+            $teacherId,
+            $validated['class_list_id'] ?? null,
+            $validated['subjects'] ?? []
+        );
 
         self::log('create', "created teacher account for {$user->name}");
 
@@ -231,9 +285,11 @@ class TeacherController extends Controller
     public function update(Request $request, User $teacher)
     {
         $validated = $request->validate([
-            'name'       => 'required|string|max:255',
-            'class_name' => 'required|string|max:100',
-            'email'      => 'required|email|max:255|unique:users,email,' . $teacher->id,
+            'name'          => 'required|string|max:255',
+            'email'         => 'required|email|max:255|unique:users,email,' . $teacher->id,
+            'class_list_id' => ['nullable', 'integer', Rule::exists('class_lists', 'id')->whereNull('archived_at')],
+            'subjects'      => 'nullable|array',
+            'subjects.*'    => ['string', Rule::in(['English', 'Filipino'])],
         ]);
 
         $teacher->update([
@@ -250,12 +306,21 @@ class TeacherController extends Controller
                 ->where('id', $teacherRecord->id)
                 ->update(['name' => $validated['name'], 'updated_at' => now()]);
 
-            DB::table('class_lists')
-                ->where('teacher_id', $teacherRecord->id)
-                ->update(['class_name' => $validated['class_name']]);
+            // Re-sync subject assignments: archive all current active ones for
+            // this teacher, then (re)create for the newly selected class/subjects.
+            // class_lists.teacher_id and class_lists.subject are left untouched.
+            ClassSubject::where('teacher_id', $teacherRecord->id)
+                ->whereNull('archived_at')
+                ->update(['archived_at' => now()]);
+
+            $this->syncTeacherClassSubjects(
+                $teacherRecord->id,
+                $validated['class_list_id'] ?? null,
+                $validated['subjects'] ?? []
+            );
         }
 
-        self::log('update', "updated teacher {$validated['name']}");
+        self::log('update', "updated teacher account for {$validated['name']}");
 
         return redirect()->route('admin.teachers.index')
             ->with('success', "Teacher \"{$teacher->name}\" updated successfully.");
@@ -293,5 +358,45 @@ class TeacherController extends Controller
     public function search(Request $request)
     {
         return $this->index($request);
+    }
+
+    /**
+     * Link a teacher to an existing class for the given subjects via
+     * class_subjects. For each subject: restore-and-reassign an existing
+     * (class_list_id, subject) row if present (active or archived), otherwise
+     * create a new one. No class is selected => nothing is created. Never
+     * writes to class_lists.subject or class_lists.teacher_id, and never
+     * hard-deletes a row.
+     *
+     * @param  array<int,string>  $subjects
+     */
+    private function syncTeacherClassSubjects(int $teacherId, ?int $classListId, array $subjects): void
+    {
+        if (!$classListId) {
+            return;
+        }
+
+        foreach ($subjects as $subject) {
+            if (!in_array($subject, ['English', 'Filipino'], true)) {
+                continue;
+            }
+
+            $existing = ClassSubject::where('class_list_id', $classListId)
+                ->where('subject', $subject)
+                ->first();
+
+            if ($existing) {
+                $existing->teacher_id  = $teacherId;
+                $existing->archived_at = null;
+                $existing->save();
+            } else {
+                ClassSubject::create([
+                    'class_list_id' => $classListId,
+                    'teacher_id'    => $teacherId,
+                    'subject'       => $subject,
+                    'created_at'    => now(),
+                ]);
+            }
+        }
     }
 }

@@ -7,6 +7,7 @@ use App\Mail\AdminAccountCreated;
 use App\Models\ActivityLog;
 use App\Models\Administrator;
 use App\Models\ClassList;
+use App\Models\ClassSubject;
 use App\Models\Student;
 use App\Models\Teacher;
 use App\Models\User;
@@ -25,15 +26,22 @@ class UserManagementController extends Controller
     {
         $teacher->load('user');
 
-        $classes = ClassList::active()
-            ->where('teacher_id', $teacher->id)
-            ->orderBy('class_name')
-            ->get();
+        $allSubjects = ['English', 'Filipino'];
 
-        $archivedClasses = ClassList::archived()
-            ->where('teacher_id', $teacher->id)
-            ->orderBy('class_name')
-            ->get();
+        // ---- Assigned Classes: active class_subjects for this teacher, grouped by class ----
+        $classes = ClassSubject::where('teacher_id', $teacher->id)
+            ->whereNull('archived_at')
+            ->with('classList')
+            ->get()
+            ->filter(fn ($cs) => $cs->classList !== null)
+            ->groupBy('class_list_id')
+            ->map(function ($rows) {
+                $class = $rows->first()->classList;
+                $class->setRelation('teacherSubjects', $rows->values());
+                return $class;
+            })
+            ->sortBy('class_name')
+            ->values();
 
         foreach ($classes as $class) {
             $class->setRelation(
@@ -44,6 +52,22 @@ class UserManagementController extends Controller
                     ->get()
             );
         }
+
+        // ---- Archived Classes: archived class_subjects for this teacher, grouped by class ----
+        $archivedClasses = ClassSubject::where('teacher_id', $teacher->id)
+            ->whereNotNull('archived_at')
+            ->with('classList')
+            ->get()
+            ->filter(fn ($cs) => $cs->classList !== null)
+            ->groupBy('class_list_id')
+            ->map(function ($rows) {
+                $class = $rows->first()->classList;
+                $class->setRelation('teacherSubjects', $rows->values());
+                $class->subjects_archived_at = $rows->max('archived_at');
+                return $class;
+            })
+            ->sortBy('class_name')
+            ->values();
 
         $classIds = $classes->pluck('id');
 
@@ -56,10 +80,23 @@ class UserManagementController extends Controller
             ->orderBy('name')
             ->get();
 
+        // ---- Assign Existing Class: classes where this teacher still has a free subject ----
+        $takenByClass = ClassSubject::where('teacher_id', $teacher->id)
+            ->whereNull('archived_at')
+            ->get()
+            ->groupBy('class_list_id')
+            ->map(fn ($rows) => $rows->pluck('subject')->all());
+
         $unassignedClasses = ClassList::active()
-            ->whereNull('teacher_id')
             ->orderBy('class_name')
-            ->get();
+            ->get()
+            ->map(function ($class) use ($takenByClass, $allSubjects) {
+                $taken = $takenByClass->get($class->id, []);
+                $class->available_subjects = array_values(array_diff($allSubjects, $taken));
+                return $class;
+            })
+            ->filter(fn ($class) => count($class->available_subjects) > 0)
+            ->values();
 
         $recentActivity = ActivityLog::where('user_id', $teacher->user_id)
             ->orderBy('created_at', 'desc')
