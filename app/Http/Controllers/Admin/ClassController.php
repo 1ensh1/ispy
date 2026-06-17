@@ -52,6 +52,31 @@ class ClassController extends Controller
     }
 
     /**
+     * Return the active students enrolled in a class as JSON for the
+     * "View Students" modal. Never exposes parent_password.
+     */
+    public function students(int $id)
+    {
+        $class = ClassList::findOrFail($id);
+
+        $students = $class->students()
+            ->whereNull('archived_at')
+            ->with('parentUser:id,name')
+            ->orderBy('name')
+            ->get()
+            ->map(fn ($s) => [
+                'name'         => $s->name,
+                'profile_icon' => $s->profile_icon ?: 'cat',
+                'parent_name'  => optional($s->parentUser)->name,
+            ]);
+
+        return response()->json([
+            'class_name' => $class->class_name,
+            'students'   => $students,
+        ]);
+    }
+
+    /**
      * Create a class. teacher_id and subject stay null — subjects live in
      * class_subjects, and class_lists.subject is left untouched for the app.
      */

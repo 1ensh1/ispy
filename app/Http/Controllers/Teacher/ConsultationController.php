@@ -17,19 +17,6 @@ class ConsultationController extends Controller
     {
         $teacher = Teacher::where('user_id', auth()->id())->firstOrFail();
 
-        // Auto-complete past Confirmed bookings silently on page load
-        $pastSlotIds = DB::table('consultation_slots')
-            ->where('teacher_id', $teacher->id)
-            ->where('scheduled_date', '<', today()->format('Y-m-d'))
-            ->pluck('id');
-
-        if ($pastSlotIds->isNotEmpty()) {
-            DB::table('face_to_face_bookings')
-                ->whereIn('slot_id', $pastSlotIds)
-                ->where('status', 'Confirmed')
-                ->update(['status' => 'Completed']);
-        }
-
         // Silently delete unbooked out-of-range slots (outside 08:00–17:00)
         $bookedSlotIds = DB::table('face_to_face_bookings')->pluck('slot_id')->unique();
         $outOfRangeIds = DB::table('consultation_slots')
@@ -318,6 +305,39 @@ class ConsultationController extends Controller
         self::log('update', strtolower($request->status) . " booking for parent " . ($parentRecord ?? 'Unknown'));
 
         return back()->with('success', 'Booking ' . strtolower($request->status) . '.');
+    }
+
+    public function markNoShow(Request $request, $id)
+    {
+        $teacher = Teacher::where('user_id', auth()->id())->firstOrFail();
+
+        $booking = DB::table('face_to_face_bookings')->where('id', $id)->first();
+
+        abort_if(!$booking || (int) $booking->teacher_id !== (int) $teacher->id, 403);
+
+        if ($booking->status !== 'Confirmed') {
+            return back()->with('error', 'This booking cannot be marked as No-show.');
+        }
+
+        DB::table('face_to_face_bookings')
+            ->where('id', $booking->id)
+            ->update(['status' => 'No-show']);
+
+        // Free the slot again — update only is_available (consultation_slots has no updated_at).
+        if ($booking->slot_id) {
+            DB::table('consultation_slots')
+                ->where('id', $booking->slot_id)
+                ->update(['is_available' => true]);
+        }
+
+        $slot       = DB::table('consultation_slots')->where('id', $booking->slot_id)->first();
+        $parentName = DB::table('parents')->where('id', $booking->parent_id)->value('name');
+        self::log('update', 'marked consultation with ' . ($parentName ?? 'Unknown')
+            . ($slot ? ' on ' . date('M d, Y', strtotime($slot->scheduled_date))
+                . ' ' . date('g:i A', strtotime($slot->time_start)) : '')
+            . ' as No-show');
+
+        return back()->with('success', 'Consultation marked as No-show.');
     }
 
     public function destroy($slot)

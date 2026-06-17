@@ -28,9 +28,7 @@ return new class extends Migration
         // Only active rows (archived_at IS NULL) with a non-null subject are migrated.
         // ON CONFLICT DO NOTHING skips any duplicate (class_list_id, subject) pair.
         DB::statement("
-            INSERT INTO class_subjects (class_list_id, teacher_id, subject, created_at)
-            SELECT id, teacher_id, subject, NOW()
-            FROM class_lists
+k   ts
             WHERE subject IS NOT NULL
               AND archived_at IS NULL
             ON CONFLICT (class_list_id, subject) DO NOTHING

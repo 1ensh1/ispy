@@ -1,3 +1,8 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Suppress Edge's native password reveal button to prevent duplication with the custom toggle icon */
+input[type="password"]::-ms-reveal {
+    display: none;
+}

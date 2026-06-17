@@ -34,24 +34,10 @@
                 </thead>
                 <tbody class="divide-y divide-gray-100">
                     @forelse($students as $student)
-                    @php
-                        $iconEmoji = [
-                            'cat' => '🐱', 'dog' => '🐶', 'bear' => '🐻', 'rabbit' => '🐰',
-                            'fox' => '🦊', 'frog' => '🐸', 'penguin' => '🐧', 'lion' => '🦁',
-                        ];
-                    @endphp
                     <tr class="hover:bg-gray-50 transition-colors">
                         <td class="px-6 py-4">
                             <div class="flex items-center gap-3">
-                                @if($student->profile_icon && isset($iconEmoji[$student->profile_icon]))
-                                    <div class="w-8 h-8 rounded-full bg-[#2f5597]/10 flex items-center justify-center shrink-0 text-lg leading-none">
-                                        {{ $iconEmoji[$student->profile_icon] }}
-                                    </div>
-                                @else
-                                    <div class="w-8 h-8 rounded-full bg-[#2f5597]/10 flex items-center justify-center shrink-0">
-                                        <span class="text-[#2f5597] text-xs font-bold">{{ strtoupper(substr($student->name, 0, 1)) }}</span>
-                                    </div>
-                                @endif
+                                <x-student-avatar :student="$student" size="32" />
                                 <span class="font-medium text-gray-900">{{ $student->name }}</span>
                             </div>
                         </td>

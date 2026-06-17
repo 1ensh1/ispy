@@ -28,6 +28,9 @@
             box-shadow: 0 0 0 3px rgba(30,58,95,0.1);
         }
 
+        /* Suppress Edge's native password reveal button to prevent duplication with the custom toggle icon */
+        input[type="password"]::-ms-reveal { display: none; }
+
         .eye-btn {
             background: none;
             border: none;

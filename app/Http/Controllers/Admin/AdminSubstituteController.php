@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\ClassList;
+use App\Models\ClassSubject;
 use App\Models\ClassSubstitute;
 use App\Models\Teacher;
 use App\Traits\LogsActivity;
@@ -27,7 +28,15 @@ class AdminSubstituteController extends Controller
 
         $class = ClassList::findOrFail($request->class_list_id);
 
-        if ($class->teacher_id == $request->substitute_teacher_id) {
+        // Prevent assigning a teacher as substitute for a class they already
+        // teach. Source of truth is class_subjects (class_lists.teacher_id is
+        // deprecated and null-by-design).
+        $alreadyTeaches = ClassSubject::where('class_list_id', $request->class_list_id)
+            ->where('teacher_id', $request->substitute_teacher_id)
+            ->whereNull('archived_at')
+            ->exists();
+
+        if ($alreadyTeaches) {
             return redirect()->route('admin.teachers.profile', ['teacher' => $request->teacher_id])
                 ->withErrors([
                     'substitute_teacher_id' => 'Cannot assign the primary teacher as their own substitute.',
@@ -58,7 +67,7 @@ class AdminSubstituteController extends Controller
             'created_at'        => now(),
         ]);
 
-        return redirect()->route('admin.teachers.profile', ['teacher' => $class->teacher_id])
+        return redirect()->route('admin.teachers.profile', ['teacher' => $request->teacher_id])
             ->with('success', "{$subTeacher->name} assigned as substitute successfully.");
     }
 
@@ -69,7 +78,14 @@ class AdminSubstituteController extends Controller
         $teacherName      = $sub->substituteTeacher->name ?? 'Unknown';
         $className        = $sub->classList->class_name ?? 'Unknown';
         $teacherId        = $sub->substitute_teacher_id;
-        $primaryTeacherId = $sub->classList->teacher_id;
+
+        // Primary teacher comes from class_subjects (class_lists.teacher_id is
+        // deprecated/null). A class may have several subjects/teachers; pick the
+        // first active one for the redirect target.
+        $primaryTeacherId = ClassSubject::where('class_list_id', $sub->class_list_id)
+            ->whereNull('archived_at')
+            ->whereNotNull('teacher_id')
+            ->value('teacher_id');
 
         $sub->delete();
 
@@ -86,7 +102,14 @@ class AdminSubstituteController extends Controller
             'created_at'        => now(),
         ]);
 
-        return redirect()->route('admin.teachers.profile', ['teacher' => $primaryTeacherId])
+        if ($primaryTeacherId) {
+            return redirect()->route('admin.teachers.profile', ['teacher' => $primaryTeacherId])
+                ->with('success', "Substitute assignment removed.");
+        }
+
+        // No active class_subjects teacher for this class (fully unassigned) —
+        // fall back to Manage Classes rather than crashing on a null profile.
+        return redirect()->route('admin.classes.index')
             ->with('success', "Substitute assignment removed.");
     }
 

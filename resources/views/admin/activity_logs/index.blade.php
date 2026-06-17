@@ -48,7 +48,9 @@
                 <option value="Assign"        {{ request('action') === 'Assign'        ? 'selected' : '' }}>Assign</option>
                 <option value="Remove"        {{ request('action') === 'Remove'        ? 'selected' : '' }}>Remove</option>
                 <option value="Activate"      {{ request('action') === 'Activate'      ? 'selected' : '' }}>Activate</option>
+                <option value="agree_terms"   {{ request('action') === 'agree_terms'   ? 'selected' : '' }}>Agree Terms</option>
                 <option value="Export"        {{ request('action') === 'Export'        ? 'selected' : '' }}>Export</option>
+                <option value="csv_enrollment" {{ request('action') === 'csv_enrollment' ? 'selected' : '' }}>CSV Enrollment</option>
                 <option value="Ticket"        {{ request('action') === 'Ticket'        ? 'selected' : '' }}>Ticket</option>
                 <option value="CMS Edit"      {{ request('action') === 'CMS Edit'      ? 'selected' : '' }}>CMS Edit</option>
                 <option value="Scan Attempt"  {{ request('action') === 'Scan Attempt'  ? 'selected' : '' }}>Scan Attempt</option>
@@ -140,12 +142,16 @@
                                 $badgeClass = 'bg-sky-100 text-sky-700';
                             } elseif ($al === 'activate') {
                                 $badgeClass = 'bg-purple-100 text-purple-700';
+                            } elseif ($al === 'agree_terms') {
+                                $badgeClass = 'bg-purple-100 text-purple-700';
                             } elseif ($al === 'approve') {
                                 $badgeClass = 'bg-emerald-100 text-emerald-700';
                             } elseif ($al === 'reject') {
                                 $badgeClass = 'bg-pink-100 text-pink-700';
                             } elseif ($al === 'export') {
                                 $badgeClass = 'bg-cyan-100 text-cyan-700';
+                            } elseif ($al === 'csv_enrollment') {
+                                $badgeClass = 'bg-teal-100 text-teal-800';
                             } elseif ($al === 'ticket') {
                                 $badgeClass = 'bg-violet-100 text-violet-700';
                             } elseif ($al === 'cms edit') {
@@ -161,6 +167,13 @@
                             } else {
                                 $badgeClass = 'bg-gray-100 text-gray-600';
                             }
+
+                            // agree_terms is stored with an underscore; render it title-cased.
+                            $actionLabel = match ($al) {
+                                'agree_terms'    => 'Agree Terms',
+                                'csv_enrollment' => 'CSV Enrollment',
+                                default          => ucfirst($action),
+                            };
 
                             $isMobile = in_array($al, ['matching', 'sentence', 'scan attempt', 'scan success', 'scan fail']);
 
@@ -197,7 +210,7 @@
                             <td class="px-5 py-3">
                                 <div class="flex flex-wrap items-center gap-1">
                                     <span class="inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold {{ $badgeClass }}">
-                                        {{ ucfirst($log->action) }}
+                                        {{ $actionLabel }}
                                     </span>
                                     @if($isMobile)
                                         <span class="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-600 border border-blue-200">Mobile</span>

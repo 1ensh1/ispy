@@ -17,8 +17,8 @@
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
             <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
                 <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center">
-                        <i data-lucide="calendar-check" class="w-5 h-5 text-blue-500"></i>
+                    <div class="w-10 h-10 rounded-lg bg-yellow-50 flex items-center justify-center">
+                        <i data-lucide="calendar-check" class="w-5 h-5 text-yellow-500"></i>
                     </div>
                     <div>
                         <p class="text-2xl font-bold text-gray-900">{{ $upcoming }}</p>
@@ -28,8 +28,8 @@
             </div>
             <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
                 <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-lg bg-teal-50 flex items-center justify-center">
-                        <i data-lucide="check-circle" class="w-5 h-5 text-teal-500"></i>
+                    <div class="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center">
+                        <i data-lucide="check-circle" class="w-5 h-5 text-blue-500"></i>
                     </div>
                     <div>
                         <p class="text-2xl font-bold text-gray-900">{{ $completed }}</p>
@@ -62,24 +62,31 @@
         </div>
 
         {{-- Filters --}}
-        <form method="GET" action="{{ url('/admin/consultations') }}" class="flex flex-wrap items-center gap-3 mb-4">
+        <form method="GET" action="{{ route('admin.consultations') }}" class="flex flex-wrap items-center gap-3 mb-4">
             <div class="relative max-w-xs w-full">
                 <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"></i>
                 <input type="text" name="search" value="{{ request('search') }}" placeholder="Search parent or student..."
                        class="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#2f5597]/30 focus:border-[#2f5597]">
             </div>
-            <select name="teacher_id" onchange="this.form.submit()"
+            <select name="teacher_id"
                     class="px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#2f5597]/30 focus:border-[#2f5597]">
                 <option value="all">All Teachers</option>
                 @foreach($teachers as $t)
                     <option value="{{ $t->id }}" {{ (string) request('teacher_id') === (string) $t->id ? 'selected' : '' }}>{{ $t->name }}</option>
                 @endforeach
             </select>
+            <select name="status"
+                    class="px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#2f5597]/30 focus:border-[#2f5597]">
+                <option value="All">All Statuses</option>
+                @foreach(['Pending', 'Confirmed', 'Completed', 'Cancelled', 'Rejected', 'No-show'] as $opt)
+                    <option value="{{ $opt }}" {{ request('status') === $opt ? 'selected' : '' }}>{{ $opt }}</option>
+                @endforeach
+            </select>
             <button type="submit"
                     class="px-4 py-2 text-sm border border-gray-300 rounded-lg bg-white text-gray-600 hover:bg-gray-50 transition-colors">
                 Search
             </button>
-            @if(request('search') || (request('teacher_id') && request('teacher_id') !== 'all'))
+            @if(request('search') || (request('teacher_id') && request('teacher_id') !== 'all') || (request('status') && request('status') !== 'All'))
                 <a href="{{ url('/admin/consultations') }}"
                    class="text-sm text-gray-500 hover:text-gray-700 underline">Clear filters</a>
             @endif
@@ -96,7 +103,7 @@
             $statusBadge = [
                 'Pending'   => 'bg-blue-100 text-blue-700',
                 'Confirmed' => 'bg-green-100 text-green-700',
-                'Completed' => 'bg-teal-100 text-teal-700',
+                'Completed' => 'bg-blue-100 text-blue-700',
                 'Cancelled' => 'bg-gray-100 text-gray-600',
                 'Rejected'  => 'bg-red-100 text-red-700',
                 'No-show'   => 'bg-red-100 text-red-700',

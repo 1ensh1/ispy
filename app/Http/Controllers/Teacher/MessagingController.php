@@ -88,7 +88,7 @@ class MessagingController extends Controller
             'recipient_role'    => 'Parent',
             'notification_type' => 'Availability',
             'action_url'        => route('parent.messaging'),
-            'title'             => 'New Message from Ms. ' . $teacher->name,
+            'title'             => 'New Message from Teacher ' . $teacher->name,
             'message'           => "Your child's teacher sent you a message.",
             'is_read'           => false,
             'created_at'        => now(),

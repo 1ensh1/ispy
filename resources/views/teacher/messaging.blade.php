@@ -30,6 +30,10 @@
                        class="w-full pl-9 pr-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm
                               focus:ring-2 focus:ring-indigo-500 outline-none">
             </form>
+            @if(request('search'))
+                <a href="{{ route('teacher.messaging', array_filter(['per_page' => $perPage, 'engagement_id' => request('engagement_id')])) }}"
+                   class="mt-1 block text-xs text-gray-400 hover:text-gray-600 text-right">Clear search</a>
+            @endif
         </div>
 
         <div class="overflow-y-auto divide-y divide-gray-50" id="conv-list" style="flex:1;">

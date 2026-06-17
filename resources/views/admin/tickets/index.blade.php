@@ -21,11 +21,18 @@
                 <h1 class="text-3xl font-bold text-gray-900 mb-1">Support Tickets</h1>
                 <p class="text-sm text-gray-500">Manage and resolve support tickets submitted by teachers</p>
             </div>
-            <button onclick="openCreateModal()"
-                    class="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
-                <i data-lucide="plus" style="width:16px;height:16px;"></i>
-                Create Ticket
-            </button>
+            <div class="flex items-center gap-2">
+                <a href="{{ route('admin.tickets.report', array_filter(request()->only(['status', 'priority', 'role']))) }}"
+                   class="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
+                    <i data-lucide="file-text" style="width:16px;height:16px;"></i>
+                    Generate Report
+                </a>
+                <button onclick="openCreateModal()"
+                        class="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
+                    <i data-lucide="plus" style="width:16px;height:16px;"></i>
+                    Create Ticket
+                </button>
+            </div>
         </div>
 
         {{-- Flash Messages --}}

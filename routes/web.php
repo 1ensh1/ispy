@@ -37,9 +37,20 @@ use Illuminate\Support\Facades\Route;
 // Public landing page (no auth — homepage)
 Route::get('/', [LandingController::class, 'index'])->name('landing');
 
+// Public TamaTech team page (no auth)
+Route::get('/tamatech', [LandingController::class, 'tamatech'])->name('public.tamatech');
+
 // Public teacher account activation (no auth — reached from emailed link)
 Route::get('/teacher/activate/{token}', [\App\Http\Controllers\TeacherActivationController::class, 'activate'])
     ->name('teacher.activate');
+Route::post('/teacher/activate/{token}', [\App\Http\Controllers\TeacherActivationController::class, 'consent'])
+    ->name('teacher.activate.consent');
+
+// Public parent account activation (no auth — reached from emailed link)
+Route::get('/parent/activate/{token}', [\App\Http\Controllers\ParentActivationController::class, 'activate'])
+    ->name('parent.activate');
+Route::post('/parent/activate/{token}', [\App\Http\Controllers\ParentActivationController::class, 'consent'])
+    ->name('parent.activate.consent');
 
 Route::get('/dashboard', function () {
     return match (Auth::user()->role) {
@@ -77,15 +88,12 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
     Route::post('/classes/{classList}/generate-pin', [ClassController::class, 'generatePin'])->name('admin.classes.generatePin');
     Route::post('/classes/assign',           [AdminClassController::class, 'assignClass'])->name('admin.classes.assign');
     Route::delete('/classes/{id}/unassign',  [AdminClassController::class, 'unassignClass'])->name('admin.classes.unassign');
-    Route::patch('/classes/{id}/archive',    [AdminClassController::class, 'archiveClass'])->name('admin.classes.archive');
-    Route::patch('/classes/{id}/restore',    [AdminClassController::class, 'restoreClass'])->name('admin.classes.restore');
-    Route::post('/classes/create-assign',    [AdminClassController::class, 'createAndAssign'])->name('admin.classes.create-assign');
-    Route::patch('/classes/update-subject',  [AdminClassController::class, 'updateSubject'])->name('admin.classes.update-subject');
 
     // Standalone "Manage Classes" page (classes managed independently of teachers).
     // Distinct names/URIs to avoid colliding with the teacher-profile routes above.
     Route::get('/classes',                       [AdminManageClassController::class, 'index'])->name('admin.classes.index');
     Route::post('/classes',                      [AdminManageClassController::class, 'store'])->name('admin.classes.store');
+    Route::get('/classes/{id}/students',         [AdminManageClassController::class, 'students'])->name('admin.classes.students');
     Route::get('/classes/{id}/edit',             [AdminManageClassController::class, 'edit'])->name('admin.classes.edit');
     Route::put('/classes/{id}',                  [AdminManageClassController::class, 'update'])->name('admin.classes.update');
     Route::patch('/classes/{id}/manage-archive', [AdminManageClassController::class, 'archive'])->name('admin.classes.manage-archive');
@@ -97,6 +105,7 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
     Route::post('/teachers', [TeacherController::class, 'store'])->name('admin.teachers.store');
     Route::put('/teachers/{teacher}', [TeacherController::class, 'update'])->name('admin.teachers.update');
     Route::post('/teachers/{teacher}/resend-activation', [TeacherController::class, 'resendActivation'])->name('admin.teachers.resend-activation');
+    Route::post('/parents/{parent}/resend-activation', [AdminController::class, 'resendParentActivation'])->name('admin.parents.resend-activation');
     Route::delete('/teachers/{teacher}', [TeacherController::class, 'destroy'])->name('admin.teachers.destroy');
     Route::get('/teachers/{teacher}/profile', [\App\Http\Controllers\Admin\UserManagementController::class, 'showTeacherProfile'])->name('admin.teachers.profile');
     Route::get('/parents/{user}/profile', [\App\Http\Controllers\Admin\UserManagementController::class, 'showParentProfile'])->name('admin.parents.profile');
@@ -120,6 +129,8 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
 
     // Tickets
     Route::get('/tickets',           [AdminTicketController::class, 'index'])->name('admin.tickets.index');
+    Route::get('/tickets/report',        [AdminTicketController::class, 'ticketsReport'])->name('admin.tickets.report');
+    Route::get('/tickets/report/export', [AdminTicketController::class, 'exportTicketsReportCsv'])->name('admin.tickets.report.export');
     Route::post('/tickets',          [AdminTicketController::class, 'store'])->name('admin.tickets.store');
     Route::patch('/tickets/{ticket}', [AdminTicketController::class, 'update'])->name('admin.tickets.update');
 
@@ -185,12 +196,16 @@ Route::prefix('teacher')->middleware(['auth', 'teacher'])->group(function () {
     Route::post('/vocabulary/suggest', [TeacherDashboardController::class, 'suggest'])->name('teacher.vocabulary.suggest');
     Route::get('/enrollment',  [TeacherDashboardController::class, 'enrollment'])->name('teacher.enrollment');
     Route::post('/enrollment', [TeacherDashboardController::class, 'enrollmentStore'])->name('teacher.enrollment.store');
+    Route::post('/enrollment/csv', [TeacherDashboardController::class, 'enrollViaCsv'])->name('teacher.enrollment.csv');
+    Route::get('/enrollment/template', [TeacherDashboardController::class, 'csvTemplate'])->name('teacher.enrollment.template');
     Route::get('/pin', [TeacherDashboardController::class, 'pin'])->name('teacher.pin');
     Route::get('/student-progress', [\App\Http\Controllers\Teacher\StudentProgressController::class, 'index'])->name('teacher.student-progress');
     Route::get('/spelling-analysis', [\App\Http\Controllers\Teacher\SpellingAnalysisController::class, 'index'])->name('teacher.spelling-analysis');
     Route::get('/milestones', [\App\Http\Controllers\Teacher\MilestonesController::class, 'index'])->name('teacher.milestones');
     Route::get('/reports',                          [\App\Http\Controllers\Teacher\ReportController::class, 'index'])->name('teacher.reports');
     Route::get('/reports/export/{student}',         [\App\Http\Controllers\Teacher\ReportController::class, 'exportStudentReportCsv'])->name('teacher.reports.export');
+    Route::get('/reports/consultations',            [\App\Http\Controllers\Teacher\ReportController::class, 'consultationsReport'])->name('teacher.reports.consultations');
+    Route::get('/reports/consultations/export',     [\App\Http\Controllers\Teacher\ReportController::class, 'exportConsultationsCsv'])->name('teacher.reports.consultations.export');
     Route::get('/reports/{student}',                [\App\Http\Controllers\Teacher\ReportController::class, 'show'])->name('teacher.reports.show');
     Route::post('/reports/{student}/send',          [\App\Http\Controllers\Teacher\ReportController::class, 'send'])->name('teacher.reports.send');
     Route::get('/word-sets',         [\App\Http\Controllers\Teacher\WordSetsController::class, 'index'])->name('teacher.word-sets');
@@ -218,6 +233,7 @@ Route::prefix('teacher')->middleware(['auth', 'teacher'])->group(function () {
     Route::post('/consultation-availability/bookings/{booking}/confirm',  [TeacherConsultationController::class, 'confirmBooking'])->name('teacher.consultation.booking.confirm');
     Route::post('/consultation-availability/bookings/{booking}/reject',   [TeacherConsultationController::class, 'rejectBooking'])->name('teacher.consultation.booking.reject');
     Route::post('/consultation-availability/bookings/{booking}/complete', [TeacherConsultationController::class, 'completeBooking'])->name('teacher.consultation.booking.complete');
+    Route::post('/consultations/{id}/noshow',             [TeacherConsultationController::class, 'markNoShow'])->name('teacher.consultations.noshow');
     Route::delete('/consultation-availability/{slot}',    [TeacherConsultationController::class, 'destroy'])->name('teacher.consultation.destroy');
 
     // Profile & Password

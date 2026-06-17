@@ -120,6 +120,12 @@
                                                 </button>
                                             </form>
                                         @else
+                                            <button onclick="openStudentsModal(this)"
+                                                    data-id="{{ $class->id }}"
+                                                    class="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                                                <i data-lucide="users" style="width:14px;height:14px;"></i>
+                                                View
+                                            </button>
                                             <button onclick="openEditModal(this)"
                                                     data-id="{{ $class->id }}"
                                                     data-name="{{ $class->class_name }}"
@@ -223,9 +229,30 @@
         </div>
     </div>
 
+    {{-- ── View Students Modal ── --}}
+    <div id="students-modal"
+         class="fixed inset-0 flex items-center justify-center z-50 hidden"
+         style="background: rgba(0,0,0,0.5);">
+        <div class="bg-white rounded-xl shadow-xl" style="width: 520px; max-width: 95vw; max-height: 85vh; display:flex; flex-direction:column;">
+            <div class="flex items-center justify-between p-6 pb-4 border-b border-gray-100">
+                <div>
+                    <h2 class="text-lg font-semibold text-gray-900">Enrolled Students</h2>
+                    <p id="students-modal-class" class="text-sm text-gray-500"></p>
+                </div>
+                <button onclick="closeStudentsModal()" class="text-gray-400 hover:text-gray-600 transition-colors">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <div id="students-modal-body" class="p-6 pt-4" style="overflow-y:auto;">
+                <p class="text-sm text-gray-400">Loading…</p>
+            </div>
+        </div>
+    </div>
+
     <script>
     (function () {
         const updateUrlTemplate = "{{ route('admin.classes.update', ['id' => '__ID__']) }}";
+        const studentsUrlTemplate = "{{ route('admin.classes.students', ['id' => '__ID__']) }}";
 
         function refreshIcons() {
             if (typeof lucide !== 'undefined') lucide.createIcons();
@@ -237,6 +264,57 @@
         };
         window.closeAddModal = function () {
             document.getElementById('add-modal').classList.add('hidden');
+        };
+
+        function escapeHtml(str) {
+            return String(str ?? '').replace(/[&<>"']/g, function (c) {
+                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+            });
+        }
+
+        window.openStudentsModal = function (btn) {
+            const id = btn.dataset.id;
+            const modal = document.getElementById('students-modal');
+            const body = document.getElementById('students-modal-body');
+            const classLabel = document.getElementById('students-modal-class');
+            classLabel.textContent = '';
+            body.innerHTML = '<p class="text-sm text-gray-400">Loading…</p>';
+            modal.classList.remove('hidden');
+            refreshIcons();
+
+            fetch(studentsUrlTemplate.replace('__ID__', id), {
+                headers: { 'Accept': 'application/json' },
+            })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    classLabel.textContent = data.class_name || '';
+                    if (!data.students || data.students.length === 0) {
+                        body.innerHTML = '<p class="text-sm text-gray-400 text-center py-8">No students enrolled in this class</p>';
+                        return;
+                    }
+                    let html = '<ul class="divide-y divide-gray-100">';
+                    data.students.forEach(function (s) {
+                        const parent = s.parent_name
+                            ? escapeHtml(s.parent_name)
+                            : '<span class="text-gray-300">No parent linked</span>';
+                        html += '<li class="flex items-center gap-3 py-2.5">'
+                            + '<span class="inline-flex items-center justify-center w-9 h-9 rounded-full bg-indigo-50 text-indigo-600 shrink-0">'
+                            + '<i data-lucide="' + escapeHtml(s.profile_icon) + '" style="width:18px;height:18px;"></i></span>'
+                            + '<div class="min-w-0">'
+                            + '<p class="text-sm font-medium text-gray-900 truncate">' + escapeHtml(s.name) + '</p>'
+                            + '<p class="text-xs text-gray-500 truncate">Parent: ' + parent + '</p>'
+                            + '</div></li>';
+                    });
+                    html += '</ul>';
+                    body.innerHTML = html;
+                    refreshIcons();
+                })
+                .catch(function () {
+                    body.innerHTML = '<p class="text-sm text-red-600 text-center py-8">Could not load students. Please try again.</p>';
+                });
+        };
+        window.closeStudentsModal = function () {
+            document.getElementById('students-modal').classList.add('hidden');
         };
 
         window.openEditModal = function (btn) {
@@ -258,6 +336,9 @@
         });
         document.getElementById('edit-modal').addEventListener('click', function (e) {
             if (e.target === this) window.closeEditModal();
+        });
+        document.getElementById('students-modal').addEventListener('click', function (e) {
+            if (e.target === this) window.closeStudentsModal();
         });
 
         document.addEventListener('DOMContentLoaded', function () {

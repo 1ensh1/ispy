@@ -40,6 +40,19 @@ class AuthenticatedSessionController extends Controller
             }
         }
 
+        // Block parents whose account has not been activated yet.
+        // No Parent Eloquent model exists ("Parent" is a reserved PHP class name),
+        // so use the query builder directly.
+        if (strtolower($user->role ?? '') === 'parent') {
+            $parent = \Illuminate\Support\Facades\DB::table('parents')->where('user_id', $user->id)->first();
+            if ($parent && $parent->status === 'Inactive') {
+                Auth::guard('web')->logout();
+                return redirect()->route('login')->withErrors([
+                    'email' => 'Your account is not yet activated. Please check your email for the activation link.',
+                ]);
+            }
+        }
+
         $request->session()->regenerate();
 
         $role = strtolower(auth()->user()->role ?? '');

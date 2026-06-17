@@ -106,25 +106,7 @@
                             {{-- Student column --}}
                             <td class="px-6 py-4">
                                 <div class="flex items-center gap-3">
-                                    @php
-                                        $iconEmoji = [
-                                            'cat'     => '🐱', 'dog'     => '🐶',
-                                            'bear'    => '🐻', 'rabbit'  => '🐰',
-                                            'fox'     => '🦊', 'frog'    => '🐸',
-                                            'penguin' => '🐧', 'lion'    => '🦁',
-                                        ];
-                                    @endphp
-                                    @if($student->profile_icon && isset($iconEmoji[$student->profile_icon]))
-                                        <div class="w-8 h-8 rounded-full bg-[#2f5597]/10 flex items-center justify-center shrink-0 text-lg leading-none">
-                                            {{ $iconEmoji[$student->profile_icon] }}
-                                        </div>
-                                    @else
-                                        <div class="w-8 h-8 rounded-full bg-[#2f5597]/10 flex items-center justify-center shrink-0">
-                                            <span class="text-[#2f5597] text-xs font-bold">
-                                                {{ strtoupper(substr($student->name, 0, 1)) }}
-                                            </span>
-                                        </div>
-                                    @endif
+                                    <x-student-avatar :student="$student" size="32" />
                                     <span class="font-medium text-gray-900">{{ $student->name }}</span>
                                 </div>
                             </td>
@@ -206,7 +188,8 @@
                                             {{ $student->parent_id ?? 'null' }},
                                             {{ $student->class_list_id ?? 'null' }},
                                             @js($student->profile_icon ?? 'cat'),
-                                            @js($student->parent_password ?? '')
+                                            @js($student->parent_password ?? ''),
+                                            @js($student->profile_picture ?? '')
                                         )"
                                         class="text-sm px-3 py-1.5 rounded-md border border-gray-200 text-gray-600 hover:bg-gray-100 transition-colors inline-flex items-center gap-1.5">
                                         <i data-lucide="{{ $student->parentUser && $student->classList ? 'pencil' : 'link' }}" class="w-3.5 h-3.5"></i>
@@ -267,7 +250,7 @@
                 </button>
             </div>
 
-            <form id="create-form" method="POST" action="{{ route('admin.students.store') }}" class="p-6 space-y-4">
+            <form id="create-form" method="POST" action="{{ route('admin.students.store') }}" enctype="multipart/form-data" class="p-6 space-y-4">
                 @csrf
 
                 {{-- Name --}}
@@ -303,6 +286,14 @@
                             </button>
                         @endforeach
                     </div>
+                </div>
+
+                {{-- Profile Picture (optional) — overrides the icon when set --}}
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Profile Picture</label>
+                    <input type="file" name="profile_picture" accept="image/jpeg,image/png,image/webp"
+                           class="w-full text-sm text-gray-600 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-[#2f5597]/10 file:text-[#2f5597] hover:file:bg-[#2f5597]/20 cursor-pointer">
+                    <p class="text-xs text-gray-500 mt-1">Optional. JPEG, PNG, or WebP, max 2MB. Overrides the icon above.</p>
                 </div>
 
                 {{-- Parent dropdown --}}
@@ -379,7 +370,7 @@
                 </button>
             </div>
 
-            <form id="assign-form" method="POST" class="p-6 space-y-4">
+            <form id="assign-form" method="POST" enctype="multipart/form-data" class="p-6 space-y-4">
                 @csrf
                 <input type="hidden" name="_method" value="PATCH">
 
@@ -408,6 +399,26 @@
                             </button>
                         @endforeach
                     </div>
+                </div>
+
+                {{-- Profile Picture (optional) — overrides the icon when set --}}
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Profile Picture</label>
+
+                    {{-- Current picture preview + remove option (shown only when one exists) --}}
+                    <div id="assign-current-picture" class="hidden flex items-center gap-3 mb-2">
+                        <img id="assign-picture-preview" src="" alt="Current profile picture"
+                             class="w-12 h-12 rounded-full object-cover border border-gray-200">
+                        <label class="inline-flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+                            <input type="checkbox" name="remove_profile_picture" value="1"
+                                   class="rounded border-gray-300 text-red-600 focus:ring-red-500">
+                            Remove picture (revert to icon)
+                        </label>
+                    </div>
+
+                    <input type="file" name="profile_picture" accept="image/jpeg,image/png,image/webp"
+                           class="w-full text-sm text-gray-600 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-[#2f5597]/10 file:text-[#2f5597] hover:file:bg-[#2f5597]/20 cursor-pointer">
+                    <p class="text-xs text-gray-500 mt-1">Optional. JPEG, PNG, or WebP, max 2MB. Overrides the icon above.</p>
                 </div>
 
                 {{-- Parent dropdown --}}
@@ -530,13 +541,31 @@
             });
         }
 
-        function openAssignModal(studentId, studentName, parentId, classListId, profileIcon, parentPassword) {
+        function openAssignModal(studentId, studentName, parentId, classListId, profileIcon, parentPassword, profilePicture) {
             document.getElementById('assign-student-name').textContent = studentName;
             document.getElementById('assign-form').action = '{{ url("/admin/students") }}/' + studentId;
             document.getElementById('assign-parent').value = parentId  ?? '';
             document.getElementById('assign-class').value  = classListId ?? '';
             document.getElementById('assign-parent-password').value = parentPassword ?? '';
             selectAssignIcon(profileIcon || 'cat');
+
+            // Reset picture controls, then show current picture preview if one exists
+            var fileInput   = document.querySelector('#assign-form input[name="profile_picture"]');
+            var removeCheck = document.querySelector('#assign-form input[name="remove_profile_picture"]');
+            var currentWrap = document.getElementById('assign-current-picture');
+            var preview     = document.getElementById('assign-picture-preview');
+            if (fileInput) fileInput.value = '';
+            if (removeCheck) removeCheck.checked = false;
+            if (profilePicture) {
+                preview.src = profilePicture;
+                currentWrap.classList.remove('hidden');
+                currentWrap.classList.add('flex');
+            } else {
+                preview.src = '';
+                currentWrap.classList.add('hidden');
+                currentWrap.classList.remove('flex');
+            }
+
             document.getElementById('assign-modal').style.display = 'flex';
         }
 

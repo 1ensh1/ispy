@@ -26,7 +26,7 @@ class ConsultationController extends Controller
 
         $today     = today()->toDateString();
         $upcoming  = $allBookings->filter(
-            fn($b) => in_array($b->status, ['Pending', 'Confirmed'])
+            fn($b) => $b->status === 'Confirmed'
                    && ($b->slot?->scheduled_date?->toDateString() ?? '') >= $today
         )->count();
         $completed = $allBookings->where('status', 'Completed')->count();
@@ -42,6 +42,11 @@ class ConsultationController extends Controller
 
         if ($request->filled('teacher_id') && $request->teacher_id !== 'all') {
             $query->where('face_to_face_bookings.teacher_id', $request->teacher_id);
+        }
+
+        $allowedStatuses = ['Pending', 'Confirmed', 'Completed', 'Cancelled', 'Rejected', 'No-show'];
+        if ($request->filled('status') && in_array($request->get('status'), $allowedStatuses, true)) {
+            $query->where('face_to_face_bookings.status', $request->get('status'));
         }
 
         if ($request->filled('search')) {

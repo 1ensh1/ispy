@@ -35,6 +35,55 @@ class TicketController extends Controller
         return view('admin.tickets.index', compact('tickets', 'teachers', 'perPage'));
     }
 
+    public function ticketsReport(Request $request)
+    {
+        $tickets = $this->filteredTicketsQuery($request)->get();
+
+        $summary = [
+            'total'       => $tickets->count(),
+            'by_status'   => $tickets->groupBy('status')->map->count(),
+            'by_priority' => $tickets->groupBy('priority')->map->count(),
+            'by_role'     => $tickets->groupBy('created_by_role')->map->count(),
+        ];
+
+        return view('admin.tickets.report', compact('tickets', 'summary'));
+    }
+
+    public function exportTicketsReportCsv(Request $request)
+    {
+        // CSV output is ordered oldest-first; the on-screen report and index stay descending.
+        $rows = $this->filteredTicketsQuery($request)->reorder('tickets.id', 'asc')->get();
+
+        return response()->streamDownload(function () use ($rows) {
+            $handle = fopen('php://output', 'w');
+            fputcsv($handle, ['Ticket ID', 'Subject', 'Description', 'Status', 'Priority', 'Role', 'Submitted By', 'Created At']);
+            foreach ($rows as $row) {
+                fputcsv($handle, [
+                    $row->id,
+                    $row->title,
+                    $row->description,
+                    $row->status,
+                    $row->priority,
+                    $row->created_by_role,
+                    $row->teacher_display_name ?? optional($row->createdByUser)->name ?? '—',
+                    optional($row->created_at)->format('Y-m-d H:i'),
+                ]);
+            }
+            fclose($handle);
+        }, 'tickets-report.csv', ['Content-Type' => 'text/csv']);
+    }
+
+    private function filteredTicketsQuery(Request $request)
+    {
+        return Ticket::with('createdByUser')
+            ->leftJoin('teachers', 'teachers.user_id', '=', 'tickets.created_by_user_id')
+            ->select('tickets.*', 'teachers.name as teacher_display_name')
+            ->when($request->filled('status'),   fn($q) => $q->where('tickets.status', $request->status))
+            ->when($request->filled('priority'), fn($q) => $q->where('tickets.priority', $request->priority))
+            ->when($request->filled('role'),     fn($q) => $q->where('tickets.created_by_role', $request->role))
+            ->orderByDesc('tickets.created_at');
+    }
+
     public function store(Request $request)
     {
         $request->validate([

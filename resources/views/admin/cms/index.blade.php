@@ -29,6 +29,16 @@
                             <span class="truncate">{{ $meta['label'] }}</span>
                         </button>
                     @endforeach
+                    <button type="button" data-cms-tab="teaser" onclick="cmsShowTab('teaser')"
+                            class="cms-tab-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors text-left">
+                        <i data-lucide="video" class="w-4 h-4 shrink-0"></i>
+                        <span class="truncate">Teaser Videos</span>
+                    </button>
+                    <button type="button" data-cms-tab="tamatech" onclick="cmsShowTab('tamatech')"
+                            class="cms-tab-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors text-left">
+                        <i data-lucide="users" class="w-4 h-4 shrink-0"></i>
+                        <span class="truncate">TamaTech Team</span>
+                    </button>
                     <div class="my-1 border-t border-gray-100"></div>
                     <button type="button" data-cms-tab="announcements" onclick="cmsShowTab('announcements')"
                             class="cms-tab-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 transition-colors text-left">
@@ -120,6 +130,161 @@
                         </div>
                     </div>
                 @endforeach
+
+                {{-- ---------- TEASER VIDEOS PANEL ---------- --}}
+                @php
+                    $teaserVideos = [
+                        'teaser_video_web'    => $sections->get('teaser_video_web'),
+                        'teaser_video_mobile' => $sections->get('teaser_video_mobile'),
+                    ];
+                @endphp
+                <div data-cms-panel="teaser" style="display: none;">
+                    <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                        <div class="px-6 py-4 border-b border-gray-100 bg-gray-50 flex items-center gap-3">
+                            <i data-lucide="video" class="w-5 h-5 text-[#2f5597]"></i>
+                            <h2 class="text-lg font-bold text-gray-900">Teaser Videos</h2>
+                        </div>
+                        <div class="p-6 space-y-6">
+                            @foreach($teaserVideos as $key => $teaser)
+                                <form onsubmit="event.preventDefault(); cmsSaveSection(this, '{{ $key }}');"
+                                      class="border border-gray-200 rounded-lg p-5 space-y-4">
+                                    <div data-cms-msg class="hidden rounded-lg px-4 py-3 text-sm font-medium"></div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                                        <input type="text" name="title" value="{{ $teaser->title ?? '' }}"
+                                               class="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#2f5597] outline-none">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Body</label>
+                                        <textarea name="body" rows="2"
+                                                  class="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#2f5597] outline-none">{{ $teaser->body ?? '' }}</textarea>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Video URL (YouTube embed or direct link)</label>
+                                        <input type="text" name="file_url" value="{{ $teaser->file_url ?? '' }}"
+                                               placeholder="Leave blank to show a “Coming Soon” placeholder"
+                                               class="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#2f5597] outline-none">
+                                        <p class="mt-1 text-xs text-gray-500">Paste any YouTube or Google Drive link — share links, watch links, and embed links are all accepted and will be converted automatically.</p>
+                                    </div>
+                                    <div class="flex items-center gap-3 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                                        <input type="checkbox" name="is_published" value="1" id="pub_{{ $key }}"
+                                               {{ ($teaser && $teaser->is_published) ? 'checked' : '' }}
+                                               class="w-4 h-4 rounded border-gray-300 text-[#2f5597] focus:ring-[#2f5597]">
+                                        <label for="pub_{{ $key }}" class="text-sm font-medium text-gray-700">Published / Visible on landing page</label>
+                                    </div>
+                                    <div class="flex justify-end">
+                                        <button type="submit"
+                                                class="bg-[#2f5597] hover:bg-blue-800 text-white px-5 py-2 rounded-md text-sm font-medium flex items-center gap-2 transition-colors">
+                                            <i data-lucide="save" class="w-4 h-4"></i> Save Changes
+                                        </button>
+                                    </div>
+                                </form>
+                            @endforeach
+                        </div>
+                    </div>
+                </div>
+
+                {{-- ---------- TAMATECH TEAM PANEL ---------- --}}
+                @php
+                    $tamatechIntro   = $sections->get('tamatech_intro');
+                    $tamatechMembers = [
+                        'tamatech_member_1' => $sections->get('tamatech_member_1'),
+                        'tamatech_member_2' => $sections->get('tamatech_member_2'),
+                        'tamatech_member_3' => $sections->get('tamatech_member_3'),
+                        'tamatech_member_4' => $sections->get('tamatech_member_4'),
+                    ];
+                @endphp
+                <div data-cms-panel="tamatech" style="display: none;" class="space-y-6">
+
+                    {{-- Intro section --}}
+                    <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                        <div class="px-6 py-4 border-b border-gray-100 bg-gray-50 flex items-center gap-3">
+                            <i data-lucide="info" class="w-5 h-5 text-[#2f5597]"></i>
+                            <h2 class="text-lg font-bold text-gray-900">Team Intro</h2>
+                        </div>
+                        <form onsubmit="event.preventDefault(); cmsSaveSection(this, 'tamatech_intro');" class="p-6 space-y-5">
+                            <div data-cms-msg class="hidden rounded-lg px-4 py-3 text-sm font-medium"></div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Heading</label>
+                                <input type="text" name="title" value="{{ $tamatechIntro->title ?? '' }}"
+                                       class="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#2f5597] outline-none">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Intro Paragraph</label>
+                                <textarea name="body" rows="4"
+                                          class="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#2f5597] outline-none">{{ $tamatechIntro->body ?? '' }}</textarea>
+                            </div>
+                            <div class="flex items-center gap-3 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                                <input type="checkbox" name="is_published" value="1" id="pub_tamatech_intro"
+                                       {{ ($tamatechIntro && $tamatechIntro->is_published) ? 'checked' : '' }}
+                                       class="w-4 h-4 rounded border-gray-300 text-[#2f5597] focus:ring-[#2f5597]">
+                                <label for="pub_tamatech_intro" class="text-sm font-medium text-gray-700">Published / Visible on TamaTech page</label>
+                            </div>
+                            <div class="flex justify-end">
+                                <button type="submit"
+                                        class="bg-[#2f5597] hover:bg-blue-800 text-white px-5 py-2 rounded-md text-sm font-medium flex items-center gap-2 transition-colors">
+                                    <i data-lucide="save" class="w-4 h-4"></i> Save Changes
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    {{-- Member rows (name + role only, no image) --}}
+                    <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                        <div class="px-6 py-4 border-b border-gray-100 bg-gray-50 flex items-center gap-3">
+                            <i data-lucide="users" class="w-5 h-5 text-[#2f5597]"></i>
+                            <h2 class="text-lg font-bold text-gray-900">Team Members</h2>
+                        </div>
+                        <div class="p-6 space-y-6">
+                            @foreach($tamatechMembers as $key => $member)
+                                <form onsubmit="event.preventDefault(); cmsSaveSection(this, '{{ $key }}');"
+                                      enctype="multipart/form-data"
+                                      class="border border-gray-200 rounded-lg p-5 space-y-4">
+                                    <div data-cms-msg class="hidden rounded-lg px-4 py-3 text-sm font-medium"></div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                                        <input type="text" name="title" value="{{ $member->title ?? '' }}"
+                                               class="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#2f5597] outline-none">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Role</label>
+                                        <input type="text" name="body" value="{{ $member->body ?? '' }}"
+                                               class="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#2f5597] outline-none">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Profile Photo</label>
+                                        <input type="hidden" name="remove_photo" value="0">
+                                        @if($member && $member->image_url)
+                                            <div class="flex items-center gap-3 mb-2" data-photo-wrap>
+                                                <img src="{{ $member->image_url }}" alt="Current photo"
+                                                     style="width: 64px; height: 64px; border-radius: 50%; object-fit: cover;"
+                                                     class="border border-gray-200 shrink-0">
+                                                <button type="button" onclick="cmsRemovePhoto(this)"
+                                                        class="text-sm font-medium text-red-600 hover:text-red-700 inline-flex items-center gap-1">
+                                                    <i data-lucide="trash-2" class="w-4 h-4"></i> Remove Photo
+                                                </button>
+                                            </div>
+                                        @endif
+                                        <input type="file" name="image" accept="image/*"
+                                               class="w-full text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:font-medium file:bg-[#2f5597]/10 file:text-[#2f5597] hover:file:bg-[#2f5597]/20 transition-colors">
+                                    </div>
+                                    <div class="flex items-center gap-3 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                                        <input type="checkbox" name="is_published" value="1" id="pub_{{ $key }}"
+                                               {{ ($member && $member->is_published) ? 'checked' : '' }}
+                                               class="w-4 h-4 rounded border-gray-300 text-[#2f5597] focus:ring-[#2f5597]">
+                                        <label for="pub_{{ $key }}" class="text-sm font-medium text-gray-700">Published / Visible on TamaTech page</label>
+                                    </div>
+                                    <div class="flex justify-end">
+                                        <button type="submit"
+                                                class="bg-[#2f5597] hover:bg-blue-800 text-white px-5 py-2 rounded-md text-sm font-medium flex items-center gap-2 transition-colors">
+                                            <i data-lucide="save" class="w-4 h-4"></i> Save Member
+                                        </button>
+                                    </div>
+                                </form>
+                            @endforeach
+                        </div>
+                    </div>
+                </div>
 
                 {{-- ---------- ANNOUNCEMENTS PANEL ---------- --}}
                 <div data-cms-panel="announcements" style="display: none;">
@@ -337,6 +502,17 @@
                 cmsShowMsg(form, false, 'Network error. Please try again.');
             }
             btn.disabled = false;
+        }
+
+        // ---------- TamaTech member photo removal ----------
+        // Flags the photo for removal and hides the current preview; the cleared
+        // image_url is committed when the member form is saved.
+        function cmsRemovePhoto(btn) {
+            const form = btn.closest('form');
+            const flag = form.querySelector('[name="remove_photo"]');
+            if (flag) flag.value = '1';
+            const wrap = btn.closest('[data-photo-wrap]');
+            if (wrap) wrap.style.display = 'none';
         }
 
         // ---------- Announcements ----------

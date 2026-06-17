@@ -6,9 +6,11 @@ use Illuminate\Database\Eloquent\Model;
 
 class Student extends Model
 {
-    protected $fillable = ['parent_id', 'class_list_id', 'name', 'profile_icon', 'parent_password', 'archived_at'];
+    protected $fillable = ['parent_id', 'class_list_id', 'name', 'profile_icon', 'profile_picture', 'parent_password', 'archived_at'];
 
     protected $casts = ['archived_at' => 'datetime'];
+
+    protected $hidden = ['parent_password'];
 
     public function scopeActive($query)   { return $query->whereNull('archived_at'); }
     public function scopeArchived($query) { return $query->whereNotNull('archived_at'); }
@@ -16,6 +18,16 @@ class Student extends Model
     public function parentUser()
     {
         return $this->belongsTo(ParentUser::class, 'parent_id');
+    }
+
+    /**
+     * The owning parent (parents table). Alias kept alongside the existing
+     * parentUser()/parentProfile() relationships so code/eager-loads that
+     * reference the canonical "parent" name resolve correctly.
+     */
+    public function parent()
+    {
+        return $this->belongsTo(ParentProfile::class, 'parent_id');
     }
 
     public function classList()

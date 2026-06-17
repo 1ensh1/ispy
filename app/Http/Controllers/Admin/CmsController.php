@@ -45,7 +45,9 @@ class CmsController extends Controller
             'body'         => 'nullable|string',
             'image'        => 'nullable|file|mimes:jpg,jpeg,png,gif,webp|max:5120',
             'file'         => 'nullable|file|max:102400',
+            'file_url'     => 'nullable|string|max:1000',
             'is_published' => 'nullable|boolean',
+            'remove_photo' => 'nullable|boolean',
         ]);
 
         $supabase = new SupabaseStorageService;
@@ -58,13 +60,32 @@ class CmsController extends Controller
             $section->body = $request->input('body');
         }
 
-        if ($request->hasFile('image')) {
+        if ($request->hasFile('image') && ! str_starts_with($sectionKey, 'tamatech_member_')) {
             $extension = $request->file('image')->getClientOriginalExtension() ?: 'jpg';
             $filename  = $sectionKey . '_' . time() . '.' . $extension;
             $binary    = file_get_contents($request->file('image')->getRealPath());
             $imageUrl  = $supabase->uploadImage($binary, $filename, 'cms-images', $request->file('image')->getMimeType());
             if ($imageUrl) {
                 $section->image_url = $imageUrl;
+            }
+        }
+
+        // TamaTech member profile photos: stored under a tamatech/ prefix and
+        // supports removing the current photo via a remove_photo flag.
+        $tamatechPhotoChanged = false;
+        if (str_starts_with($sectionKey, 'tamatech_member_')) {
+            if ($request->hasFile('image')) {
+                $extension = $request->file('image')->getClientOriginalExtension() ?: 'jpg';
+                $filename  = 'tamatech/' . $sectionKey . '_' . time() . '.' . $extension;
+                $binary    = file_get_contents($request->file('image')->getRealPath());
+                $imageUrl  = $supabase->uploadImage($binary, $filename, 'cms-images', $request->file('image')->getMimeType());
+                if ($imageUrl) {
+                    $section->image_url   = $imageUrl;
+                    $tamatechPhotoChanged = true;
+                }
+            } elseif ($request->boolean('remove_photo')) {
+                $section->image_url   = null;
+                $tamatechPhotoChanged = true;
             }
         }
 
@@ -78,6 +99,19 @@ class CmsController extends Controller
             }
         }
 
+        // Plain-text video URL (teaser videos store a YouTube embed / direct link in file_url).
+        if ($request->has('file_url')) {
+            $url = $request->input('file_url') ?: null;
+
+            // Teaser video URLs are pasted as share/watch links; convert them to an
+            // embeddable format before storing so they render in an iframe.
+            if ($url !== null && str_starts_with($sectionKey, 'teaser_video_')) {
+                $url = $this->convertToEmbedUrl($url);
+            }
+
+            $section->file_url = $url;
+        }
+
         if ($request->has('is_published')) {
             $section->is_published = $request->boolean('is_published');
         }
@@ -85,12 +119,68 @@ class CmsController extends Controller
         $section->updated_at = now();
         $section->save();
 
-        self::log('CMS Edit', "updated CMS section '" . ($section->title ?: $sectionKey) . "'");
+        if (str_starts_with($sectionKey, 'tamatech_member_')) {
+            if ($tamatechPhotoChanged) {
+                self::log('CMS Edit', 'Updated TamaTech member photo: ' . ($section->title ?: $sectionKey));
+            } else {
+                self::log('CMS Edit', 'updated TamaTech member: ' . ($section->title ?: $sectionKey));
+            }
+        } elseif ($sectionKey === 'tamatech_intro') {
+            self::log('CMS Edit', 'updated TamaTech intro section');
+        } elseif (str_starts_with($sectionKey, 'teaser_video_')) {
+            self::log('CMS Edit', 'updated CMS section: ' . $sectionKey);
+        } else {
+            self::log('CMS Edit', "updated CMS section '" . ($section->title ?: $sectionKey) . "'");
+        }
 
         return response()->json([
             'success' => true,
             'data'    => $section,
         ]);
+    }
+
+    /**
+     * Convert a pasted video share/watch URL into an embeddable iframe URL.
+     * Handles YouTube short, watch, and embed links plus Google Drive share
+     * and preview links. Any other URL is returned unchanged.
+     */
+    private function convertToEmbedUrl(string $url): string
+    {
+        // YouTube short URL: https://youtu.be/{id}?...
+        if (str_contains($url, 'youtu.be/')) {
+            $id = explode('?', explode('youtu.be/', $url, 2)[1])[0];
+
+            return 'https://www.youtube.com/embed/' . $id;
+        }
+
+        // YouTube embed URL: already embeddable.
+        if (str_contains($url, 'youtube.com/embed')) {
+            return $url;
+        }
+
+        // YouTube watch URL: https://www.youtube.com/watch?v={id}&...
+        if (str_contains($url, 'youtube.com/watch')) {
+            parse_str((string) parse_url($url, PHP_URL_QUERY), $query);
+            if (! empty($query['v'])) {
+                return 'https://www.youtube.com/embed/' . $query['v'];
+            }
+
+            return $url;
+        }
+
+        // Google Drive preview URL: already embeddable.
+        if (str_contains($url, '/preview')) {
+            return $url;
+        }
+
+        // Google Drive share URL: https://drive.google.com/file/d/{id}/view?...
+        if (str_contains($url, 'drive.google.com/file/d/')) {
+            $id = explode('/', explode('/file/d/', $url, 2)[1])[0];
+
+            return 'https://drive.google.com/file/d/' . $id . '/preview';
+        }
+
+        return $url;
     }
 
     public function storeAnnouncement(Request $request)

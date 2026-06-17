@@ -120,6 +120,84 @@ class ReportController extends Controller
         return redirect()->back()->with('success', 'Progress report sent to ' . $parent->name . ' successfully.');
     }
 
+    public function consultationsReport(Request $request)
+    {
+        $teacher = Teacher::where('user_id', auth()->id())->firstOrFail();
+
+        $validStatuses = ['All', 'Pending', 'Confirmed', 'Completed', 'Cancelled', 'Rejected', 'No-show'];
+        $status        = in_array($request->query('status'), $validStatuses, true)
+            ? $request->query('status')
+            : 'All';
+
+        $bookings = $this->consultationBookingsQuery($teacher->id, $status)->get();
+
+        $confirmed = $bookings->where('status', 'Confirmed')->values();
+        $pending   = $bookings->where('status', 'Pending')->values();
+        $completed = $bookings->where('status', 'Completed')->values();
+        $cancelled = $bookings->where('status', 'Cancelled')->values();
+        $rejected  = $bookings->where('status', 'Rejected')->values();
+        $noShow    = $bookings->where('status', 'No-show')->values();
+
+        return view('teacher.reports.consultations', compact(
+            'confirmed', 'pending', 'completed', 'cancelled', 'rejected', 'noShow', 'status'
+        ));
+    }
+
+    public function exportConsultationsCsv(Request $request)
+    {
+        $teacher = Teacher::where('user_id', auth()->id())->firstOrFail();
+
+        $validStatuses = ['All', 'Pending', 'Confirmed', 'Completed', 'Cancelled', 'Rejected', 'No-show'];
+        $status        = in_array($request->query('status'), $validStatuses, true)
+            ? $request->query('status')
+            : 'All';
+
+        $rows = $this->consultationBookingsQuery($teacher->id, $status)->get();
+
+        $filename = 'consultations-report' . ($status !== 'All' ? '-' . strtolower($status) : '') . '.csv';
+
+        return response()->streamDownload(function () use ($rows) {
+            $handle = fopen('php://output', 'w');
+            fwrite($handle, "\xEF\xBB\xBF"); // UTF-8 BOM so Excel reads the en-dash correctly
+            fputcsv($handle, ['Parent Name', 'Date', 'Time Slot', 'Purpose', 'Status']);
+            foreach ($rows as $row) {
+                fputcsv($handle, [
+                    $row->parent_name ?? '—',
+                    $row->scheduled_date ? date('M d, Y', strtotime($row->scheduled_date)) : '—',
+                    date('g:i A', strtotime($row->time_start)) . ' – ' . date('g:i A', strtotime($row->time_end)),
+                    $row->purpose_of_meeting ?? '—',
+                    $row->status,
+                ]);
+            }
+            fclose($handle);
+        }, $filename, ['Content-Type' => 'text/csv']);
+    }
+
+    private function consultationBookingsQuery(int $teacherId, string $status)
+    {
+        $query = DB::table('face_to_face_bookings')
+            ->join('consultation_slots', 'face_to_face_bookings.slot_id', '=', 'consultation_slots.id')
+            ->leftJoin('parents', 'face_to_face_bookings.parent_id', '=', 'parents.id')
+            ->where('face_to_face_bookings.teacher_id', $teacherId)
+            ->whereIn('face_to_face_bookings.status', ['Pending', 'Confirmed', 'Completed', 'Cancelled', 'Rejected', 'No-show'])
+            ->orderByDesc('consultation_slots.scheduled_date')
+            ->orderBy('consultation_slots.time_start')
+            ->select(
+                'face_to_face_bookings.purpose_of_meeting',
+                'face_to_face_bookings.status',
+                'consultation_slots.scheduled_date',
+                'consultation_slots.time_start',
+                'consultation_slots.time_end',
+                'parents.name as parent_name'
+            );
+
+        if ($status !== 'All') {
+            $query->where('face_to_face_bookings.status', $status);
+        }
+
+        return $query;
+    }
+
     public function exportStudentReportCsv(Request $request, Student $student)
     {
         abort_if($student->class_list_id !== $request->active_class_id, 403);

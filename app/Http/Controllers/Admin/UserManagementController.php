@@ -53,22 +53,6 @@ class UserManagementController extends Controller
             );
         }
 
-        // ---- Archived Classes: archived class_subjects for this teacher, grouped by class ----
-        $archivedClasses = ClassSubject::where('teacher_id', $teacher->id)
-            ->whereNotNull('archived_at')
-            ->with('classList')
-            ->get()
-            ->filter(fn ($cs) => $cs->classList !== null)
-            ->groupBy('class_list_id')
-            ->map(function ($rows) {
-                $class = $rows->first()->classList;
-                $class->setRelation('teacherSubjects', $rows->values());
-                $class->subjects_archived_at = $rows->max('archived_at');
-                return $class;
-            })
-            ->sortBy('class_name')
-            ->values();
-
         $classIds = $classes->pluck('id');
 
         $currentSubs = \App\Models\ClassSubstitute::active()
@@ -80,19 +64,22 @@ class UserManagementController extends Controller
             ->orderBy('name')
             ->get();
 
-        // ---- Assign Existing Class: classes where this teacher still has a free subject ----
-        $takenByClass = ClassSubject::where('teacher_id', $teacher->id)
-            ->whereNull('archived_at')
+        // ---- Assign Existing Class: classes with a subject claimed by NOBODY ----
+        // A subject is "available" only if no active class_subjects row exists for
+        // it on that class — regardless of which teacher holds it (the unique
+        // (class_list_id, subject) constraint allows at most one). This also
+        // excludes subjects already held by THIS teacher (they have an active row).
+        $claimedByClass = ClassSubject::whereNull('archived_at')
             ->get()
             ->groupBy('class_list_id')
-            ->map(fn ($rows) => $rows->pluck('subject')->all());
+            ->map(fn ($rows) => $rows->pluck('subject')->unique()->all());
 
         $unassignedClasses = ClassList::active()
             ->orderBy('class_name')
             ->get()
-            ->map(function ($class) use ($takenByClass, $allSubjects) {
-                $taken = $takenByClass->get($class->id, []);
-                $class->available_subjects = array_values(array_diff($allSubjects, $taken));
+            ->map(function ($class) use ($claimedByClass, $allSubjects) {
+                $claimed = $claimedByClass->get($class->id, []);
+                $class->available_subjects = array_values(array_diff($allSubjects, $claimed));
                 return $class;
             })
             ->filter(fn ($class) => count($class->available_subjects) > 0)
@@ -104,7 +91,7 @@ class UserManagementController extends Controller
             ->get();
 
         return view('admin.teachers.profile', compact(
-            'teacher', 'classes', 'archivedClasses', 'recentActivity', 'currentSubs', 'otherTeachers', 'unassignedClasses'
+            'teacher', 'classes', 'recentActivity', 'currentSubs', 'otherTeachers', 'unassignedClasses'
         ));
     }
 
