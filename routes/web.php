@@ -218,6 +218,8 @@ Route::prefix('teacher')->middleware(['auth', 'teacher'])->group(function () {
 
     // Messaging
     Route::get('/messaging',  [TeacherMessagingController::class,   'index'])->name('teacher.messaging');
+    Route::get('/messaging/poll',        [TeacherMessagingController::class, 'poll'])->name('teacher.messaging.poll');
+    Route::post('/messaging/ajax-store', [TeacherMessagingController::class, 'ajaxStore'])->name('teacher.messaging.ajax.store');
     Route::post('/messaging', [TeacherMessagingController::class,   'store'])->name('teacher.messaging.store');
 
     // Tickets
@@ -278,6 +280,8 @@ Route::prefix('parent')->middleware(['auth', 'parent'])->name('parent.')->group(
     Route::get('/progress',               [ParentProgressController::class,      'index'])->name('progress');
     Route::get('/proficiency',            [ParentProficiencyController::class,   'index'])->name('proficiency');
     Route::get('/messaging',              [ParentMessagingController::class,     'index'])->name('messaging');
+    Route::get('/messaging/poll',         [ParentMessagingController::class,     'poll'])->name('messaging.poll');
+    Route::post('/messaging/ajax-store',  [ParentMessagingController::class,     'ajaxStore'])->name('messaging.ajax.store');
     Route::post('/messaging',             [ParentMessagingController::class,     'store'])->name('messaging.store');
     Route::get('/consultations',          [ParentConsultationsController::class, 'index'])->name('consultations');
     Route::post('/consultations',         [ParentConsultationsController::class, 'store'])->name('consultations.store');
