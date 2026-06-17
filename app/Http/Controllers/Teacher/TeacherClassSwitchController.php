@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Teacher;
 
 use App\Http\Controllers\Controller;
-use App\Models\ClassList;
+use App\Models\ClassSubject;
 use App\Models\ClassSubstitute;
 use App\Models\Teacher;
 use Illuminate\Http\Request;
@@ -16,8 +16,11 @@ class TeacherClassSwitchController extends Controller
 
         $teacher = Teacher::where('user_id', auth()->id())->firstOrFail();
 
-        $ownClassIds = ClassList::where('teacher_id', $teacher->id)
-            ->pluck('id');
+        // Own classes come from class_subjects (the source of truth) — not the
+        // deprecated, null-by-design class_lists.teacher_id column.
+        $ownClassIds = ClassSubject::where('teacher_id', $teacher->id)
+            ->whereNull('archived_at')
+            ->pluck('class_list_id');
 
         $subClassIds = ClassSubstitute::active()
             ->where('substitute_teacher_id', $teacher->id)

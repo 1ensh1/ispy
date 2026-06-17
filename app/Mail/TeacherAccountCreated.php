@@ -15,7 +15,6 @@ class TeacherAccountCreated extends Mailable
     public function __construct(
         public string $name,
         public string $email,
-        public string $temporary_password,
         public string $activation_url,
     ) {}
 

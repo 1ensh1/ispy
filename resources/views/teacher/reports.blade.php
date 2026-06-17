@@ -10,7 +10,12 @@
             <h2 class="text-2xl font-bold text-gray-900">Student Reports</h2>
             <p class="text-sm text-gray-500 mt-1">View and send progress reports for each student</p>
         </div>
-        <div class="no-print">
+        <div class="no-print" style="display:flex; align-items:center; gap:0.5rem;">
+            <a href="{{ route('teacher.reports.consultations') }}"
+               style="display:inline-flex; align-items:center; gap:0.375rem; padding:0.5rem 0.875rem; background:#1e3a5f; color:#fff; border-radius:0.5rem; font-size:0.875rem; font-weight:500; text-decoration:none;">
+                <i data-lucide="calendar-check" style="width:16px; height:16px;"></i>
+                Consultations Report
+            </a>
             <button onclick="window.print()"
                     style="display:inline-flex; align-items:center; gap:0.375rem; padding:0.5rem 0.875rem; background:#4b5563; color:#fff; border-radius:0.5rem; font-size:0.875rem; font-weight:500; border:none; cursor:pointer;"
                     onmouseover="this.style.background='#374151'" onmouseout="this.style.background='#4b5563'">

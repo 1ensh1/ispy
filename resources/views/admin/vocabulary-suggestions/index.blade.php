@@ -33,6 +33,14 @@
                     {{ $label }}
                 </a>
             @endforeach
+
+            {{-- Per-page selector (keeps the active status filter, resets to page 1) --}}
+            <select onchange="(function(v){const u=new URL(window.location.href);u.searchParams.set('per_page',v);u.searchParams.delete('page');window.location.assign(u.toString());})(this.value)"
+                    class="ml-auto px-3 pr-8 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#2f5597] outline-none bg-white text-gray-700">
+                <option value="10" {{ $perPage === 10 ? 'selected' : '' }}>10 / page</option>
+                <option value="20" {{ $perPage === 20 ? 'selected' : '' }}>20 / page</option>
+                <option value="50" {{ $perPage === 50 ? 'selected' : '' }}>50 / page</option>
+            </select>
         </div>
 
         {{-- Table --}}

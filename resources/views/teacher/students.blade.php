@@ -12,6 +12,15 @@
         </p>
     </div>
 
+    <div class="flex justify-end mb-3">
+        <select onchange="(function(v){const u=new URL(window.location.href);u.searchParams.set('per_page',v);u.searchParams.delete('page');window.location.assign(u.toString());})(this.value)"
+                class="px-3 py-1.5 text-sm border border-gray-200 rounded-lg bg-white text-gray-600 focus:outline-none focus:ring-2 focus:ring-[#2f5597]/30">
+            <option value="10" {{ $perPage === 10 ? 'selected' : '' }}>10 / page</option>
+            <option value="20" {{ $perPage === 20 ? 'selected' : '' }}>20 / page</option>
+            <option value="50" {{ $perPage === 50 ? 'selected' : '' }}>50 / page</option>
+        </select>
+    </div>
+
     <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
         <div class="overflow-x-auto">
             <table class="w-full text-sm text-left">
@@ -25,24 +34,10 @@
                 </thead>
                 <tbody class="divide-y divide-gray-100">
                     @forelse($students as $student)
-                    @php
-                        $iconEmoji = [
-                            'cat' => '🐱', 'dog' => '🐶', 'bear' => '🐻', 'rabbit' => '🐰',
-                            'fox' => '🦊', 'frog' => '🐸', 'penguin' => '🐧', 'lion' => '🦁',
-                        ];
-                    @endphp
                     <tr class="hover:bg-gray-50 transition-colors">
                         <td class="px-6 py-4">
                             <div class="flex items-center gap-3">
-                                @if($student->profile_icon && isset($iconEmoji[$student->profile_icon]))
-                                    <div class="w-8 h-8 rounded-full bg-[#2f5597]/10 flex items-center justify-center shrink-0 text-lg leading-none">
-                                        {{ $iconEmoji[$student->profile_icon] }}
-                                    </div>
-                                @else
-                                    <div class="w-8 h-8 rounded-full bg-[#2f5597]/10 flex items-center justify-center shrink-0">
-                                        <span class="text-[#2f5597] text-xs font-bold">{{ strtoupper(substr($student->name, 0, 1)) }}</span>
-                                    </div>
-                                @endif
+                                <x-student-avatar :student="$student" size="32" />
                                 <span class="font-medium text-gray-900">{{ $student->name }}</span>
                             </div>
                         </td>
@@ -79,6 +74,11 @@
                 </tbody>
             </table>
         </div>
+        @if($students->hasPages())
+            <div class="px-6 py-4 border-t border-gray-200 bg-gray-50">
+                {{ $students->links() }}
+            </div>
+        @endif
     </div>
 
 </div>

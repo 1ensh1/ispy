@@ -27,9 +27,14 @@ class ActivityLogController extends Controller
             $query->whereRaw('LOWER(description) LIKE ?', ['%' . strtolower($request->search) . '%']);
         }
 
-        $logs = $query->paginate(50)->withQueryString();
+        $perPage = (int) $request->input('per_page', 10);
+        if (! in_array($perPage, [10, 20, 50], true)) {
+            $perPage = 10;
+        }
 
-        return view('admin.activity_logs.index', compact('logs'));
+        $logs = $query->paginate($perPage)->appends(request()->query());
+
+        return view('admin.activity_logs.index', compact('logs', 'perPage'));
     }
 
     public function export(Request $request): StreamedResponse

@@ -21,11 +21,18 @@
                 <h1 class="text-3xl font-bold text-gray-900 mb-1">Support Tickets</h1>
                 <p class="text-sm text-gray-500">Manage and resolve support tickets submitted by teachers</p>
             </div>
-            <button onclick="openCreateModal()"
-                    class="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
-                <i data-lucide="plus" style="width:16px;height:16px;"></i>
-                Create Ticket
-            </button>
+            <div class="flex items-center gap-2">
+                <a href="{{ route('admin.tickets.report', array_filter(request()->only(['status', 'priority', 'role']))) }}"
+                   class="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
+                    <i data-lucide="file-text" style="width:16px;height:16px;"></i>
+                    Generate Report
+                </a>
+                <button onclick="openCreateModal()"
+                        class="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
+                    <i data-lucide="plus" style="width:16px;height:16px;"></i>
+                    Create Ticket
+                </button>
+            </div>
         </div>
 
         {{-- Flash Messages --}}
@@ -74,6 +81,12 @@
                    class="px-4 py-2 text-sm border border-gray-300 rounded-lg bg-white text-gray-600 hover:bg-gray-50 transition-colors">
                     Reset Filters
                 </a>
+                <select name="per_page" onchange="this.form.submit()"
+                        class="px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-indigo-300 focus:border-indigo-400">
+                    <option value="10" {{ $perPage === 10 ? 'selected' : '' }}>10 / page</option>
+                    <option value="20" {{ $perPage === 20 ? 'selected' : '' }}>20 / page</option>
+                    <option value="50" {{ $perPage === 50 ? 'selected' : '' }}>50 / page</option>
+                </select>
             </div>
         </form>
 
@@ -153,6 +166,11 @@
                     </tbody>
                 </table>
             </div>
+            @if($tickets->hasPages())
+                <div class="px-4 py-4 border-t border-gray-200 bg-gray-50">
+                    {{ $tickets->links() }}
+                </div>
+            @endif
         </div>
 
     </div>

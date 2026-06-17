@@ -28,22 +28,10 @@
 
                             <p style="margin:0 0 16px 0; line-height:1.6;">
                                 Welcome to the iSpy World portal! A teacher account has been created for you at
-                                <strong>Future Minds Academy</strong>. You can use the credentials below to log in
-                                once your account is activated.
+                                <strong>Future Minds Academy</strong>. To get started, activate your account using the
+                                link below. You'll review our Data Privacy Notice and Terms &amp; Conditions, and your
+                                login credentials will be shown to you once activation is complete.
                             </p>
-
-                            {{-- Login details --}}
-                            <table width="100%" cellpadding="0" cellspacing="0" style="margin:24px 0; background-color:#f0f4f8; border-radius:6px; border:1px solid #d0dce8;">
-                                <tr>
-                                    <td style="padding:20px 24px;">
-                                        <p style="margin:0 0 12px 0; font-size:13px; text-transform:uppercase; letter-spacing:0.6px; color:#5a7a99;">Login Email</p>
-                                        <p style="margin:0 0 20px 0; font-size:15px; color:#1e3a5f; font-weight:bold;">{{ $email }}</p>
-
-                                        <p style="margin:0 0 12px 0; font-size:13px; text-transform:uppercase; letter-spacing:0.6px; color:#5a7a99;">Temporary Password</p>
-                                        <p style="margin:0; font-size:18px; font-family:'Courier New', Courier, monospace; background-color:#ffffff; border:1px solid #b0c8e0; border-radius:4px; padding:10px 16px; letter-spacing:1.5px; color:#1e3a5f;">{{ $temporary_password }}</p>
-                                    </td>
-                                </tr>
-                            </table>
 
                             {{-- Activation warning --}}
                             <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px 0; background-color:#fff8e1; border-left:4px solid #f59e0b; border-radius:4px;">
@@ -52,7 +40,8 @@
                                         <p style="margin:0 0 8px 0; font-size:14px; font-weight:bold; color:#92400e;">Account Activation Required</p>
                                         <p style="margin:0; font-size:14px; line-height:1.6; color:#78350f;">
                                             Your account is currently <strong>inactive</strong>. You must click the activation link below
-                                            before you can log in. The link will expire, so please activate soon.
+                                            before you can log in. This link expires <strong>48 hours</strong> after this email was sent,
+                                            so please activate soon.
                                         </p>
                                         <p style="margin:16px 0 0 0; font-size:14px;">
                                             <a href="{{ $activation_url }}" style="display:inline-block; background-color:#1e3a5f; color:#ffffff; text-decoration:none; font-weight:bold; padding:12px 24px; border-radius:6px;">Click here to activate your account</a>

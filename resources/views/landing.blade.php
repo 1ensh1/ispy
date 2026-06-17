@@ -25,6 +25,8 @@
     $aboutApp    = $cms->get('about_app');
     $howTo       = $cms->get('how_to_download');
     $apk         = $cms->get('apk_download');
+    $teaserWeb    = $cms->get('teaser_video_web');
+    $teaserMobile = $cms->get('teaser_video_mobile');
 
     $heroPub = $hero && $hero->is_published;
 @endphp
@@ -173,6 +175,46 @@
                 </div>
             @endforeach
         </div>
+
+        {{-- Sub-section: teaser video previews --}}
+        <div style="margin-top: 72px; padding-bottom: 40px;">
+            <h3 class="font-extrabold" style="font-size: clamp(1.4rem, 2.5vw, 2rem); color: #1e3a5f;">
+                Watch a Preview
+            </h3>
+
+            @php
+                $teaserCards = array_filter([$teaserWeb, $teaserMobile]);
+            @endphp
+
+            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 28px; margin-top: 32px;">
+                @foreach($teaserCards as $teaser)
+                    <div class="bg-white text-left" style="border-radius: 16px; padding: 24px; box-shadow: 0 8px 24px rgba(30,58,95,0.08); border: 1px solid #e5e7eb;">
+                        <h4 class="font-bold" style="font-size: 1.2rem; color: #1e3a5f;">
+                            {{ $teaser->title }}
+                        </h4>
+                        <p class="mt-2 text-gray-600" style="line-height: 1.6;">
+                            {{ $teaser->body }}
+                        </p>
+
+                        <div style="margin-top: 18px;">
+                            @if($teaser->file_url)
+                                <div style="border-radius: 12px; overflow: hidden; border: 1px solid #e5e7eb;">
+                                    <iframe src="{{ $teaser->file_url }}"
+                                            style="width: 100%; height: 360px; border: 0; display: block;"
+                                            allowfullscreen></iframe>
+                                </div>
+                            @else
+                                <div class="flex flex-col items-center justify-center text-center"
+                                     style="height: 360px; border-radius: 12px; background-color: #1f2937; color: #9ca3af; gap: 10px;">
+                                    <i data-lucide="play-circle" style="width: 48px; height: 48px;"></i>
+                                    <span class="font-semibold" style="letter-spacing: 0.02em;">Coming Soon</span>
+                                </div>
+                            @endif
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+        </div>
     </div>
 </section>
 @endif
@@ -283,6 +325,12 @@
                 <li><a href="#about" class="hover:text-white" style="transition: color .15s;">About</a></li>
                 <li><a href="#download" class="hover:text-white" style="transition: color .15s;">Download</a></li>
                 <li><a href="#announcements" class="hover:text-white" style="transition: color .15s;">Announcements</a></li>
+                <li>
+                    <a href="{{ route('public.tamatech') }}" class="inline-flex items-center hover:text-white" style="gap: 6px; transition: color .15s;">
+                        <i data-lucide="users" style="width: 16px; height: 16px;"></i>
+                        Meet the TamaTech Team
+                    </a>
+                </li>
             </ul>
         </div>
 
@@ -294,10 +342,13 @@
 
     <div style="border-top: 1px solid rgba(255,255,255,0.08);">
         <div class="mx-auto px-6 text-center text-sm text-gray-400" style="max-width: 1200px; padding-top: 20px; padding-bottom: 20px;">
-            &copy; 2026 Future Minds Academy. All rights reserved. &nbsp;|&nbsp; Powered by iSpy World
+            &copy; 2026 Future Minds Academy. All rights reserved. &nbsp;|&nbsp; Powered by iSpy World &nbsp;|&nbsp; Built by TamaTech<img src="{{ asset('images/tamatech-logo.png') }}" alt="TamaTech" style="display: inline; vertical-align: middle; width: 28px; height: 28px; border-radius: 50%; object-fit: cover; margin-left: 6px;">
         </div>
     </div>
 </footer>
+
+<script src="https://unpkg.com/lucide@latest"></script>
+<script>lucide.createIcons();</script>
 
 </body>
 </html>

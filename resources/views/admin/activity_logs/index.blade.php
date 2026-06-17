@@ -2,9 +2,16 @@
 <div class="p-6 max-w-7xl mx-auto space-y-6">
 
     {{-- Page header --}}
-    <div>
-        <h1 class="text-2xl font-bold text-gray-900">Activity Logs</h1>
-        <p class="text-sm text-gray-500 mt-0.5">Audit trail of all portal actions</p>
+    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900">Activity Logs</h1>
+            <p class="text-sm text-gray-500 mt-0.5">Audit trail of all portal actions</p>
+        </div>
+        <a href="{{ route('admin.activity-logs.export', array_filter(request()->only(['role', 'action', 'search']))) }}"
+           class="inline-flex items-center gap-1.5 px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors">
+            <i data-lucide="download" class="w-4 h-4"></i>
+            Export CSV
+        </a>
     </div>
 
     {{-- Filters --}}
@@ -41,7 +48,9 @@
                 <option value="Assign"        {{ request('action') === 'Assign'        ? 'selected' : '' }}>Assign</option>
                 <option value="Remove"        {{ request('action') === 'Remove'        ? 'selected' : '' }}>Remove</option>
                 <option value="Activate"      {{ request('action') === 'Activate'      ? 'selected' : '' }}>Activate</option>
+                <option value="agree_terms"   {{ request('action') === 'agree_terms'   ? 'selected' : '' }}>Agree Terms</option>
                 <option value="Export"        {{ request('action') === 'Export'        ? 'selected' : '' }}>Export</option>
+                <option value="csv_enrollment" {{ request('action') === 'csv_enrollment' ? 'selected' : '' }}>CSV Enrollment</option>
                 <option value="Ticket"        {{ request('action') === 'Ticket'        ? 'selected' : '' }}>Ticket</option>
                 <option value="CMS Edit"      {{ request('action') === 'CMS Edit'      ? 'selected' : '' }}>CMS Edit</option>
                 <option value="Scan Attempt"  {{ request('action') === 'Scan Attempt'  ? 'selected' : '' }}>Scan Attempt</option>
@@ -71,16 +80,25 @@
             Filter
         </button>
 
+        {{-- Per-page selector (submits the form; dropping the page param resets to page 1) --}}
+        <div class="relative">
+            <select name="per_page" onchange="this.form.submit()"
+                    class="pl-3 pr-8 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 outline-none bg-white appearance-none min-w-[110px]">
+                <option value="10" {{ $perPage === 10 ? 'selected' : '' }}>10 / page</option>
+                <option value="20" {{ $perPage === 20 ? 'selected' : '' }}>20 / page</option>
+                <option value="50" {{ $perPage === 50 ? 'selected' : '' }}>50 / page</option>
+            </select>
+            <svg class="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
+                 xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/>
+            </svg>
+        </div>
+
         @if(request('role') || request('action') || request('search'))
             <a href="{{ route('admin.activity.logs') }}"
                class="text-sm text-gray-500 hover:text-gray-700 underline self-center">Clear</a>
         @endif
 
-        <a href="{{ route('admin.activity-logs.export', array_filter(request()->only(['role', 'action', 'search']))) }}"
-           class="inline-flex items-center gap-1.5 px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-colors">
-            <i data-lucide="download" class="w-4 h-4"></i>
-            Export CSV
-        </a>
 
     </form>
 
@@ -124,12 +142,16 @@
                                 $badgeClass = 'bg-sky-100 text-sky-700';
                             } elseif ($al === 'activate') {
                                 $badgeClass = 'bg-purple-100 text-purple-700';
+                            } elseif ($al === 'agree_terms') {
+                                $badgeClass = 'bg-purple-100 text-purple-700';
                             } elseif ($al === 'approve') {
                                 $badgeClass = 'bg-emerald-100 text-emerald-700';
                             } elseif ($al === 'reject') {
                                 $badgeClass = 'bg-pink-100 text-pink-700';
                             } elseif ($al === 'export') {
                                 $badgeClass = 'bg-cyan-100 text-cyan-700';
+                            } elseif ($al === 'csv_enrollment') {
+                                $badgeClass = 'bg-teal-100 text-teal-800';
                             } elseif ($al === 'ticket') {
                                 $badgeClass = 'bg-violet-100 text-violet-700';
                             } elseif ($al === 'cms edit') {
@@ -145,6 +167,13 @@
                             } else {
                                 $badgeClass = 'bg-gray-100 text-gray-600';
                             }
+
+                            // agree_terms is stored with an underscore; render it title-cased.
+                            $actionLabel = match ($al) {
+                                'agree_terms'    => 'Agree Terms',
+                                'csv_enrollment' => 'CSV Enrollment',
+                                default          => ucfirst($action),
+                            };
 
                             $isMobile = in_array($al, ['matching', 'sentence', 'scan attempt', 'scan success', 'scan fail']);
 
@@ -181,7 +210,7 @@
                             <td class="px-5 py-3">
                                 <div class="flex flex-wrap items-center gap-1">
                                     <span class="inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold {{ $badgeClass }}">
-                                        {{ ucfirst($log->action) }}
+                                        {{ $actionLabel }}
                                     </span>
                                     @if($isMobile)
                                         <span class="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-600 border border-blue-200">Mobile</span>
@@ -204,9 +233,16 @@
     </div>
 
     {{-- Pagination --}}
-    @if($logs->hasPages())
-        <div class="flex justify-end">
-            {{ $logs->links() }}
+    @if($logs->total() > 0)
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <p class="text-sm text-gray-500">
+                Showing {{ $logs->firstItem() }}–{{ $logs->lastItem() }} of {{ $logs->total() }} entries
+            </p>
+            @if($logs->hasPages())
+                <div>
+                    {{ $logs->links() }}
+                </div>
+            @endif
         </div>
     @endif
 

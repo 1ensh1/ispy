@@ -2,11 +2,16 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\ParentAccountCreated;
+use App\Services\ActivationService;
 use App\Traits\LogsActivity;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 
 class AdminController extends Controller
 {
@@ -113,16 +118,19 @@ class AdminController extends Controller
         $validated = $request->validate([
             'name'           => 'required|string|max:255',
             'email'          => 'required|string|email|max:255|unique:users',
-            'password'       => 'required|string|min:6',
+            'password'       => 'required_if:role,admin|nullable|string|min:6',
             'role'           => 'required|in:admin,parent',
             'contact_number' => 'nullable|string|max:20',
         ]);
 
-        // 2. Create the core User record
+        // 2. Create the core User record. Admins set their own password here;
+        //    parents get a generated one that is revealed only after activation.
         $user = \App\Models\User::create([
             'name' => $validated['name'],
             'email' => $validated['email'],
-            'password' => bcrypt($validated['password']),
+            'password' => $validated['role'] === 'parent'
+                ? bcrypt(Str::random(10))
+                : bcrypt($validated['password']),
             'role' => $validated['role'],
         ]);
 
@@ -132,13 +140,30 @@ class AdminController extends Controller
         } elseif ($validated['role'] === 'teacher') {
             \Illuminate\Support\Facades\DB::table('teachers')->insert(['user_id' => $user->id]);
         } elseif ($validated['role'] === 'parent') {
-            \Illuminate\Support\Facades\DB::table('parents')->insert([
+            $parentId = \Illuminate\Support\Facades\DB::table('parents')->insertGetId([
                 'user_id'        => $user->id,
                 'name'           => $validated['name'],
                 'contact_number' => $validated['contact_number'] ?? null,
+                'status'         => 'Inactive',
                 'created_at'     => now(),
                 'updated_at'     => now(),
             ]);
+
+            // Issue a one-time activation token and email the activation link.
+            $tokenData = app(ActivationService::class)->generateToken();
+            DB::table('parent_activation_tokens')->insert([
+                'parent_id'  => $parentId,
+                'token'      => $tokenData['token'],
+                'created_at' => now(),
+                'expires_at' => $tokenData['expires_at'],
+            ]);
+            $activationUrl = route('parent.activate', ['token' => $tokenData['token']]);
+
+            try {
+                Mail::to($user->email)->send(new ParentAccountCreated($user->name, $user->email, $activationUrl));
+            } catch (\Throwable $e) {
+                Log::error("Failed to send parent account email to {$user->email}: {$e->getMessage()}");
+            }
         }
 
         if ($validated['role'] === 'parent') {
@@ -148,5 +173,38 @@ class AdminController extends Controller
         $redirectTab = $validated['role'] === 'parent' ? 'parents' : $validated['role'];
         return redirect()->route('admin.teachers.index', ['tab' => $redirectTab])
                          ->with('success', 'User account created successfully!');
+    }
+
+    public function resendParentActivation(User $parent)
+    {
+        $record = DB::table('parents')->where('user_id', $parent->id)->first();
+
+        if (!$record) {
+            return redirect()->route('admin.teachers.index', ['tab' => 'parents'])
+                ->with('error', "Parent record not found for \"{$parent->name}\".");
+        }
+
+        // Replace any existing token so only the newest link works.
+        DB::table('parent_activation_tokens')->where('parent_id', $record->id)->delete();
+
+        $tokenData = app(ActivationService::class)->generateToken();
+        DB::table('parent_activation_tokens')->insert([
+            'parent_id'  => $record->id,
+            'token'      => $tokenData['token'],
+            'created_at' => now(),
+            'expires_at' => $tokenData['expires_at'],
+        ]);
+        $activationUrl = route('parent.activate', ['token' => $tokenData['token']]);
+
+        try {
+            Mail::to($parent->email)->send(new ParentAccountCreated($parent->name, $parent->email, $activationUrl));
+        } catch (\Throwable $e) {
+            Log::error("Failed to resend parent activation email to {$parent->email}: {$e->getMessage()}");
+        }
+
+        self::log('update', "resent activation email to parent {$parent->name}");
+
+        return redirect()->route('admin.teachers.index', ['tab' => 'parents'])
+            ->with('success', "Activation email resent to {$parent->email}.");
     }
 }

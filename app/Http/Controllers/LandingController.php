@@ -18,4 +18,15 @@ class LandingController extends Controller
 
         return view('landing', compact('cms', 'announcements'));
     }
+
+    public function tamatech()
+    {
+        $tamaTechContent = CmsContent::where('section_key', 'like', 'tamatech_%')
+            ->where('is_published', true)
+            ->orderBy('section_key')
+            ->get()
+            ->keyBy('section_key');
+
+        return view('public.tamatech', compact('tamaTechContent'));
+    }
 }

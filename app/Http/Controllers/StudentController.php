@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\DB;
 use App\Models\Student;
 use App\Models\ParentUser;
 use App\Models\ClassList;
+use App\Services\SupabaseStorageService;
 
 class StudentController extends Controller
 {
@@ -32,6 +33,7 @@ class StudentController extends Controller
         $validated = $request->validate([
             'name'            => 'required|string|max:255',
             'profile_icon'    => 'required|string|in:cat,dog,bear,rabbit,fox,frog,penguin,lion',
+            'profile_picture' => 'nullable|image|mimes:jpeg,jpg,png,webp|max:2048',
             'parent_id'       => 'nullable|exists:parents,id',
             'class_list_id'   => 'nullable|exists:class_lists,id',
             'parent_password' => 'nullable|string|max:255',
@@ -44,9 +46,16 @@ class StudentController extends Controller
             }
         }
 
+        if (!empty($validated['class_list_id'])) {
+            $classCount = Student::active()->where('class_list_id', $validated['class_list_id'])->count();
+            if ($classCount >= 20) {
+                return back()->withErrors(['class_list_id' => 'This class already has 20 students. No additional students can be enrolled.'])->withInput();
+            }
+        }
+
         $parentPassword = $request->input('parent_password') ?: Str::random(8);
 
-        Student::create([
+        $student = Student::create([
             'name'            => $validated['name'],
             'profile_icon'    => $validated['profile_icon'],
             'parent_id'       => $validated['parent_id'] ?? null,
@@ -55,6 +64,14 @@ class StudentController extends Controller
         ]);
 
         self::log('create', "created student {$validated['name']}");
+
+        if ($request->hasFile('profile_picture')) {
+            $url = $this->uploadProfilePicture($request->file('profile_picture'), $student->id);
+            if ($url) {
+                $student->update(['profile_picture' => $url]);
+                self::log('update', "uploaded profile picture for student {$student->name}");
+            }
+        }
 
         return redirect()->route('admin.teachers.index', ['tab' => 'students'])
             ->with('new_student_name', $validated['name'])
@@ -67,6 +84,7 @@ class StudentController extends Controller
             'parent_id'       => 'nullable|exists:parents,id',
             'class_list_id'   => 'nullable|exists:class_lists,id',
             'profile_icon'    => 'required|string|in:cat,dog,bear,rabbit,fox,frog,penguin,lion',
+            'profile_picture' => 'nullable|image|mimes:jpeg,jpg,png,webp|max:2048',
             'parent_password' => 'nullable|string|max:255',
         ]);
 
@@ -82,6 +100,14 @@ class StudentController extends Controller
             }
         }
 
+        $newClassId = $validated['class_list_id'] ?: null;
+        if ($newClassId && $newClassId != $student->class_list_id) {
+            $classCount = Student::active()->where('class_list_id', $newClassId)->count();
+            if ($classCount >= 20) {
+                return back()->withErrors(['class_list_id' => 'This class already has 20 students. No additional students can be enrolled.'])->withInput();
+            }
+        }
+
         $updateData = [
             'parent_id'     => $newParentId,
             'class_list_id' => $validated['class_list_id'] ?: null,
@@ -92,10 +118,39 @@ class StudentController extends Controller
             $updateData['parent_password'] = $validated['parent_password'];
         }
 
+        // Profile picture: new upload takes precedence, then explicit removal,
+        // otherwise the existing picture is left untouched.
+        if ($request->hasFile('profile_picture')) {
+            $url = $this->uploadProfilePicture($request->file('profile_picture'), $student->id);
+            if ($url) {
+                $updateData['profile_picture'] = $url;
+                self::log('update', "uploaded profile picture for student {$student->name}");
+            }
+        } elseif ($request->boolean('remove_profile_picture')) {
+            $updateData['profile_picture'] = null;
+            self::log('update', "removed profile picture for student {$student->name}");
+        }
+
         $student->update($updateData);
 
         return redirect()->route('admin.teachers.index', ['tab' => 'students'])
             ->with('success', "Assignments for \"{$student->name}\" saved successfully.");
+    }
+
+    /**
+     * Upload a student profile picture to Supabase Storage and return its
+     * public URL, or null on failure. Filename includes the student id and a
+     * timestamp to avoid collisions and stale-cache issues.
+     */
+    private function uploadProfilePicture(\Illuminate\Http\UploadedFile $file, int $studentId): ?string
+    {
+        $ext         = strtolower($file->getClientOriginalExtension());
+        $mimeMap     = ['jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'png' => 'image/png', 'webp' => 'image/webp'];
+        $contentType = $mimeMap[$ext] ?? 'image/jpeg';
+        $filename    = 'students/student_' . $studentId . '_' . time() . '.' . $ext;
+        $binary      = file_get_contents($file->getRealPath());
+
+        return (new SupabaseStorageService)->uploadImage($binary, $filename, 'cms-images', $contentType);
     }
 
     public function archive(Student $student)

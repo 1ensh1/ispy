@@ -8,6 +8,8 @@ class FaceToFaceBooking extends Model
 {
     protected $table = 'face_to_face_bookings';
 
+    public const STATUSES = ['Pending', 'Confirmed', 'Completed', 'Cancelled', 'Rejected', 'No-show'];
+
     protected $fillable = [
         'slot_id', 'teacher_id', 'parent_id', 'purpose_of_meeting', 'status',
     ];

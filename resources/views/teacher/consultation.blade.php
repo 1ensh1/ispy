@@ -221,6 +221,14 @@
 
         {{-- ── Tab: Appointments ── --}}
         <div id="panel-appointments" class="mt-4 hidden">
+            <div class="flex justify-end mb-3">
+                <select onchange="(function(v){const u=new URL(window.location.href);u.searchParams.set('per_page',v);u.searchParams.delete('page');u.searchParams.set('tab','appointments');window.location.assign(u.toString());})(this.value)"
+                        class="px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white text-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-400/30">
+                    <option value="10" {{ $perPage === 10 ? 'selected' : '' }}>10 / page</option>
+                    <option value="20" {{ $perPage === 20 ? 'selected' : '' }}>20 / page</option>
+                    <option value="50" {{ $perPage === 50 ? 'selected' : '' }}>50 / page</option>
+                </select>
+            </div>
             <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                 <div class="overflow-x-auto">
                     <table class="w-full text-sm text-left">
@@ -267,18 +275,18 @@
                                         </span>
                                     @elseif($booking->status === 'Completed')
                                         <span class="px-2.5 py-0.5 rounded-full text-xs font-medium
-                                                     bg-gray-100 text-gray-500 border border-gray-200">
+                                                     bg-blue-100 text-blue-700 border border-blue-200">
                                             Completed
                                         </span>
                                     @elseif($booking->status === 'Cancelled')
                                         <span class="px-2.5 py-0.5 rounded-full text-xs font-medium
-                                                     bg-rose-100 text-rose-700 border border-rose-200">
+                                                     bg-gray-100 text-gray-600 border border-gray-200">
                                             Cancelled
                                         </span>
-                                    @elseif($booking->status === 'Rejected')
+                                    @elseif($booking->status === 'Rejected' || $booking->status === 'No-show')
                                         <span class="px-2.5 py-0.5 rounded-full text-xs font-medium
                                                      bg-red-100 text-red-700 border border-red-200">
-                                            Rejected
+                                            {{ $booking->status }}
                                         </span>
                                     @else
                                         <span class="px-2.5 py-0.5 rounded-full text-xs font-medium
@@ -326,15 +334,26 @@
                                                 : null;
                                         @endphp
                                         @if($slotEnd && $slotEnd->isPast())
-                                            <form method="POST" action="{{ route('teacher.consultation.updateStatus') }}" class="inline">
-                                                @csrf
-                                                <input type="hidden" name="booking_id" value="{{ $booking->id }}">
-                                                <input type="hidden" name="status" value="Completed">
-                                                <button type="submit"
-                                                        style="background:#f97316;color:white;padding:3px 10px;font-size:12px;border-radius:6px;border:none;cursor:pointer;">
-                                                    Complete
-                                                </button>
-                                            </form>
+                                            <div class="flex items-center gap-1 flex-wrap">
+                                                <form method="POST" action="{{ route('teacher.consultation.updateStatus') }}" class="inline">
+                                                    @csrf
+                                                    <input type="hidden" name="booking_id" value="{{ $booking->id }}">
+                                                    <input type="hidden" name="status" value="Completed">
+                                                    <button type="submit"
+                                                            style="background:#f97316;color:white;padding:3px 10px;font-size:12px;border-radius:6px;border:none;cursor:pointer;">
+                                                        Complete
+                                                    </button>
+                                                </form>
+                                                <form method="POST" action="{{ route('teacher.consultations.noshow', $booking->id) }}" class="inline">
+                                                    @csrf
+                                                    <button type="submit"
+                                                            onclick="return confirm('Mark this consultation as No-show? This cannot be undone.');"
+                                                            class="inline-flex items-center gap-1 bg-amber-500 hover:bg-amber-600 text-white border-0 rounded-md cursor-pointer px-2.5 py-1 text-xs">
+                                                        <i data-lucide="user-x" class="w-3.5 h-3.5"></i>
+                                                        Mark No-show
+                                                    </button>
+                                                </form>
+                                            </div>
                                         @else
                                             <div class="flex items-center gap-1 flex-wrap">
                                                 <span style="background-color:#dbeafe;color:#1d4ed8;padding:3px 10px;border-radius:9999px;font-size:12px;font-weight:500;">Upcoming</span>
@@ -367,6 +386,11 @@
                         </tbody>
                     </table>
                 </div>
+                @if($bookings->hasPages())
+                    <div class="px-4 py-4 border-t border-gray-200 bg-gray-50">
+                        {{ $bookings->links() }}
+                    </div>
+                @endif
             </div>
         </div>
 
@@ -522,7 +546,7 @@ function renderWeek(monday) {
                 const BADGE = 'border-radius:9999px;padding:2px 10px;font-size:11px;font-weight:500;color:white;';
 
                 if (bs === 'Completed') {
-                    html += '<span style="background-color:#16a34a;' + BADGE + '">Completed</span>';
+                    html += '<span style="background-color:#2563eb;' + BADGE + '">Completed</span>';
 
                 } else if (bs === 'Cancelled') {
                     html += '<span style="background-color:#6b7280;' + BADGE + '">Cancelled</span>';
@@ -533,7 +557,7 @@ function renderWeek(monday) {
                 } else if (bs === 'Confirmed') {
                     html += '<div class="flex items-center gap-1">'
                         + '<span style="background-color:#16a34a;' + BADGE + '">Confirmed</span>'
-                        + renderCancelForm(slot)
+                        + (slot.scheduled_date >= TODAY ? renderCancelForm(slot) : '')
                         + '</div>';
 
                 } else if (bs === 'Pending') {
@@ -543,6 +567,9 @@ function renderWeek(monday) {
                         + renderRejectForm(slot)
                         + renderCancelForm(slot)
                         + '</div>';
+
+                } else if (bs === 'No-show') {
+                    html += '<span style="background-color:#dc2626;' + BADGE + '">No-show</span>';
 
                 } else if (isPast) {
                     html += '<span style="background-color:#9ca3af;' + BADGE + '">No Booking</span>';
@@ -835,6 +862,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
     @if($errors->any())
         switchTab('weekly');
+    @else
+        switchTab('{{ $activeTab }}');
     @endif
 });
 </script>

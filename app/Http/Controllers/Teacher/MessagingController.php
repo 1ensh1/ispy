@@ -14,9 +14,18 @@ class MessagingController extends Controller
     {
         $teacher = Teacher::where('user_id', auth()->id())->firstOrFail();
 
-        $engagements = EngagementRecord::where('teacher_id', $teacher->id)
-            ->with('parentProfile')
-            ->get();
+        $perPage = (int) $request->query('per_page', 10);
+        if (! in_array($perPage, [10, 20, 50], true)) {
+            $perPage = 10;
+        }
+
+        $search = $request->query('search');
+        $engagementsQuery = EngagementRecord::where('teacher_id', $teacher->id)
+            ->with('parentProfile');
+        if ($search) {
+            $engagementsQuery->whereHas('parentProfile', fn($q) => $q->where('name', 'ILIKE', '%' . $search . '%'));
+        }
+        $engagements = $engagementsQuery->paginate($perPage)->appends(request()->query());
 
         foreach ($engagements as $eng) {
             $eng->latestMessage = DB::table('messages')
@@ -50,7 +59,7 @@ class MessagingController extends Controller
             }
         }
 
-        return view('teacher.messaging', compact('engagements', 'activeEngagement', 'messages'));
+        return view('teacher.messaging', compact('engagements', 'activeEngagement', 'messages', 'perPage'));
     }
 
     public function store(Request $request)
@@ -79,7 +88,7 @@ class MessagingController extends Controller
             'recipient_role'    => 'Parent',
             'notification_type' => 'Availability',
             'action_url'        => route('parent.messaging'),
-            'title'             => 'New Message from Ms. ' . $teacher->name,
+            'title'             => 'New Message from Teacher ' . $teacher->name,
             'message'           => "Your child's teacher sent you a message.",
             'is_read'           => false,
             'created_at'        => now(),

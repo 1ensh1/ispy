@@ -13,22 +13,8 @@
 
         {{-- ===================== PROFILE CARD ===================== --}}
         <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6 mb-6">
-            @php
-                $iconEmoji = [
-                    'cat'     => '🐱', 'dog'     => '🐶',
-                    'bear'    => '🐻', 'rabbit'  => '🐰',
-                    'fox'     => '🦊', 'frog'    => '🐸',
-                    'penguin' => '🐧', 'lion'    => '🦁',
-                ];
-            @endphp
             <div class="flex items-center gap-5">
-                <div class="w-16 h-16 rounded-full bg-[#2f5597]/10 flex items-center justify-center shrink-0 text-4xl leading-none">
-                    @if($student->profile_icon && isset($iconEmoji[$student->profile_icon]))
-                        {{ $iconEmoji[$student->profile_icon] }}
-                    @else
-                        <span class="text-[#2f5597] text-2xl font-bold">{{ strtoupper(substr($student->name, 0, 1)) }}</span>
-                    @endif
-                </div>
+                <x-student-avatar :student="$student" size="64" />
 
                 <div class="flex-1 min-w-0">
                     <h1 class="text-2xl font-bold text-gray-900 truncate">{{ $student->name }}</h1>

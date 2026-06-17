@@ -2,7 +2,7 @@
 
 namespace App\Http\Middleware;
 
-use App\Models\ClassList;
+use App\Models\ClassSubject;
 use App\Models\ClassSubstitute;
 use App\Models\Teacher;
 use Closure;
@@ -29,17 +29,23 @@ class TeacherMiddleware
                 ->withErrors(['email' => 'Teacher record not found.']);
         }
 
-        // Own classes
-        $ownClasses = ClassList::active()
-            ->where('teacher_id', $teacher->id)
+        // Own classes — source of truth is class_subjects, not the deprecated,
+        // null-by-design class_lists.teacher_id column. A teacher may hold
+        // multiple subjects on one class, so dedupe to one entry per class.
+        $ownClasses = ClassSubject::where('teacher_id', $teacher->id)
+            ->whereNull('archived_at')
+            ->with('classList')
             ->get()
-            ->map(fn($cl) => [
-                'id'         => $cl->id,
-                'class_name' => $cl->class_name,
-                'pin'        => $cl->unified_classroom_pin,
+            ->filter(fn($cs) => $cs->classList !== null)
+            ->map(fn($cs) => [
+                'id'         => $cs->classList->id,
+                'class_name' => $cs->classList->class_name,
+                'pin'        => $cs->classList->unified_classroom_pin,
                 'is_sub'     => false,
-                'label'      => $cl->class_name,
-            ]);
+                'label'      => $cs->classList->class_name,
+            ])
+            ->unique('id')
+            ->values();
 
         // Substitute classes (active scope)
         $subClasses = ClassSubstitute::active()

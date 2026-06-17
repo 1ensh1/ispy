@@ -19,19 +19,19 @@
         @php
             $navItems = [
                 ['label' => 'Dashboard',                 'icon' => 'layout-dashboard', 'href' => route('teacher.dashboard'),   'routeMatch' => 'teacher.dashboard'],
+                ['label' => 'Enrollment',                'icon' => 'clipboard-list',   'href' => route('teacher.enrollment'),  'routeMatch' => 'teacher.enrollment'],
+                ['label' => 'Classroom PIN',             'icon' => 'key-round',        'href' => route('teacher.pin'),         'routeMatch' => 'teacher.pin'],
                 ['label' => 'Student Progress',          'icon' => 'trending-up',      'href' => route('teacher.student-progress'), 'routeMatch' => 'teacher.student-progress'],
                 ['label' => 'Spelling Analysis',         'icon' => 'bar-chart-2',      'href' => route('teacher.spelling-analysis'), 'routeMatch' => 'teacher.spelling-analysis'],
                 ['label' => 'Milestones',                'icon' => 'award',            'href' => route('teacher.milestones'),  'routeMatch' => 'teacher.milestones'],
-                ['label' => 'Reports',                   'icon' => 'file-bar-chart',   'href' => route('teacher.reports'),     'routeMatch' => 'teacher.reports*'],
-                ['label' => 'Messaging',                 'icon' => 'message-square',   'href' => route('teacher.messaging'),   'routeMatch' => 'teacher.messaging'],
-                ['label' => 'Consultation Availability', 'icon' => 'calendar-clock',   'href' => route('teacher.consultation'),'routeMatch' => 'teacher.consultation'],
-                ['label' => 'Tickets',                   'icon' => 'ticket',           'href' => route('teacher.tickets.index'), 'routeMatch' => 'teacher.tickets.*'],
                 ['label' => 'Word Sets',                 'icon' => 'book-open',        'href' => route('teacher.word-sets'),   'routeMatch' => 'teacher.word-sets'],
                 ['label' => 'Propose Vocab',             'icon' => 'lightbulb',        'href' => route('teacher.vocabulary'),  'routeMatch' => 'teacher.vocabulary'],
                 ['label' => 'Annotations',               'icon' => 'pencil-line',      'href' => route('teacher.annotations'), 'routeMatch' => 'teacher.annotations'],
+                ['label' => 'Consultation Availability', 'icon' => 'calendar-clock',   'href' => route('teacher.consultation'),'routeMatch' => 'teacher.consultation'],
+                ['label' => 'Messaging',                 'icon' => 'message-square',   'href' => route('teacher.messaging'),   'routeMatch' => 'teacher.messaging'],
+                ['label' => 'Tickets',                   'icon' => 'ticket',           'href' => route('teacher.tickets.index'), 'routeMatch' => 'teacher.tickets.*'],
                 ['label' => 'Mobile Sync',               'icon' => 'smartphone',       'href' => route('teacher.mobile-sync'), 'routeMatch' => 'teacher.mobile-sync'],
-                ['label' => 'Enrollment',                'icon' => 'clipboard-list',   'href' => route('teacher.enrollment'),  'routeMatch' => 'teacher.enrollment'],
-                ['label' => 'Classroom PIN',             'icon' => 'key-round',        'href' => route('teacher.pin'),         'routeMatch' => 'teacher.pin'],
+                ['label' => 'Reports',                   'icon' => 'file-bar-chart',   'href' => route('teacher.reports'),     'routeMatch' => 'teacher.reports*'],
             ];
         @endphp
 

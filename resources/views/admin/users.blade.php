@@ -5,8 +5,18 @@
 
             teacherCreateOpen: {{ ($errors->any() && request()->query('tab', 'teachers') === 'teachers') ? 'true' : 'false' }},
             teacherEditOpen: false,
-            editTeacher: { id: null, name: '', email: '', class_name: '' },
-            openEditTeacher(user) { this.editTeacher = { ...user }; this.teacherEditOpen = true; },
+            editTeacher: { id: null, name: '', email: '', class_list_id: '', subjects: [] },
+            openEditTeacher(user) {
+                this.editTeacher = {
+                    id: user.id,
+                    name: user.name,
+                    email: user.email,
+                    class_list_id: user.class_list_id ? String(user.class_list_id) : '',
+                    subjects: Array.isArray(user.subjects) ? user.subjects : [],
+                };
+                this.teacherEditOpen = true;
+                this.$nextTick(() => { if (typeof lucide !== 'undefined') lucide.createIcons(); });
+            },
 
             parentCreateOpen: {{ ($errors->any() && request()->query('tab') === 'parents') ? 'true' : 'false' }},
             parentEditOpen: false,
@@ -102,8 +112,7 @@
                 <p class="text-sm text-gray-500">Manage faculty, parent, and student accounts</p>
             </div>
             <div style="display:flex;align-items:center;gap:0.5rem;">
-                <button x-show="activeTab === 'teachers' || activeTab === 'admins'"
-                        @click="handleAdd()"
+                <button @click="handleAdd()"
                         class="bg-[#2f5597] hover:bg-blue-800 text-white px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 transition-colors">
                     <i data-lucide="user-plus" class="w-4 h-4 shrink-0"></i>
                     <span x-text="getAddLabel()"></span>
@@ -131,19 +140,44 @@
                                class="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#2f5597] outline-none">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Class Name</label>
-                        <input type="text" name="class_name" required
-                               placeholder="e.g. Kinder A, Grade 1 - Sampaguita"
-                               class="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#2f5597] outline-none">
-                    </div>
-                    <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
                         <input type="email" name="email" required
                                class="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#2f5597] outline-none">
                     </div>
+                    <div x-data="{ classId: '{{ old('class_list_id') }}' }">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                            Class <span class="text-gray-400 font-normal">(optional)</span>
+                        </label>
+                        <select name="class_list_id" x-model="classId"
+                                class="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-[#2f5597] outline-none">
+                            <option value="">-- Select a Class --</option>
+                            @foreach($classLists as $cl)
+                                <option value="{{ $cl->id }}" {{ (string) old('class_list_id') === (string) $cl->id ? 'selected' : '' }}>{{ $cl->class_name }}</option>
+                            @endforeach
+                        </select>
+                        <div x-show="classId !== ''" style="display:none;" class="mt-3">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Subject(s)</label>
+                            <div style="display:flex; gap:1.25rem;">
+                                @php $oldSubjects = is_array(old('subjects')) ? old('subjects') : []; @endphp
+                                <label class="flex items-center gap-2 text-sm text-gray-700">
+                                    <input type="checkbox" name="subjects[]" value="English"
+                                           {{ in_array('English', $oldSubjects, true) ? 'checked' : '' }}
+                                           class="rounded border-gray-300 text-[#2f5597] focus:ring-[#2f5597]">
+                                    English
+                                </label>
+                                <label class="flex items-center gap-2 text-sm text-gray-700">
+                                    <input type="checkbox" name="subjects[]" value="Filipino"
+                                           {{ in_array('Filipino', $oldSubjects, true) ? 'checked' : '' }}
+                                           class="rounded border-gray-300 text-[#2f5597] focus:ring-[#2f5597]">
+                                    Filipino
+                                </label>
+                            </div>
+                            <p class="mt-1 text-xs text-gray-400">Optional — a class can be assigned without a subject.</p>
+                        </div>
+                    </div>
                     <div class="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
                         <i data-lucide="info" class="w-4 h-4 text-amber-600 shrink-0 mt-0.5"></i>
-                        <p class="text-xs text-amber-700">A 10-character temporary password will be auto-generated and emailed to the teacher. The account will be set to <strong>Inactive</strong> until the teacher activates it.</p>
+                        <p class="text-xs text-amber-700">A 10-character temporary password will be auto-generated and emailed to the teacher. The account will be set to <strong>Inactive</strong> until the teacher activates it. Need a new class? Create it on the <strong>Manage Classes</strong> page first.</p>
                     </div>
                     <div class="pt-2 flex gap-3 justify-end">
                         <button type="button" @click="teacherCreateOpen = false"
@@ -179,15 +213,37 @@
                                class="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#2f5597] outline-none">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Class Name</label>
-                        <input type="text" name="class_name" x-model="editTeacher.class_name" required
-                               placeholder="e.g. Kinder A, Grade 1 - Sampaguita"
-                               class="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#2f5597] outline-none">
-                    </div>
-                    <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
                         <input type="email" name="email" x-model="editTeacher.email" required
                                class="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#2f5597] outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                            Class <span class="text-gray-400 font-normal">(optional)</span>
+                        </label>
+                        <select name="class_list_id" x-model="editTeacher.class_list_id"
+                                class="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-[#2f5597] outline-none">
+                            <option value="">-- Select a Class --</option>
+                            @foreach($classLists as $cl)
+                                <option value="{{ $cl->id }}">{{ $cl->class_name }}@if(!empty($cl->available_subjects)) (available: {{ implode(', ', $cl->available_subjects) }})@else (fully assigned)@endif</option>
+                            @endforeach
+                        </select>
+                        <div x-show="editTeacher.class_list_id !== '' && editTeacher.class_list_id !== null" class="mt-3">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Subject(s)</label>
+                            <div style="display:flex; gap:1.25rem;">
+                                <label class="flex items-center gap-2 text-sm text-gray-700">
+                                    <input type="checkbox" name="subjects[]" value="English" x-model="editTeacher.subjects"
+                                           class="rounded border-gray-300 text-[#2f5597] focus:ring-[#2f5597]">
+                                    English
+                                </label>
+                                <label class="flex items-center gap-2 text-sm text-gray-700">
+                                    <input type="checkbox" name="subjects[]" value="Filipino" x-model="editTeacher.subjects"
+                                           class="rounded border-gray-300 text-[#2f5597] focus:ring-[#2f5597]">
+                                    Filipino
+                                </label>
+                            </div>
+                            <p class="mt-1 text-xs text-gray-400">Optional — a class can be assigned without a subject.</p>
+                        </div>
                     </div>
                     <div class="pt-4 flex gap-3 justify-end">
                         <button type="button" @click="teacherEditOpen = false"
@@ -231,10 +287,12 @@
                         <input type="text" name="contact_number" placeholder="e.g. 09171234567"
                                class="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#2f5597] outline-none">
                     </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Temporary Password</label>
-                        <input type="password" name="password" required
-                               class="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#2f5597] outline-none">
+                    <div class="rounded-lg bg-blue-50 border border-blue-100 px-4 py-3">
+                        <p class="text-xs text-blue-800 leading-relaxed">
+                            A temporary password will be generated automatically and sent via the parent's
+                            activation email. The parent reviews the Data Privacy Notice and Terms &amp;
+                            Conditions, then their login credentials are shown once activation is complete.
+                        </p>
                     </div>
                     <div class="pt-4 flex gap-3 justify-end">
                         <button type="button" @click="parentCreateOpen = false"
@@ -305,7 +363,7 @@
                         <i data-lucide="x" class="w-5 h-5"></i>
                     </button>
                 </div>
-                <form id="create-form" method="POST" action="{{ route('admin.students.store') }}" class="p-6 space-y-4">
+                <form id="create-form" method="POST" action="{{ route('admin.students.store') }}" enctype="multipart/form-data" class="p-6 space-y-4">
                     @csrf
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Name <span class="text-red-500">*</span></label>
@@ -327,6 +385,13 @@
                                 </button>
                             @endforeach
                         </div>
+                    </div>
+                    {{-- Profile Picture (optional) — overrides the icon when set --}}
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Profile Picture</label>
+                        <input type="file" name="profile_picture" accept="image/jpeg,image/png,image/webp"
+                               class="w-full text-sm text-gray-600 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-[#2f5597]/10 file:text-[#2f5597] hover:file:bg-[#2f5597]/20 cursor-pointer">
+                        <p class="text-xs text-gray-500 mt-1">Optional. JPEG, PNG, or WebP, max 2MB. Overrides the icon above.</p>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Parent</label>
@@ -372,7 +437,7 @@
                         <i data-lucide="x" class="w-5 h-5"></i>
                     </button>
                 </div>
-                <form id="assign-form" method="POST" class="p-6 space-y-4">
+                <form id="assign-form" method="POST" enctype="multipart/form-data" class="p-6 space-y-4">
                     @csrf
                     <input type="hidden" name="_method" value="PATCH">
                     <div>
@@ -389,6 +454,25 @@
                                 </button>
                             @endforeach
                         </div>
+                    </div>
+                    {{-- Profile Picture (optional) — overrides the icon when set --}}
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Profile Picture</label>
+
+                        {{-- Current picture preview + remove option (shown only when one exists) --}}
+                        <div id="assign-current-picture" class="hidden items-center gap-3 mb-2">
+                            <img id="assign-picture-preview" src="" alt="Current profile picture"
+                                 class="w-12 h-12 rounded-full object-cover border border-gray-200">
+                            <label class="inline-flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+                                <input type="checkbox" name="remove_profile_picture" value="1"
+                                       class="rounded border-gray-300 text-red-600 focus:ring-red-500">
+                                Remove picture (revert to icon)
+                            </label>
+                        </div>
+
+                        <input type="file" name="profile_picture" accept="image/jpeg,image/png,image/webp"
+                               class="w-full text-sm text-gray-600 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-[#2f5597]/10 file:text-[#2f5597] hover:file:bg-[#2f5597]/20 cursor-pointer">
+                        <p class="text-xs text-gray-500 mt-1">Optional. JPEG, PNG, or WebP, max 2MB. Overrides the icon above.</p>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Parent</label>
@@ -498,16 +582,41 @@
         {{-- ===================== TEACHERS TAB PANEL ===================== --}}
         <div x-show="activeTab === 'teachers'">
 
-            {{-- Teacher search --}}
-            <div class="mb-4 relative max-w-md">
-                <form method="GET" action="{{ route('admin.teachers.index') }}" onsubmit="return false;">
+            {{-- Toolbar: search + class filter + per-page --}}
+            <div class="mb-4 flex flex-wrap items-center gap-3">
+                <form method="GET" action="{{ route('admin.teachers.index') }}" class="relative flex-1 max-w-md">
+                    <input type="hidden" name="tab" value="teachers">
                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <i data-lucide="search" class="w-4 h-4 text-gray-400"></i>
                     </div>
                     <input type="text" id="search-teachers" name="search" value="{{ $search ?? '' }}"
-                           placeholder="Search teachers by name or email..."
+                           placeholder="Search teachers by name..."
                            class="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#2f5597] focus:border-transparent outline-none">
                 </form>
+                @if($search)
+                    <a href="{{ route('admin.teachers.index', array_merge(request()->except(['search', 'page']), ['tab' => 'teachers'])) }}"
+                       class="text-sm text-gray-400 hover:text-gray-600 whitespace-nowrap">Clear</a>
+                @endif
+
+                {{-- Filter by class --}}
+                <select onchange="changeClassFilter('teacher_class_id', 'page', 'teachers', this.value)"
+                        class="px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-[#2f5597] outline-none">
+                    <option value="">All Classes</option>
+                    @foreach($classLists as $cl)
+                        <option value="{{ $cl->id }}" {{ (string) request('teacher_class_id') === (string) $cl->id ? 'selected' : '' }}>{{ $cl->class_name }}</option>
+                    @endforeach
+                </select>
+
+                {{-- Per-page selector --}}
+                <div class="flex items-center gap-2 ml-auto">
+                    <label class="text-xs font-medium text-gray-500">Rows per page</label>
+                    <select onchange="changePerPage('teachers_per_page', 'page', 'teachers', this.value)"
+                            class="px-2 py-1.5 border border-gray-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-[#2f5597] outline-none">
+                        <option value="10" {{ $teachersPerPage === 10 ? 'selected' : '' }}>10</option>
+                        <option value="20" {{ $teachersPerPage === 20 ? 'selected' : '' }}>20</option>
+                        <option value="50" {{ $teachersPerPage === 50 ? 'selected' : '' }}>50</option>
+                    </select>
+                </div>
             </div>
 
             <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
@@ -546,18 +655,18 @@
                                 <td class="px-6 py-4 text-gray-500">{{ $user->email }}</td>
                                 <td class="px-6 py-4">
                                     @php $cl = $classListsByUser[$user->id] ?? null; @endphp
-                                    @if($cl && !empty($cl['all_classes']))
+                                    @if($cl && !empty($cl['class_assignments']))
                                         <div class="space-y-1">
-                                            @foreach($cl['all_classes'] as $cls)
+                                            @foreach($cl['class_assignments'] as $cls)
                                                 <div class="flex items-center gap-1.5 flex-wrap text-sm text-gray-700">
-                                                    <span>{{ $cls['name'] }}{{ $cls['subject'] ? ' ('.$cls['subject'].')' : '' }}</span>
+                                                    <span>@foreach($cls['subjects'] as $i => $subj){{ $i ? ', ' : '' }}{{ $cls['class_name'] }} — {{ $subj }}@endforeach</span>
                                                     @if($cls['pin'])
                                                         <span class="text-gray-400">—</span>
                                                         <span class="font-mono text-xs font-bold text-gray-600 tracking-widest">{{ $cls['pin'] }}</span>
                                                     @else
                                                         <span class="text-gray-400 text-xs">— no PIN</span>
                                                     @endif
-                                                    <form method="POST" action="{{ route('admin.classes.generatePin', $cls['id']) }}" class="inline">
+                                                    <form method="POST" action="{{ route('admin.classes.generatePin', $cls['class_list_id']) }}" class="inline">
                                                         @csrf
                                                         @if($cls['pin'])
                                                             <button type="submit"
@@ -598,7 +707,7 @@
                                             <i data-lucide="eye" class="w-4 h-4"></i>
                                         </a>
                                     @endif
-                                    <button @click="openEditTeacher({ id: {{ $user->id }}, name: @js($user->name), email: @js($user->email), class_name: @js($clForEdit['class_name'] ?? '') })"
+                                    <button @click="openEditTeacher({ id: {{ $user->id }}, name: @js($user->name), email: @js($user->email), class_list_id: @js((string) ($clForEdit['edit_class_list_id'] ?? '')), subjects: @js(array_values($clForEdit['edit_subjects'] ?? [])) })"
                                             class="text-gray-400 hover:text-gray-700 transition-colors">
                                         <i data-lucide="pencil" class="w-4 h-4"></i>
                                     </button>
@@ -648,17 +757,41 @@
         {{-- ===================== PARENTS TAB PANEL ===================== --}}
         <div x-show="activeTab === 'parents'" style="display:none;">
 
-            {{-- Parent search --}}
-            <div class="mb-4 relative max-w-md">
-                <form method="GET" action="{{ route('admin.teachers.index') }}" onsubmit="return false;">
+            {{-- Toolbar: search + class filter + per-page --}}
+            <div class="mb-4 flex flex-wrap items-center gap-3">
+                <form method="GET" action="{{ route('admin.teachers.index') }}" class="relative flex-1 max-w-md">
                     <input type="hidden" name="tab" value="parents">
                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <i data-lucide="search" class="w-4 h-4 text-gray-400"></i>
                     </div>
                     <input type="text" id="search-parents" name="parent_search" value="{{ $parentSearch ?? '' }}"
-                           placeholder="Search parents by name or email..."
+                           placeholder="Search parents by name..."
                            class="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#2f5597] focus:border-transparent outline-none">
                 </form>
+                @if($parentSearch)
+                    <a href="{{ route('admin.teachers.index', array_merge(request()->except(['parent_search', 'parent_page']), ['tab' => 'parents'])) }}"
+                       class="text-sm text-gray-400 hover:text-gray-600 whitespace-nowrap">Clear</a>
+                @endif
+
+                {{-- Filter by class --}}
+                <select onchange="changeClassFilter('parent_class_id', 'parent_page', 'parents', this.value)"
+                        class="px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-[#2f5597] outline-none">
+                    <option value="">All Classes</option>
+                    @foreach($classLists as $cl)
+                        <option value="{{ $cl->id }}" {{ (string) request('parent_class_id') === (string) $cl->id ? 'selected' : '' }}>{{ $cl->class_name }}</option>
+                    @endforeach
+                </select>
+
+                {{-- Per-page selector --}}
+                <div class="flex items-center gap-2 ml-auto">
+                    <label class="text-xs font-medium text-gray-500">Rows per page</label>
+                    <select onchange="changePerPage('parents_per_page', 'parent_page', 'parents', this.value)"
+                            class="px-2 py-1.5 border border-gray-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-[#2f5597] outline-none">
+                        <option value="10" {{ $parentsPerPage === 10 ? 'selected' : '' }}>10</option>
+                        <option value="20" {{ $parentsPerPage === 20 ? 'selected' : '' }}>20</option>
+                        <option value="50" {{ $parentsPerPage === 50 ? 'selected' : '' }}>50</option>
+                    </select>
+                </div>
             </div>
 
             <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
@@ -718,7 +851,12 @@
                                     @endforelse
                                 </td>
                                 <td class="px-6 py-4">
-                                    <span class="px-3 py-1 rounded-full text-[11px] font-medium bg-[#2f5597] text-white tracking-wide">active</span>
+                                    @php $parentStatus = $extraData[$user->id]['status'] ?? 'Active'; @endphp
+                                    @if($parentStatus === 'Active')
+                                        <span class="px-3 py-1 rounded-full text-[11px] font-medium bg-[#2f5597] text-white tracking-wide">Active</span>
+                                    @else
+                                        <span class="px-3 py-1 rounded-full text-[11px] font-medium bg-gray-200 text-gray-600 tracking-wide">Inactive</span>
+                                    @endif
                                 </td>
                                 <td class="px-6 py-4 text-right">
                                     <div class="flex items-center justify-end gap-3">
@@ -729,6 +867,16 @@
                                             class="text-gray-400 hover:text-gray-700 transition-colors">
                                         <i data-lucide="pencil" class="w-4 h-4"></i>
                                     </button>
+                                    @if(($extraData[$user->id]['status'] ?? 'Active') === 'Inactive')
+                                    <form method="POST" action="{{ route('admin.parents.resend-activation', $user->id) }}"
+                                          class="inline-block"
+                                          onsubmit="return confirm('Resend the activation email to \'{{ addslashes($user->email) }}\'?')">
+                                        @csrf
+                                        <button type="submit" class="text-gray-400 hover:text-amber-600 transition-colors" title="Resend activation email">
+                                            <i data-lucide="mail" class="w-4 h-4"></i>
+                                        </button>
+                                    </form>
+                                    @endif
                                     <form method="POST" action="{{ route('admin.users.destroy', $user->id) }}"
                                           class="inline-block"
                                           onsubmit="return confirm('Delete account for \'{{ addslashes($user->name) }}\'? This cannot be undone.')">
@@ -767,20 +915,45 @@
 
             {{-- Toolbar: search + archived toggle --}}
             <div class="mb-4 flex flex-wrap items-center gap-3">
-                <div class="relative flex-1 max-w-md">
+                <form method="GET" action="{{ route('admin.teachers.index') }}" class="relative flex-1 max-w-md">
+                    <input type="hidden" name="tab" value="students">
                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <i data-lucide="search" class="w-4 h-4 text-gray-400"></i>
                     </div>
-                    <input type="text" id="search-students"
+                    <input type="text" id="search-students" name="student_search" value="{{ $studentSearch ?? '' }}"
                            placeholder="Search students by name..."
                            class="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#2f5597] focus:border-transparent outline-none">
-                </div>
+                </form>
+                @if($studentSearch)
+                    <a href="{{ route('admin.teachers.index', array_merge(request()->except(['student_search', 'student_page']), ['tab' => 'students'])) }}"
+                       class="text-sm text-gray-400 hover:text-gray-600 whitespace-nowrap">Clear</a>
+                @endif
+
+                {{-- Filter by class --}}
+                <select onchange="changeClassFilter('class_id', 'student_page', 'students', this.value)"
+                        class="px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-[#2f5597] outline-none">
+                    <option value="">All Classes</option>
+                    @foreach($classLists as $cl)
+                        <option value="{{ $cl->id }}" {{ (string) request('class_id') === (string) $cl->id ? 'selected' : '' }}>{{ $cl->class_name }}</option>
+                    @endforeach
+                </select>
                 <button @click="showArchived = !showArchived"
                         :class="showArchived ? 'bg-amber-100 text-amber-700 border-amber-300' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'"
                         class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium border rounded-lg transition-colors">
                     <i data-lucide="archive" class="w-4 h-4"></i>
                     <span x-text="showArchived ? 'Hide Archived' : 'Show Archived'"></span>
                 </button>
+
+                {{-- Per-page selector (active students) --}}
+                <div x-show="!showArchived" class="flex items-center gap-2 ml-auto">
+                    <label class="text-xs font-medium text-gray-500">Rows per page</label>
+                    <select onchange="changePerPage('students_per_page', 'student_page', 'students', this.value)"
+                            class="px-2 py-1.5 border border-gray-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-[#2f5597] outline-none">
+                        <option value="10" {{ $studentsPerPage === 10 ? 'selected' : '' }}>10</option>
+                        <option value="20" {{ $studentsPerPage === 20 ? 'selected' : '' }}>20</option>
+                        <option value="50" {{ $studentsPerPage === 50 ? 'selected' : '' }}>50</option>
+                    </select>
+                </div>
             </div>
 
             {{-- Active students --}}
@@ -802,16 +975,7 @@
                                 <tr class="hover:bg-gray-50 transition-colors" data-name="{{ strtolower($student->name) }}">
                                     <td class="px-6 py-4">
                                         <div class="flex items-center gap-3">
-                                            @php $iconEmoji = ['cat'=>'🐱','dog'=>'🐶','bear'=>'🐻','rabbit'=>'🐰','fox'=>'🦊','frog'=>'🐸','penguin'=>'🐧','lion'=>'🦁']; @endphp
-                                            @if($student->profile_icon && isset($iconEmoji[$student->profile_icon]))
-                                                <div class="w-8 h-8 rounded-full bg-[#2f5597]/10 flex items-center justify-center shrink-0 text-lg leading-none">
-                                                    {{ $iconEmoji[$student->profile_icon] }}
-                                                </div>
-                                            @else
-                                                <div class="w-8 h-8 rounded-full bg-[#2f5597]/10 flex items-center justify-center shrink-0">
-                                                    <span class="text-[#2f5597] text-xs font-bold">{{ strtoupper(substr($student->name, 0, 1)) }}</span>
-                                                </div>
-                                            @endif
+                                            <x-student-avatar :student="$student" size="32" />
                                             <span class="font-medium text-gray-900">{{ $student->name }}</span>
                                         </div>
                                     </td>
@@ -824,9 +988,10 @@
                                     </td>
                                     <td class="px-6 py-4">
                                         @if($student->classList)
+                                            @php $classTeachers = $teachersByClass[$student->classList->id] ?? []; @endphp
                                             <div class="text-gray-700">{{ $student->classList->class_name }}</div>
-                                            @if($student->classList->teacher)
-                                                <div class="text-xs text-gray-400 mt-0.5">{{ $student->classList->teacher->name }}</div>
+                                            @if(!empty($classTeachers))
+                                                <div class="text-xs text-gray-400 mt-0.5">{{ implode(', ', $classTeachers) }}</div>
                                             @endif
                                         @else
                                             <span class="px-2.5 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700 border border-yellow-200">Unassigned</span>
@@ -844,14 +1009,14 @@
                                         <a href="{{ route('admin.students.profile', $student->id) }}" class="text-gray-400 hover:text-blue-600 transition-colors" title="View Profile">
                                             <i data-lucide="eye" class="w-4 h-4"></i>
                                         </a>
-                                        <button onclick="openAssignModal(
-                                                    {{ $student->id }},
-                                                    @js($student->name),
-                                                    {{ $student->parent_id ?? 'null' }},
-                                                    {{ $student->class_list_id ?? 'null' }},
-                                                    @js($student->profile_icon ?? 'cat'),
-                                                    @js($student->parent_password ?? '')
-                                                )"
+                                        <button onclick="openAssignModal(this)"
+                                                data-student-id="{{ $student->id }}"
+                                                data-name="{{ $student->name }}"
+                                                data-parent-id="{{ $student->parent_id }}"
+                                                data-class-id="{{ $student->class_list_id }}"
+                                                data-icon="{{ $student->profile_icon ?? 'cat' }}"
+                                                data-parent-password="{{ $student->parent_password }}"
+                                                data-profile-picture="{{ $student->profile_picture }}"
                                                 class="text-sm px-3 py-1.5 rounded-md border border-gray-200 text-gray-600 hover:bg-gray-100 transition-colors inline-flex items-center gap-1.5">
                                             <i data-lucide="{{ $student->parentUser && $student->classList ? 'pencil' : 'link' }}" class="w-3.5 h-3.5"></i>
                                             {{ $student->parentUser && $student->classList ? 'Edit' : 'Assign' }}
@@ -932,9 +1097,10 @@
                                     </td>
                                     <td class="px-6 py-4 text-gray-500">
                                         @if($student->classList)
+                                            @php $classTeachers = $teachersByClass[$student->classList->id] ?? []; @endphp
                                             <div>{{ $student->classList->class_name }}</div>
-                                            @if($student->classList->teacher)
-                                                <div class="text-xs text-gray-400 mt-0.5">{{ $student->classList->teacher->name }}</div>
+                                            @if(!empty($classTeachers))
+                                                <div class="text-xs text-gray-400 mt-0.5">{{ implode(', ', $classTeachers) }}</div>
                                             @endif
                                         @else
                                             <span class="text-gray-400">—</span>
@@ -1027,6 +1193,32 @@
     </div>
 
     <script>
+        // ---- Per-page selector ----
+        // Sets the chosen per_page for a tab, drops that tab's page param (reset to page 1),
+        // keeps the tab active and preserves all other query params (filters + other tabs' state).
+        function changePerPage(perPageKey, pageKey, tab, value) {
+            const url = new URL(window.location.href);
+            url.searchParams.set(perPageKey, value);
+            url.searchParams.delete(pageKey);
+            url.searchParams.set('tab', tab);
+            window.location.assign(url.toString());
+        }
+
+        // ---- Class filter ----
+        // Sets (or clears) the class filter for a tab, resets that tab's page,
+        // keeps the tab active and preserves all other query params.
+        function changeClassFilter(classKey, pageKey, tab, value) {
+            const url = new URL(window.location.href);
+            if (value) {
+                url.searchParams.set(classKey, value);
+            } else {
+                url.searchParams.delete(classKey);
+            }
+            url.searchParams.delete(pageKey);
+            url.searchParams.set('tab', tab);
+            window.location.assign(url.toString());
+        }
+
         // ---- Student create modal ----
         function openCreateModal() {
             document.getElementById('create-modal').style.display = 'flex';
@@ -1070,13 +1262,39 @@
                 }
             });
         }
-        function openAssignModal(studentId, studentName, parentId, classListId, profileIcon, parentPassword) {
-            document.getElementById('assign-student-name').textContent = studentName;
+        function openAssignModal(btn) {
+            // All values are read from the button's data-* attributes, which Blade
+            // renders with its normal output escaping, rather than passed as inline
+            // JS-string arguments. This avoids embedding arbitrary URLs or quotes
+            // inside the onclick handler, which made the first click unreliable for
+            // rows that had a profile picture.
+            var studentId      = btn.dataset.studentId;
+            var profilePicture = btn.dataset.profilePicture || '';
+
+            document.getElementById('assign-student-name').textContent = btn.dataset.name || '';
             document.getElementById('assign-form').action = '{{ url("/admin/students") }}/' + studentId;
-            document.getElementById('assign-parent').value = parentId  ?? '';
-            document.getElementById('assign-class').value  = classListId ?? '';
-            document.getElementById('assign-parent-password').value = parentPassword ?? '';
-            selectAssignIcon(profileIcon || 'cat');
+            document.getElementById('assign-parent').value = btn.dataset.parentId || '';
+            document.getElementById('assign-class').value  = btn.dataset.classId || '';
+            document.getElementById('assign-parent-password').value = btn.dataset.parentPassword || '';
+            selectAssignIcon(btn.dataset.icon || 'cat');
+
+            // Reset picture controls, then show current picture preview if one exists
+            var fileInput   = document.querySelector('#assign-form input[name="profile_picture"]');
+            var removeCheck = document.querySelector('#assign-form input[name="remove_profile_picture"]');
+            var currentWrap = document.getElementById('assign-current-picture');
+            var preview     = document.getElementById('assign-picture-preview');
+            if (fileInput) fileInput.value = '';
+            if (removeCheck) removeCheck.checked = false;
+            if (profilePicture) {
+                preview.src = profilePicture;
+                currentWrap.classList.remove('hidden');
+                currentWrap.classList.add('flex');
+            } else {
+                preview.src = '';
+                currentWrap.classList.add('hidden');
+                currentWrap.classList.remove('flex');
+            }
+
             document.getElementById('assign-modal').style.display = 'flex';
         }
         function closeAssignModal() {
@@ -1095,6 +1313,14 @@
         document.getElementById('create-modal').addEventListener('click', function (e) {
             if (e.target === this) closeCreateModal();
         });
+
+        // ---- Parent temp password generate ----
+        function generateParentPassword() {
+            var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+            var pw = '';
+            for (var i = 0; i < 10; i++) pw += chars.charAt(Math.floor(Math.random() * chars.length));
+            document.getElementById('parent-temp-password').value = pw;
+        }
 
         // ---- Admin create modal ----
         function openAdminCreateModal() {
@@ -1115,39 +1341,8 @@
             document.addEventListener('DOMContentLoaded', function () { openCreateModal(); });
         @endif
 
-        function setupInstantSearch(inputId, tbodyId) {
-            const input = document.getElementById(inputId);
-            const tbody = document.getElementById(tbodyId);
-            if (!input || !tbody) return;
-            input.addEventListener('input', function () {
-                const query = this.value.toLowerCase().trim();
-                const rows = tbody.querySelectorAll('tr:not([data-empty])');
-                let visibleCount = 0;
-                rows.forEach(function (row) {
-                    const name = (row.dataset.name || '').toLowerCase();
-                    if (query === '' || name.includes(query)) {
-                        row.style.display = '';
-                        visibleCount++;
-                    } else {
-                        row.style.display = 'none';
-                    }
-                });
-                let emptyRow = tbody.querySelector('[data-empty]');
-                if (!emptyRow) {
-                    emptyRow = document.createElement('tr');
-                    emptyRow.setAttribute('data-empty', '1');
-                    emptyRow.innerHTML = '<td colspan="10" class="text-center py-8 text-gray-400 text-sm">No results found.</td>';
-                    tbody.appendChild(emptyRow);
-                }
-                emptyRow.style.display = visibleCount === 0 ? '' : 'none';
-            });
-        }
-
         document.addEventListener('DOMContentLoaded', function () {
             if (typeof lucide !== 'undefined') lucide.createIcons();
-            setupInstantSearch('search-teachers', 'tbody-teachers');
-            setupInstantSearch('search-parents', 'tbody-parents');
-            setupInstantSearch('search-students', 'tbody-students');
         });
     </script>
 </x-app-layout>
