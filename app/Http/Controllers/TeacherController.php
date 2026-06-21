@@ -49,7 +49,7 @@ class TeacherController extends Controller
                 ->pluck('teachers.user_id');
             $teacherQuery->whereIn('id', $teacherUserIds);
         }
-        $users = $teacherQuery->latest()->paginate($teachersPerPage)->appends(request()->query());
+        $users = $teacherQuery->latest()->paginate($teachersPerPage)->appends(array_merge(request()->query(), ['tab' => 'teachers']));
 
         $userIds = $users->pluck('id')->toArray();
 
@@ -176,7 +176,7 @@ class TeacherController extends Controller
             $parentQuery->whereIn('id', $parentUserIds);
         }
         $parentUsers = $parentQuery->latest()->paginate($parentsPerPage, ['*'], 'parent_page')
-            ->appends(request()->query());
+            ->appends(array_merge(request()->query(), ['tab' => 'parents']));
 
         $extraData = [];
         $parentUserIds = $parentUsers->pluck('id')->toArray();
@@ -212,7 +212,7 @@ class TeacherController extends Controller
             $studentQuery->where('class_list_id', $studentClassId);
         }
         $students    = $studentQuery->paginate($studentsPerPage, ['*'], 'student_page')
-            ->appends(request()->query());
+            ->appends(array_merge(request()->query(), ['tab' => 'students']));
 
         // Active teachers per class come from class_subjects (post-14C), not the
         // stale class_lists.teacher_id. Map class_list_id => [teacher names].

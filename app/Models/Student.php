@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
 
 class Student extends Model
 {
@@ -14,6 +15,34 @@ class Student extends Model
 
     public function scopeActive($query)   { return $query->whereNull('archived_at'); }
     public function scopeArchived($query) { return $query->whereNotNull('archived_at'); }
+
+    /**
+     * Whether the given parent_password is already in use by another *active*
+     * (non-archived) student. Archived students are intentionally excluded so a
+     * freed-up password can be reused. Pass $exceptId to ignore the student
+     * currently being edited (e.g. when changing their own password).
+     */
+    public static function passwordTaken(string $password, ?int $exceptId = null): bool
+    {
+        return static::active()
+            ->where('parent_password', $password)
+            ->when($exceptId, fn ($q) => $q->where('id', '!=', $exceptId))
+            ->exists();
+    }
+
+    /**
+     * Generate a random parent_password that is guaranteed not to collide with
+     * any existing active student. Retries on the (rare) chance of a clash so
+     * student creation never fails on a coincidental duplicate.
+     */
+    public static function generateUniquePassword(int $length = 8): string
+    {
+        do {
+            $password = Str::random($length);
+        } while (static::passwordTaken($password));
+
+        return $password;
+    }
 
     public function parentUser()
     {
