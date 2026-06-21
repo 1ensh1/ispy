@@ -134,6 +134,10 @@ class DashboardController extends Controller
             return back()->withErrors(['new_password' => 'New password must be different from the current password.'])->withInput();
         }
 
+        if (\App\Models\Student::passwordTaken($request->new_password, $student->id)) {
+            return back()->withErrors(['new_password' => 'That password is already in use by another student. Please choose a different one.'])->withInput();
+        }
+
         $student->parent_password = $request->new_password;
         $student->save();
 

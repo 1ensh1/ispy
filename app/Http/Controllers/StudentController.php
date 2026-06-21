@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Traits\LogsActivity;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 use App\Models\Student;
 use App\Models\ParentUser;
@@ -53,7 +52,17 @@ class StudentController extends Controller
             }
         }
 
-        $parentPassword = $request->input('parent_password') ?: Str::random(8);
+        $providedPassword = $request->input('parent_password');
+        if ($providedPassword) {
+            // Admin-provided password must not collide with another active student.
+            if (Student::passwordTaken($providedPassword)) {
+                return back()->withErrors(['parent_password' => 'This parent password is already in use by another student. Please choose a different one.'])->withInput();
+            }
+            $parentPassword = $providedPassword;
+        } else {
+            // Auto-generated: guaranteed unique (retries on the rare collision).
+            $parentPassword = Student::generateUniquePassword();
+        }
 
         $student = Student::create([
             'name'            => $validated['name'],
@@ -115,6 +124,9 @@ class StudentController extends Controller
         ];
 
         if (!empty($validated['parent_password'])) {
+            if (Student::passwordTaken($validated['parent_password'], $student->id)) {
+                return back()->withErrors(['parent_password' => 'This parent password is already in use by another student. Please choose a different one.'])->withInput();
+            }
             $updateData['parent_password'] = $validated['parent_password'];
         }
 
