@@ -145,7 +145,7 @@ class ConsultationController extends Controller
                 DB::raw('(SELECT s.name FROM students s WHERE s.parent_id = face_to_face_bookings.parent_id LIMIT 1) as student_name')
             )
             ->paginate($perPage)
-            ->appends(request()->query());
+            ->appends(array_merge(request()->query(), ['tab' => 'appointments']));
 
         return view('teacher.consultation', compact(
             'upcomingCount', 'allSlots', 'slotDates', 'calendarSlots', 'bookings', 'maxPerDay', 'todayMonday',

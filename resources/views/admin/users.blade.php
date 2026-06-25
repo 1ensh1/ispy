@@ -1,4 +1,4 @@
-<x-app-layout>
+<x-app-layout title="User Management">
     <div x-data="{
             activeTab: @js(request()->query('tab', 'teachers')),
             showArchived: false,
@@ -58,6 +58,14 @@
             <div class="mb-4 p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg flex items-center gap-3 shadow-sm">
                 <i data-lucide="alert-circle" class="w-5 h-5 shrink-0"></i>
                 <p class="text-sm font-medium">{{ session('error') }}</p>
+            </div>
+        @endif
+
+        {{-- Flash: warning --}}
+        @if(session('warning'))
+            <div class="mb-4 p-4 bg-amber-50 border border-amber-200 text-amber-700 rounded-lg flex items-center gap-3 shadow-sm">
+                <i data-lucide="alert-triangle" class="w-5 h-5 shrink-0"></i>
+                <p class="text-sm font-medium">{{ session('warning') }}</p>
             </div>
         @endif
 
@@ -607,8 +615,16 @@
                     @endforeach
                 </select>
 
-                {{-- Per-page selector --}}
-                <div class="flex items-center gap-2 ml-auto">
+                {{-- Show / Hide archived teachers (client-side toggle, no reload) --}}
+                <button @click="showArchived = !showArchived"
+                        :class="showArchived ? 'bg-amber-100 text-amber-700 border-amber-300' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'"
+                        class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium border rounded-lg transition-colors">
+                    <i data-lucide="archive" class="w-4 h-4"></i>
+                    <span x-text="showArchived ? 'Hide Archived' : 'Show Archived'"></span>
+                </button>
+
+                {{-- Per-page selector (active list only) --}}
+                <div x-show="!showArchived" class="flex items-center gap-2 ml-auto">
                     <label class="text-xs font-medium text-gray-500">Rows per page</label>
                     <select onchange="changePerPage('teachers_per_page', 'page', 'teachers', this.value)"
                             class="px-2 py-1.5 border border-gray-200 rounded-lg text-sm bg-white focus:ring-2 focus:ring-[#2f5597] outline-none">
@@ -619,137 +635,220 @@
                 </div>
             </div>
 
-            <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                <div class="overflow-x-auto">
-                    <table class="w-full text-sm text-left">
-                        <thead class="bg-gray-50 border-b border-gray-200 text-gray-500">
-                            <tr>
-                                <th class="px-6 py-4 font-medium w-24">ID</th>
-                                <th class="px-6 py-4 font-medium">Name</th>
-                                <th class="px-6 py-4 font-medium">Email</th>
-                                <th class="px-6 py-4 font-medium">Classes</th>
-                                <th class="px-6 py-4 font-medium">Students</th>
-                                <th class="px-6 py-4 font-medium">Status</th>
-                                <th class="px-6 py-4 font-medium text-right">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tbody-teachers" class="divide-y divide-gray-100">
-                            @forelse($users as $user)
-                            <tr class="hover:bg-gray-50 transition-colors" data-name="{{ strtolower($user->name) }} {{ strtolower($user->email) }}">
-                                <td class="px-6 py-4 text-gray-500 font-mono text-xs">
-                                    T-{{ str_pad($user->id, 3, '0', STR_PAD_LEFT) }}
-                                </td>
-                                <td class="px-6 py-4 font-medium text-gray-900">
-                                    @php $tPic = $classListsByUser[$user->id]['profile_picture'] ?? null; @endphp
-                                    <div class="flex items-center gap-2.5">
-                                        @if($tPic)
-                                            <img src="{{ $tPic }}" alt="" class="w-7 h-7 rounded-full object-cover shrink-0">
-                                        @else
-                                            <div class="w-7 h-7 rounded-full bg-[#2f5597]/10 flex items-center justify-center shrink-0">
-                                                <span class="text-[#2f5597] text-xs font-bold">{{ strtoupper(substr($user->name, 0, 1)) }}</span>
-                                            </div>
-                                        @endif
-                                        {{ $user->name }}
-                                    </div>
-                                </td>
-                                <td class="px-6 py-4 text-gray-500">{{ $user->email }}</td>
-                                <td class="px-6 py-4">
-                                    @php $cl = $classListsByUser[$user->id] ?? null; @endphp
-                                    @if($cl && !empty($cl['class_assignments']))
-                                        <div class="space-y-1">
-                                            @foreach($cl['class_assignments'] as $cls)
-                                                <div class="flex items-center gap-1.5 flex-wrap text-sm text-gray-700">
-                                                    <span>@foreach($cls['subjects'] as $i => $subj){{ $i ? ', ' : '' }}{{ $cls['class_name'] }} — {{ $subj }}@endforeach</span>
-                                                    @if($cls['pin'])
-                                                        <span class="text-gray-400">—</span>
-                                                        <span class="font-mono text-xs font-bold text-gray-600 tracking-widest">{{ $cls['pin'] }}</span>
-                                                    @else
-                                                        <span class="text-gray-400 text-xs">— no PIN</span>
-                                                    @endif
-                                                    <form method="POST" action="{{ route('admin.classes.generatePin', $cls['class_list_id']) }}" class="inline">
-                                                        @csrf
-                                                        @if($cls['pin'])
-                                                            <button type="submit"
-                                                                    class="px-2.5 py-1 text-xs font-medium rounded-md border border-gray-200 bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors">
-                                                                Regen
-                                                            </button>
-                                                        @else
-                                                            <button type="submit"
-                                                                    class="px-2.5 py-1 text-xs font-medium rounded-md bg-[#2f5597] text-white hover:bg-blue-800 transition-colors">
-                                                                Generate
-                                                            </button>
-                                                        @endif
-                                                    </form>
+            {{-- ===== ACTIVE teachers (default view) ===== --}}
+            <div x-show="!showArchived">
+                <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm text-left">
+                            <thead class="bg-gray-50 border-b border-gray-200 text-gray-500">
+                                <tr>
+                                    <th class="px-6 py-4 font-medium w-24">ID</th>
+                                    <th class="px-6 py-4 font-medium">Name</th>
+                                    <th class="px-6 py-4 font-medium">Email</th>
+                                    <th class="px-6 py-4 font-medium">Classes</th>
+                                    <th class="px-6 py-4 font-medium">Students</th>
+                                    <th class="px-6 py-4 font-medium">Status</th>
+                                    <th class="px-6 py-4 font-medium text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbody-teachers" class="divide-y divide-gray-100">
+                                @forelse($users as $user)
+                                <tr class="hover:bg-gray-50 transition-colors" data-name="{{ strtolower($user->name) }} {{ strtolower($user->email) }}">
+                                    <td class="px-6 py-4 text-gray-500 font-mono text-xs">
+                                        T-{{ str_pad($user->id, 3, '0', STR_PAD_LEFT) }}
+                                    </td>
+                                    <td class="px-6 py-4 font-medium text-gray-900">
+                                        @php $tPic = $classListsByUser[$user->id]['profile_picture'] ?? null; @endphp
+                                        <div class="flex items-center gap-2.5">
+                                            @if($tPic)
+                                                <img src="{{ $tPic }}" alt="" class="w-7 h-7 rounded-full object-cover shrink-0">
+                                            @else
+                                                <div class="w-7 h-7 rounded-full bg-[#2f5597]/10 flex items-center justify-center shrink-0">
+                                                    <span class="text-[#2f5597] text-xs font-bold">{{ strtoupper(substr($user->name, 0, 1)) }}</span>
                                                 </div>
-                                            @endforeach
+                                            @endif
+                                            {{ $user->name }}
                                         </div>
-                                    @else
-                                        <span class="text-gray-400 text-xs">—</span>
-                                    @endif
-                                </td>
-                                <td class="px-6 py-4 text-gray-500">
-                                    {{ $studentCountsByUser[$user->id] ?? 0 }}
-                                </td>
-                                <td class="px-6 py-4">
+                                    </td>
+                                    <td class="px-6 py-4 text-gray-500">{{ $user->email }}</td>
                                     @php $teacherStatus = $classListsByUser[$user->id]['status'] ?? 'Active'; @endphp
-                                    @if($teacherStatus === 'Active')
-                                        <span class="px-3 py-1 rounded-full text-[11px] font-medium bg-[#2f5597] text-white tracking-wide">Active</span>
-                                    @else
-                                        <span class="px-3 py-1 rounded-full text-[11px] font-medium bg-gray-200 text-gray-600 tracking-wide">Inactive</span>
-                                    @endif
-                                </td>
-                                <td class="px-6 py-4 text-right">
-                                    @php $clForEdit = $classListsByUser[$user->id] ?? null; @endphp
-                                    <div class="flex items-center justify-end gap-3">
-                                    @if($clForEdit && !empty($clForEdit['teacher_id']))
-                                        <a href="{{ route('admin.teachers.profile', $clForEdit['teacher_id']) }}"
-                                           class="text-gray-400 hover:text-[#2f5597] transition-colors" title="View profile">
-                                            <i data-lucide="eye" class="w-4 h-4"></i>
-                                        </a>
-                                    @endif
-                                    <button @click="openEditTeacher({ id: {{ $user->id }}, name: @js($user->name), email: @js($user->email), class_list_id: @js((string) ($clForEdit['edit_class_list_id'] ?? '')), subjects: @js(array_values($clForEdit['edit_subjects'] ?? [])) })"
-                                            class="text-gray-400 hover:text-gray-700 transition-colors">
-                                        <i data-lucide="pencil" class="w-4 h-4"></i>
-                                    </button>
-                                    @if(($classListsByUser[$user->id]['status'] ?? 'Active') === 'Inactive')
-                                    <form method="POST" action="{{ route('admin.teachers.resend-activation', $user->id) }}"
-                                          class="inline-block"
-                                          onsubmit="return confirm('Resend the activation email to \'{{ addslashes($user->email) }}\'?')">
-                                        @csrf
-                                        <button type="submit" class="text-gray-400 hover:text-amber-600 transition-colors" title="Resend activation email">
-                                            <i data-lucide="mail" class="w-4 h-4"></i>
+                                    <td class="px-6 py-4">
+                                        @php $cl = $classListsByUser[$user->id] ?? null; @endphp
+                                        @if($cl && !empty($cl['class_assignments']))
+                                            <div class="space-y-1">
+                                                @foreach($cl['class_assignments'] as $cls)
+                                                    <div class="flex items-center gap-1.5 flex-wrap text-sm text-gray-700">
+                                                        <span>@foreach($cls['subjects'] as $i => $subj){{ $i ? ', ' : '' }}{{ $cls['class_name'] }} — {{ $subj }}@endforeach</span>
+                                                        @if($cls['pin'])
+                                                            <span class="text-gray-400">—</span>
+                                                            <span class="font-mono text-xs font-bold text-gray-600 tracking-widest">{{ $cls['pin'] }}</span>
+                                                        @else
+                                                            <span class="text-gray-400 text-xs">— no PIN</span>
+                                                        @endif
+                                                        <form method="POST" action="{{ route('admin.classes.generatePin', $cls['class_list_id']) }}" class="inline">
+                                                            @csrf
+                                                            @if($cls['pin'])
+                                                                <button type="submit"
+                                                                        class="px-2.5 py-1 text-xs font-medium rounded-md border border-gray-200 bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors">
+                                                                    Regen
+                                                                </button>
+                                                            @else
+                                                                <button type="submit"
+                                                                        class="px-2.5 py-1 text-xs font-medium rounded-md bg-[#2f5597] text-white hover:bg-blue-800 transition-colors">
+                                                                    Generate
+                                                                </button>
+                                                            @endif
+                                                        </form>
+                                                    </div>
+                                                @endforeach
+                                            </div>
+                                        @else
+                                            <span class="text-gray-400 text-xs">—</span>
+                                        @endif
+                                    </td>
+                                    <td class="px-6 py-4 text-gray-500">
+                                        {{ $studentCountsByUser[$user->id] ?? 0 }}
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        @if($teacherStatus === 'Active')
+                                            <span class="px-3 py-1 rounded-full text-[11px] font-medium bg-[#2f5597] text-white tracking-wide">Active</span>
+                                        @else
+                                            <span class="px-3 py-1 rounded-full text-[11px] font-medium bg-gray-200 text-gray-600 tracking-wide">Inactive</span>
+                                        @endif
+                                    </td>
+                                    <td class="px-6 py-4 text-right">
+                                        @php $clForEdit = $classListsByUser[$user->id] ?? null; @endphp
+                                        <div class="flex items-center justify-end gap-3">
+                                        @if($clForEdit && !empty($clForEdit['teacher_id']))
+                                            <a href="{{ route('admin.teachers.profile', $clForEdit['teacher_id']) }}"
+                                               class="text-gray-400 hover:text-[#2f5597] transition-colors" title="View profile">
+                                                <i data-lucide="eye" class="w-4 h-4"></i>
+                                            </a>
+                                        @endif
+                                        <button @click="openEditTeacher({ id: {{ $user->id }}, name: @js($user->name), email: @js($user->email), class_list_id: @js((string) ($clForEdit['edit_class_list_id'] ?? '')), subjects: @js(array_values($clForEdit['edit_subjects'] ?? [])) })"
+                                                class="text-gray-400 hover:text-gray-700 transition-colors">
+                                            <i data-lucide="pencil" class="w-4 h-4"></i>
                                         </button>
-                                    </form>
-                                    @endif
-                                    <form method="POST" action="{{ route('admin.teachers.destroy', $user->id) }}"
-                                          class="inline-block"
-                                          onsubmit="return confirm('Delete teacher account for \'{{ addslashes($user->name) }}\'?\n\nNote: deletion will be blocked if this teacher has active students.')">
-                                        @csrf
-                                        @method('DELETE')
-                                        <button type="submit" class="text-gray-400 hover:text-red-600 transition-colors">
-                                            <i data-lucide="trash-2" class="w-4 h-4"></i>
-                                        </button>
-                                    </form>
-                                    </div>
-                                </td>
-                            </tr>
-                            @empty
-                            <tr>
-                                <td colspan="7" class="px-6 py-12 text-center text-gray-400">
-                                    <i data-lucide="users" class="w-8 h-8 mx-auto mb-2 opacity-40"></i>
-                                    @if($search)
-                                        <p class="text-sm">No teachers found matching "<span class="font-medium">{{ $search }}</span>".</p>
-                                    @else
-                                        <p class="text-sm">No teachers found.</p>
-                                    @endif
-                                </td>
-                            </tr>
-                            @endforelse
-                        </tbody>
-                    </table>
+                                        @if($teacherStatus === 'Inactive')
+                                        <form method="POST" action="{{ route('admin.teachers.resend-activation', $user->id) }}"
+                                              class="inline-block"
+                                              onsubmit="return confirm('Resend the activation email to \'{{ addslashes($user->email) }}\'?')">
+                                            @csrf
+                                            <button type="submit" class="text-gray-400 hover:text-amber-600 transition-colors" title="Resend activation email">
+                                                <i data-lucide="mail" class="w-4 h-4"></i>
+                                            </button>
+                                        </form>
+                                        @endif
+                                        <form method="POST" action="{{ route('admin.teachers.archive', $user->id) }}"
+                                              class="inline-block"
+                                              onsubmit="return confirm('Archive this teacher? They will be set to Inactive and can no longer log in.')">
+                                            @csrf
+                                            @method('PATCH')
+                                            <button type="submit" class="text-gray-400 hover:text-yellow-600 transition-colors" title="Archive teacher" aria-label="Archive teacher">
+                                                <i data-lucide="archive" class="w-4 h-4"></i>
+                                            </button>
+                                        </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                                @empty
+                                <tr>
+                                    <td colspan="7" class="px-6 py-12 text-center text-gray-400">
+                                        <i data-lucide="users" class="w-8 h-8 mx-auto mb-2 opacity-40"></i>
+                                        @if($search)
+                                            <p class="text-sm">No teachers found matching "<span class="font-medium">{{ $search }}</span>".</p>
+                                        @else
+                                            <p class="text-sm">No teachers found.</p>
+                                        @endif
+                                    </td>
+                                </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="px-6 py-4 border-t border-gray-200 bg-gray-50">
+                        {{ $users->links() }}
+                    </div>
                 </div>
-                <div class="px-6 py-4 border-t border-gray-200 bg-gray-50">
-                    {{ $users->links() }}
+            </div>
+
+            {{-- ===== ARCHIVED teachers (toggled view) ===== --}}
+            <div x-show="showArchived" style="display:none;">
+                <div class="mb-4">
+                    <a href="#" @click.prevent="showArchived = false"
+                       class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-600 border border-gray-300 rounded-full hover:bg-gray-50 transition-colors">
+                        <svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 011.06.02z" clip-rule="evenodd" />
+                        </svg>
+                        Back to Active
+                    </a>
+                </div>
+                <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm text-left">
+                            <thead class="bg-gray-50 border-b border-gray-200 text-gray-500">
+                                <tr>
+                                    <th class="px-6 py-4 font-medium w-24">ID</th>
+                                    <th class="px-6 py-4 font-medium">Name</th>
+                                    <th class="px-6 py-4 font-medium">Email</th>
+                                    <th class="px-6 py-4 font-medium">Status</th>
+                                    <th class="px-6 py-4 font-medium">Archived</th>
+                                    <th class="px-6 py-4 font-medium text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100">
+                                @forelse($archivedTeachers as $user)
+                                <tr class="hover:bg-gray-50 transition-colors">
+                                    <td class="px-6 py-4 text-gray-500 font-mono text-xs">
+                                        T-{{ str_pad($user->id, 3, '0', STR_PAD_LEFT) }}
+                                    </td>
+                                    <td class="px-6 py-4 font-medium text-gray-600">
+                                        @php $tPicA = $classListsByUser[$user->id]['profile_picture'] ?? null; @endphp
+                                        <div class="flex items-center gap-2.5">
+                                            @if($tPicA)
+                                                <img src="{{ $tPicA }}" alt="" class="w-7 h-7 rounded-full object-cover shrink-0">
+                                            @else
+                                                <div class="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
+                                                    <span class="text-gray-400 text-xs font-bold">{{ strtoupper(substr($user->name, 0, 1)) }}</span>
+                                                </div>
+                                            @endif
+                                            {{ $user->name }}
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4 text-gray-500">{{ $user->email }}</td>
+                                    <td class="px-6 py-4">
+                                        <span class="px-3 py-1 rounded-full text-[11px] font-medium bg-gray-200 text-gray-600 tracking-wide">Inactive</span>
+                                    </td>
+                                    <td class="px-6 py-4 text-gray-400 text-xs">
+                                        @php $teacherArchivedAt = $classListsByUser[$user->id]['archived_at'] ?? null; @endphp
+                                        {{ $teacherArchivedAt ? \Illuminate\Support\Carbon::parse($teacherArchivedAt)->format('M j, Y') : '—' }}
+                                    </td>
+                                    <td class="px-6 py-4 text-right">
+                                        <div class="flex items-center justify-end gap-3">
+                                        <form method="POST" action="{{ route('admin.teachers.restore', $user->id) }}"
+                                              class="inline-block"
+                                              onsubmit="return confirm('Restore this teacher? They will be set back to Active.')">
+                                            @csrf
+                                            @method('PATCH')
+                                            <button type="submit" class="text-sm px-3 py-1.5 rounded-md border border-gray-200 text-gray-600 hover:bg-gray-100 transition-colors inline-flex items-center gap-1.5">
+                                                <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+                                                Restore
+                                            </button>
+                                        </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                                @empty
+                                <tr>
+                                    <td colspan="6" class="px-6 py-12 text-center text-gray-400">
+                                        <i data-lucide="archive" class="w-8 h-8 mx-auto mb-2 opacity-40"></i>
+                                        <p class="text-sm">No archived teachers.</p>
+                                    </td>
+                                </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>

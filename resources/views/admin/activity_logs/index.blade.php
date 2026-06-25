@@ -1,4 +1,4 @@
-<x-app-layout>
+<x-app-layout title="Activity Log">
 <div class="p-6 max-w-7xl mx-auto space-y-6">
 
     {{-- Page header --}}
@@ -44,8 +44,10 @@
                 <option value="Restore"       {{ request('action') === 'Restore'       ? 'selected' : '' }}>Restore</option>
                 <option value="Approve"       {{ request('action') === 'Approve'       ? 'selected' : '' }}>Approve</option>
                 <option value="Reject"        {{ request('action') === 'Reject'        ? 'selected' : '' }}>Reject</option>
+                <option value="Cancelled"     {{ request('action') === 'Cancelled'     ? 'selected' : '' }}>Cancelled</option>
                 <option value="Delete"        {{ request('action') === 'Delete'        ? 'selected' : '' }}>Delete</option>
                 <option value="Assign"        {{ request('action') === 'Assign'        ? 'selected' : '' }}>Assign</option>
+                <option value="Unassign"      {{ request('action') === 'Unassign'      ? 'selected' : '' }}>Unassign</option>
                 <option value="Remove"        {{ request('action') === 'Remove'        ? 'selected' : '' }}>Remove</option>
                 <option value="Activate"      {{ request('action') === 'Activate'      ? 'selected' : '' }}>Activate</option>
                 <option value="agree_terms"   {{ request('action') === 'agree_terms'   ? 'selected' : '' }}>Agree Terms</option>
@@ -120,10 +122,12 @@
                         @php
                             $action = $log->action ?? '';
                             $al = strtolower($action);
-                            if (str_contains($al, 'create and assign')) {
+                            if ($al === 'cancelled') {
+                                $badgeClass = 'bg-red-50 text-red-600';
+                            } elseif ($al === 'unassign class') {
+                                $badgeClass = 'bg-orange-50 text-orange-600';
+                            } elseif (str_contains($al, 'create and assign')) {
                                 $badgeClass = 'bg-indigo-100 text-indigo-700';
-                            } elseif (str_contains($al, 'unassign')) {
-                                $badgeClass = 'bg-slate-100 text-slate-600';
                             } elseif (str_contains($al, 'assign substitute') || str_contains($al, 'assign class') || $al === 'assign') {
                                 $badgeClass = 'bg-blue-100 text-blue-700';
                             } elseif (str_contains($al, 'archive')) {

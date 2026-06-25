@@ -13,8 +13,6 @@
             ['label' => 'CMS',                'icon' => 'layout',           'path' => 'admin/cms'],
             ['label' => 'Consultations',      'icon' => 'calendar-check',   'path' => 'admin/consultations'],
             ['label' => 'Tickets',            'icon' => 'ticket',           'path' => 'admin/tickets'],
-            ['label' => 'Data Sync',          'icon' => 'refresh-cw',       'path' => 'admin/sync'],
-            ['label' => 'System Snapshots',   'icon' => 'camera',           'path' => 'admin/snapshots'],
             ['label' => 'Access Control',     'icon' => 'shield-check',     'path' => 'admin/access'],
             ['label' => 'Activity Logs',      'icon' => 'clipboard-list',   'path' => 'admin/activity-logs'],
             ['label' => 'Reports',            'icon' => 'bar-chart-2',      'path' => 'admin/reports'],

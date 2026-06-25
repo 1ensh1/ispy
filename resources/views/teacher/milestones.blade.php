@@ -72,8 +72,8 @@
                                 <div style="width:100%; height:6px; background:#f3f4f6; border-radius:9999px; overflow:hidden; display:flex;">
                                     @if($total > 0)
                                         <div style="width:{{ $masteredPct }}%; background:#22c55e; flex-shrink:0;"></div>
-                                        <div style="width:{{ $developingPct }}%; background:#eab308; flex-shrink:0;"></div>
-                                        <div style="width:{{ $beginningPct }}%; background:#ef4444; flex-shrink:0;"></div>
+                                        <div style="width:{{ $developingPct }}%; background:#3b82f6; flex-shrink:0;"></div>
+                                        <div style="width:{{ $beginningPct }}%; background:#eab308; flex-shrink:0;"></div>
                                     @endif
                                 </div>
                             </div>
@@ -107,6 +107,10 @@
                             @if(empty($entry['frequent_words']))
                                 <p style="font-size:0.75rem; color:#9ca3af;">No activity recorded yet.</p>
                             @else
+                                <div style="margin-bottom:0.625rem;">
+                                    <div style="font-size:0.75rem; font-weight:700; color:#111827; margin-bottom:0.2rem;">Most Practiced Words</div>
+                                    <div style="font-size:0.7rem; color:#6b7280; margin-bottom:0.625rem;">Top 5 words this student has engaged with most across all learning modes (Identification, Matching, Spelling, Sentence)</div>
+                                </div>
                                 <table style="width:100%; border-collapse:collapse; font-size:0.75rem;">
                                     <thead>
                                         <tr>
@@ -121,10 +125,11 @@
                                             @php
                                                 $profStyle = match($word->proficiency_level ?? null) {
                                                     'Mastered'   => 'background:#dcfce7; color:#15803d; border:1px solid #bbf7d0;',
-                                                    'Developing' => 'background:#fef9c3; color:#854d0e; border:1px solid #fef08a;',
-                                                    'Beginning'  => 'background:#fee2e2; color:#b91c1c; border:1px solid #fecaca;',
+                                                    'Developing' => 'background:#dbeafe; color:#1d4ed8; border:1px solid #bfdbfe;',
+                                                    'Beginning'  => 'background:#fef9c3; color:#854d0e; border:1px solid #fef08a;',
                                                     default      => 'background:#f3f4f6; color:#6b7280; border:1px solid #e5e7eb;',
                                                 };
+                                                $profLabel = $word->proficiency_level ?? 'In Progress';
                                             @endphp
                                             <tr>
                                                 <td style="padding:0.2rem 0.75rem 0.2rem 0; color:#111827; font-weight:500;">{{ $word->english_label }}</td>
@@ -133,7 +138,7 @@
                                                     <span style="padding:0.1rem 0.4rem; border-radius:9999px; font-size:0.65rem; font-weight:500; background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe;">{{ $word->category }}</span>
                                                 </td>
                                                 <td style="padding:0.2rem 0;">
-                                                    <span style="padding:0.1rem 0.4rem; border-radius:9999px; font-size:0.65rem; font-weight:600; {{ $profStyle }}">{{ $word->proficiency_level ?? '—' }}</span>
+                                                    <span style="padding:0.1rem 0.4rem; border-radius:9999px; font-size:0.65rem; font-weight:600; {{ $profStyle }}">{{ $profLabel }}</span>
                                                 </td>
                                             </tr>
                                         @endforeach
@@ -152,10 +157,13 @@
                     <span style="width:0.7rem; height:0.5rem; background:#22c55e; border-radius:2px; display:inline-block;"></span> Mastered
                 </span>
                 <span style="display:inline-flex; align-items:center; gap:0.3rem;">
-                    <span style="width:0.7rem; height:0.5rem; background:#eab308; border-radius:2px; display:inline-block;"></span> Developing
+                    <span style="width:0.7rem; height:0.5rem; background:#3b82f6; border-radius:2px; display:inline-block;"></span> Developing
                 </span>
                 <span style="display:inline-flex; align-items:center; gap:0.3rem;">
-                    <span style="width:0.7rem; height:0.5rem; background:#ef4444; border-radius:2px; display:inline-block;"></span> Beginning
+                    <span style="width:0.7rem; height:0.5rem; background:#eab308; border-radius:2px; display:inline-block;"></span> Beginning
+                </span>
+                <span style="display:inline-flex; align-items:center; gap:0.3rem;">
+                    <span style="width:0.7rem; height:0.5rem; background:#9ca3af; border-radius:2px; display:inline-block;"></span> In Progress
                 </span>
             </div>
         @endif

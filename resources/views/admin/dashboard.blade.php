@@ -1,4 +1,4 @@
-<x-app-layout>
+<x-app-layout title="Dashboard">
     <div class="p-6 max-w-7xl mx-auto">
         <div class="mb-6">
             <h1 class="text-2xl font-bold text-gray-900">Administrator Dashboard</h1>
@@ -29,7 +29,7 @@
             <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
                 <div class="flex items-center justify-between pb-2">
                     <h3 class="text-sm font-medium text-gray-500">Total Teachers</h3>
-                    <i data-lucide="presentation" class="w-5 h-5 text-indigo-400"></i>
+                    <i data-lucide="presentation" class="w-5 h-5 text-blue-600"></i>
                 </div>
                 <div class="text-2xl font-bold">{{ $teacherCount }}</div>
                 <p class="text-xs text-gray-500 mt-1">Registered teachers</p>
@@ -38,7 +38,7 @@
             <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
                 <div class="flex items-center justify-between pb-2">
                     <h3 class="text-sm font-medium text-gray-500">Total Parents</h3>
-                    <i data-lucide="users-round" class="w-5 h-5 text-teal-400"></i>
+                    <i data-lucide="users-round" class="w-5 h-5 text-green-600"></i>
                 </div>
                 <div class="text-2xl font-bold">{{ $parentCount }}</div>
                 <p class="text-xs text-gray-500 mt-1">Registered parents</p>
@@ -47,7 +47,7 @@
             <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
                 <div class="flex items-center justify-between pb-2">
                     <h3 class="text-sm font-medium text-gray-500">Total Students</h3>
-                    <i data-lucide="graduation-cap" class="w-5 h-5 text-blue-400"></i>
+                    <i data-lucide="graduation-cap" class="w-5 h-5 text-amber-500"></i>
                 </div>
                 <div class="text-2xl font-bold">{{ $studentCount }}</div>
                 <p class="text-xs text-gray-500 mt-1">Enrolled students</p>
@@ -137,7 +137,7 @@
                     labels: ['Teachers', 'Parents', 'Students'],
                     datasets: [{
                         data: [{{ $teacherCount }}, {{ $parentCount }}, {{ $studentCount }}],
-                        backgroundColor: ['#14b8a6', '#f59e0b', '#1e40af'], 
+                        backgroundColor: ['#2563EB', '#16A34A', '#F59E0B'], 
                         borderWidth: 0
                     }]
                 },

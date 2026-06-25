@@ -321,7 +321,7 @@
                                                 @csrf
                                                 @method('DELETE')
                                                 <button type="submit"
-                                                        style="background:#dc2626;color:white;padding:3px 10px;font-size:12px;border-radius:6px;border:none;cursor:pointer;">
+                                                        style="background:#6b7280;color:white;padding:3px 10px;font-size:12px;border-radius:6px;border:none;cursor:pointer;">
                                                     Cancel
                                                 </button>
                                             </form>
@@ -363,7 +363,7 @@
                                                     @csrf
                                                     @method('DELETE')
                                                     <button type="submit"
-                                                            style="background:#dc2626;color:white;padding:3px 10px;font-size:12px;border-radius:6px;border:none;cursor:pointer;">
+                                                            style="background:#6b7280;color:white;padding:3px 10px;font-size:12px;border-radius:6px;border:none;cursor:pointer;">
                                                         Cancel
                                                     </button>
                                                 </form>
@@ -450,7 +450,7 @@ function renderCancelForm(slot) {
         + ' onsubmit="return confirm(\'Delete this slot?\')" class="inline">'
         + '<input type="hidden" name="_token" value="' + CSRF_TOKEN + '">'
         + '<input type="hidden" name="_method" value="DELETE">'
-        + '<button type="submit" style="background-color:#dc2626;color:white;' + BTN + '">Cancel</button>'
+        + '<button type="submit" style="background-color:#6b7280;color:white;' + BTN + '">Cancel</button>'
         + '</form>';
 }
 

@@ -1,4 +1,4 @@
-<x-app-layout>
+<x-app-layout title="Access">
     <div class="p-6 max-w-7xl mx-auto">
 
         {{-- Page Header --}}

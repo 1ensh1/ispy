@@ -1,4 +1,4 @@
-<x-app-layout>
+<x-app-layout title="Reports">
 <div class="p-6 max-w-7xl mx-auto space-y-6">
 
     {{-- Page header --}}
@@ -54,19 +54,19 @@
 
             <div>
                 <p class="text-3xl font-bold text-gray-900">{{ $avgMastery }}%</p>
-                <p class="text-sm text-gray-500 mt-0.5">Avg Mastery Score</p>
+                <p class="text-sm text-gray-500 mt-0.5">Avg. Mastery Score (All Active Students)</p>
             </div>
 
             <div>
                 <p class="text-sm font-medium text-gray-700 mb-2">Proficiency Distribution</p>
                 <div class="flex flex-wrap gap-2">
-                    <span style="display:inline-block; padding:0.2rem 0.7rem; border-radius:9999px; background:#0d9488; color:#fff; font-size:0.75rem; font-weight:600;">
+                    <span style="display:inline-block; padding:0.2rem 0.7rem; border-radius:9999px; background:#22c55e; color:#fff; font-size:0.75rem; font-weight:600;">
                         Mastered: {{ $profDist['Mastered'] ?? 0 }}
                     </span>
-                    <span style="display:inline-block; padding:0.2rem 0.7rem; border-radius:9999px; background:#f59e0b; color:#fff; font-size:0.75rem; font-weight:600;">
+                    <span style="display:inline-block; padding:0.2rem 0.7rem; border-radius:9999px; background:#3b82f6; color:#fff; font-size:0.75rem; font-weight:600;">
                         Developing: {{ $profDist['Developing'] ?? 0 }}
                     </span>
-                    <span style="display:inline-block; padding:0.2rem 0.7rem; border-radius:9999px; background:#ef4444; color:#fff; font-size:0.75rem; font-weight:600;">
+                    <span style="display:inline-block; padding:0.2rem 0.7rem; border-radius:9999px; background:#eab308; color:#fff; font-size:0.75rem; font-weight:600;">
                         Beginning: {{ $profDist['Beginning'] ?? 0 }}
                     </span>
                 </div>
@@ -139,9 +139,9 @@
                         <th class="px-5 py-3.5 font-medium text-gray-500 text-xs uppercase tracking-wide">Student</th>
                         <th class="px-5 py-3.5 font-medium text-gray-500 text-xs uppercase tracking-wide">Class</th>
                         <th class="px-5 py-3.5 font-medium text-gray-500 text-xs uppercase tracking-wide">Teacher</th>
-                        <th class="px-5 py-3.5 font-medium text-gray-500 text-xs uppercase tracking-wide text-center">Mastered</th>
-                        <th class="px-5 py-3.5 font-medium text-gray-500 text-xs uppercase tracking-wide text-center">Developing</th>
-                        <th class="px-5 py-3.5 font-medium text-gray-500 text-xs uppercase tracking-wide text-center">Beginning</th>
+                        <th class="px-5 py-3.5 font-medium text-xs uppercase tracking-wide text-center" style="color:#22c55e;">Mastered</th>
+                        <th class="px-5 py-3.5 font-medium text-xs uppercase tracking-wide text-center" style="color:#3b82f6;">Developing</th>
+                        <th class="px-5 py-3.5 font-medium text-xs uppercase tracking-wide text-center" style="color:#eab308;">Beginning</th>
                         <th class="px-5 py-3.5 font-medium text-gray-500 text-xs uppercase tracking-wide">Dominant</th>
                         <th class="px-5 py-3.5 font-medium text-gray-500 text-xs uppercase tracking-wide"></th>
                     </tr>
@@ -160,9 +160,9 @@
                             <td class="px-5 py-3.5 font-semibold text-gray-900">{{ $student->name }}</td>
                             <td class="px-5 py-3.5 text-gray-600">{{ $student->class_name }}</td>
                             <td class="px-5 py-3.5 text-gray-600">{{ $student->teacher }}</td>
-                            <td class="px-5 py-3.5 text-center font-medium text-teal-700">{{ $student->mastered }}</td>
-                            <td class="px-5 py-3.5 text-center font-medium text-yellow-600">{{ $student->developing }}</td>
-                            <td class="px-5 py-3.5 text-center font-medium text-red-500">{{ $student->beginning }}</td>
+                            <td class="px-5 py-3.5 text-center font-medium" style="color:#22c55e;">{{ $student->mastered }}</td>
+                            <td class="px-5 py-3.5 text-center font-medium" style="color:#3b82f6;">{{ $student->developing }}</td>
+                            <td class="px-5 py-3.5 text-center font-medium" style="color:#eab308;">{{ $student->beginning }}</td>
                             <td class="px-5 py-3.5">
                                 <span style="display:inline-block; padding:0.2rem 0.65rem; border-radius:9999px; background:{{ $badgeBg }}; color:#fff; font-size:0.75rem; font-weight:600;">
                                     {{ $student->dominant }}

@@ -1,4 +1,4 @@
-<x-app-layout>
+<x-app-layout title="Edit Class">
     <div class="max-w-xl mx-auto">
 
         <div class="flex items-center gap-3 mb-6">
