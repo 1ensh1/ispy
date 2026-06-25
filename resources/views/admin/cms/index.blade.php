@@ -1,4 +1,4 @@
-<x-app-layout>
+<x-app-layout title="Content Management">
     <div class="p-6 max-w-7xl mx-auto">
 
         {{-- Page header --}}

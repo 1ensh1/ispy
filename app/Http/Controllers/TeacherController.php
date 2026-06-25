@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Services\ClassSubjectService;
 use App\Traits\LogsActivity;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -49,9 +50,38 @@ class TeacherController extends Controller
                 ->pluck('teachers.user_id');
             $teacherQuery->whereIn('id', $teacherUserIds);
         }
-        $users = $teacherQuery->latest()->paginate($teachersPerPage)->appends(array_merge(request()->query(), ['tab' => 'teachers']));
 
-        $userIds = $users->pluck('id')->toArray();
+        // Both lists are always returned; the view toggles between them entirely
+        // client-side (no page reload, no query param). archived_at lives on the
+        // `teachers` row. The active list keeps the existing newest-first
+        // (users.created_at) ordering; the archived list is ordered by
+        // most-recently-archived first.
+        $users = (clone $teacherQuery)
+            ->whereIn('id', function ($q) {
+                $q->select('user_id')->from('teachers')->whereNull('archived_at');
+            })
+            ->latest()
+            ->paginate($teachersPerPage)
+            ->appends(array_merge(request()->query(), ['tab' => 'teachers']));
+
+        $archivedTeachers = (clone $teacherQuery)
+            ->whereIn('id', function ($q) {
+                $q->select('user_id')->from('teachers')->whereNotNull('archived_at');
+            })
+            ->orderByDesc(
+                DB::table('teachers')
+                    ->whereColumn('teachers.user_id', 'users.id')
+                    ->select('archived_at')
+            )
+            ->get();
+
+        // Per-user metadata (status, archived_at, class assignments, student
+        // counts) must cover BOTH lists since both are rendered into the DOM.
+        $userIds = $users->pluck('id')
+            ->merge($archivedTeachers->pluck('id'))
+            ->unique()
+            ->values()
+            ->toArray();
 
         // Fetch all rows (one per class per teacher) to support multiple classes
         $allTeacherRows = DB::table('teachers')
@@ -64,6 +94,7 @@ class TeacherController extends Controller
                 'teachers.id',
                 'teachers.user_id',
                 'teachers.status',
+                'teachers.archived_at',
                 'teachers.profile_picture',
                 'class_lists.id as class_list_id',
                 'class_lists.class_name',
@@ -151,6 +182,7 @@ class TeacherController extends Controller
                 'unified_classroom_pin' => $firstRow->unified_classroom_pin,
                 'class_assignments'     => $classAssignments,
                 'status'                => $firstRow->status ?? 'Active',
+                'archived_at'           => $firstRow->archived_at ?? null,
                 'profile_picture'       => $firstRow->profile_picture ?? null,
                 'edit_class_list_id'    => $editClassListId,
                 'edit_subjects'         => $editSubjects,
@@ -254,7 +286,7 @@ class TeacherController extends Controller
         $activeTab = 'teacher';
 
         return view('admin.users', compact(
-            'users', 'activeTab', 'search', 'extraData', 'studentCountsByUser', 'classListsByUser',
+            'users', 'archivedTeachers', 'activeTab', 'search', 'extraData', 'studentCountsByUser', 'classListsByUser',
             'parentUsers', 'parentSearch',
             'students', 'archivedStudents', 'parentsList', 'classLists', 'teachersByClass',
             'admins',
@@ -381,6 +413,13 @@ class TeacherController extends Controller
         $blockedByKids = [];
         $className     = null;
 
+        // Unassign-all path state: set when the admin clears the class dropdown
+        // ("-- Select a Class --"), which removes ALL of the teacher's active
+        // class+subject assignments (subject to the active-students guard).
+        $clearedClass         = false;
+        $unassignBlocked      = [];   // "Subject (Class name)" pairs that were blocked
+        $unassignRemovedCount = 0;
+
         if ($teacherRecord) {
             DB::table('teachers')
                 ->where('id', $teacherRecord->id)
@@ -415,10 +454,50 @@ class TeacherController extends Controller
                 // Assign selected subjects (subjects held by another teacher are blocked).
                 ['created' => $created, 'skipped' => $skipped, 'blocked' => $blocked]
                     = $service->assign($classListId, $teacherRecord->id, $subjects);
+            } else {
+                // Admin cleared the class dropdown ("-- Select a Class --"). Remove
+                // ALL of this teacher's active class+subject assignments. unassign()
+                // refuses any class that still has active (non-archived) students,
+                // so those subjects are reported back rather than force-removed.
+                $clearedClass = true;
+                $service      = app(ClassSubjectService::class);
+
+                $activeRows = ClassSubject::where('teacher_id', $teacherRecord->id)
+                    ->whereNull('archived_at')
+                    ->get()
+                    ->groupBy('class_list_id');
+
+                foreach ($activeRows as $clId => $rows) {
+                    $clName = optional(ClassList::find($clId))->class_name ?? "Class #{$clId}";
+                    foreach ($rows as $row) {
+                        if ($service->unassign((int) $clId, $teacherRecord->id, $row->subject)) {
+                            $unassignRemovedCount++;
+                        } else {
+                            $unassignBlocked[] = "{$row->subject} ({$clName})";
+                        }
+                    }
+                }
             }
         }
 
         self::log('update', "updated teacher account for {$validated['name']}");
+
+        // Cleared-class path: the name/email update already succeeded above, so we
+        // always redirect back — only the flash level reflects unassign outcomes.
+        if ($clearedClass) {
+            if (empty($unassignBlocked)) {
+                return redirect()->route('admin.teachers.index')
+                    ->with('success', 'Teacher updated successfully.');
+            }
+
+            if ($unassignRemovedCount === 0) {
+                return redirect()->route('admin.teachers.index')
+                    ->with('error', 'Could not unassign teacher — all assigned classes have active students.');
+            }
+
+            return redirect()->route('admin.teachers.index')
+                ->with('warning', 'Some subjects could not be unassigned because the class still has active students: ' . implode(', ', $unassignBlocked) . '.');
+        }
 
         // Build a detailed message that names what WAS assigned (matching the
         // Teacher View "Assign Existing Class" message completeness), plus what
@@ -446,40 +525,76 @@ class TeacherController extends Controller
         return redirect()->route('admin.teachers.index')->with('success', $message);
     }
 
-    public function destroy(User $teacher)
+    /**
+     * Archive a teacher: set the teachers row status to 'Inactive'. Teachers are
+     * never hard-deleted. class_subjects, consultation_slots, and all related
+     * data are preserved untouched. An Inactive teacher can no longer log in.
+     */
+    public function archiveTeacher(User $teacher)
     {
         $record = DB::table('teachers')->where('user_id', $teacher->id)->first();
 
-        if ($record) {
-            // Count active students across every class this teacher holds via
-            // class_subjects (the source of truth; class_lists.teacher_id is
-            // deprecated and null-by-design).
-            $studentCount = DB::table('students')
-                ->whereIn('class_list_id', function ($q) use ($record) {
-                    $q->select('class_list_id')
-                        ->from('class_subjects')
-                        ->where('teacher_id', $record->id)
-                        ->whereNull('archived_at');
-                })
-                ->whereNull('archived_at')
-                ->count();
-
-            if ($studentCount > 0) {
-                return redirect()->route('admin.teachers.index')
-                    ->with('error', "Cannot delete \"{$teacher->name}\": they have {$studentCount} active student(s) in their class. Reassign or remove students first.");
-            }
-
-            DB::table('class_lists')->where('teacher_id', $record->id)->delete();
-            DB::table('teachers')->where('user_id', $teacher->id)->delete();
+        if (! $record) {
+            return redirect()->route('admin.teachers.index')
+                ->with('error', "Teacher record not found for \"{$teacher->name}\".");
         }
 
-        $name = $teacher->name;
-        $teacher->delete();
+        // Blocked if already archived (archived_at IS NOT NULL).
+        if ($record->archived_at !== null) {
+            return redirect()->route('admin.teachers.index')
+                ->with('error', 'Teacher is already archived.');
+        }
 
-        self::log('delete', "deleted teacher {$name}");
+        // Archive = Inactive + stamp archived_at. class_subjects untouched.
+        DB::table('teachers')
+            ->where('id', $record->id)
+            ->update(['status' => 'Inactive', 'archived_at' => now(), 'updated_at' => now()]);
+
+        DB::table('activity_logs')->insert([
+            'user_id'     => Auth::id(),
+            'role'        => 'Admin',
+            'action'      => 'Archive Teacher',
+            'description' => "Admin archived teacher {$teacher->name}",
+            'created_at'  => now(),
+        ]);
 
         return redirect()->route('admin.teachers.index')
-            ->with('success', "Teacher account for \"{$name}\" has been deleted.");
+            ->with('success', 'Teacher archived successfully.');
+    }
+
+    /**
+     * Restore an archived teacher: status back to Active and clear archived_at.
+     * Never creates or touches class_subjects rows.
+     */
+    public function restoreTeacher(User $teacher)
+    {
+        $record = DB::table('teachers')->where('user_id', $teacher->id)->first();
+
+        if (! $record) {
+            return redirect()->route('admin.teachers.index')
+                ->with('error', "Teacher record not found for \"{$teacher->name}\".");
+        }
+
+        // Blocked if not archived (archived_at IS NULL).
+        if ($record->archived_at === null) {
+            return redirect()->route('admin.teachers.index')
+                ->with('error', 'Teacher is not archived.');
+        }
+
+        DB::table('teachers')
+            ->where('id', $record->id)
+            ->update(['status' => 'Active', 'archived_at' => null, 'updated_at' => now()]);
+
+        DB::table('activity_logs')->insert([
+            'user_id'     => Auth::id(),
+            'role'        => 'Admin',
+            'action'      => 'Restore Teacher',
+            'description' => "Admin restored teacher {$teacher->name}",
+            'created_at'  => now(),
+        ]);
+
+        return redirect()->route('admin.teachers.index')
+            ->with('success', 'Teacher restored successfully.');
     }
 
     public function search(Request $request)

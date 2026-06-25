@@ -1,4 +1,4 @@
-<x-app-layout>
+<x-app-layout title="Vocabulary">
     <div x-data="{
             addOpen: false,
             editOpen: false,

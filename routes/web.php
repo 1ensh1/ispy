@@ -106,7 +106,8 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
     Route::put('/teachers/{teacher}', [TeacherController::class, 'update'])->name('admin.teachers.update');
     Route::post('/teachers/{teacher}/resend-activation', [TeacherController::class, 'resendActivation'])->name('admin.teachers.resend-activation');
     Route::post('/parents/{parent}/resend-activation', [AdminController::class, 'resendParentActivation'])->name('admin.parents.resend-activation');
-    Route::delete('/teachers/{teacher}', [TeacherController::class, 'destroy'])->name('admin.teachers.destroy');
+    Route::patch('/teachers/{teacher}/archive', [TeacherController::class, 'archiveTeacher'])->name('admin.teachers.archive');
+    Route::patch('/teachers/{teacher}/restore', [TeacherController::class, 'restoreTeacher'])->name('admin.teachers.restore');
     Route::get('/teachers/{teacher}/profile', [\App\Http\Controllers\Admin\UserManagementController::class, 'showTeacherProfile'])->name('admin.teachers.profile');
     Route::get('/parents/{user}/profile', [\App\Http\Controllers\Admin\UserManagementController::class, 'showParentProfile'])->name('admin.parents.profile');
     Route::post('/admins', [\App\Http\Controllers\Admin\UserManagementController::class, 'storeAdmin'])->name('admin.admins.store');
@@ -144,8 +145,6 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->group(function () {
     // Static admin views
     Route::get('/consultations',        [AdminConsultationController::class, 'index'])->name('admin.consultations');
     Route::get('/consultations/export', [AdminConsultationController::class, 'export'])->name('admin.consultations.export');
-    Route::get('/sync', fn() => view('admin.sync'))->name('admin.sync');
-    Route::get('/snapshots', fn() => view('admin.snapshots'))->name('admin.snapshots');
     Route::get('/activity-logs',        [\App\Http\Controllers\Admin\ActivityLogController::class, 'index'])->name('admin.activity.logs');
     Route::get('/activity-logs/export', [\App\Http\Controllers\Admin\ActivityLogController::class, 'export'])->name('admin.activity-logs.export');
 
@@ -212,7 +211,6 @@ Route::prefix('teacher')->middleware(['auth', 'teacher'])->group(function () {
     Route::post('/word-sets/toggle', [\App\Http\Controllers\Teacher\WordSetsController::class, 'toggle'])->name('teacher.word-sets.toggle');
     Route::get('/annotations',       [\App\Http\Controllers\Teacher\AnnotationsController::class, 'index'])->name('teacher.annotations');
     Route::post('/annotations',      [\App\Http\Controllers\Teacher\AnnotationsController::class, 'store'])->name('teacher.annotations.store');
-    Route::get('/mobile-sync',       [\App\Http\Controllers\Teacher\MobileSyncController::class,  'index'])->name('teacher.mobile-sync');
     Route::post('/logout', [TeacherDashboardController::class, 'logout'])->name('teacher.logout');
     Route::post('/switch-class', [TeacherClassSwitchController::class, 'switch'])->name('teacher.switch-class');
 

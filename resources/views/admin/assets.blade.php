@@ -1,4 +1,4 @@
-<x-app-layout>
+<x-app-layout title="Assets">
     <div x-data="{
             uploadOpen: false,
             upload: { id: null, label: '', language: '' },

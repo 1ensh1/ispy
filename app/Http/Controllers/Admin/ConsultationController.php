@@ -35,9 +35,9 @@ class ConsultationController extends Controller
 
         // Table data: filtered + paginated server-side.
         $query = FaceToFaceBooking::with(['slot', 'teacher', 'parentProfile.students'])
-            ->join('consultation_slots', 'face_to_face_bookings.slot_id', '=', 'consultation_slots.id')
-            ->orderByDesc('consultation_slots.scheduled_date')
-            ->orderBy('consultation_slots.time_start')
+            ->leftJoin('consultation_slots', 'face_to_face_bookings.slot_id', '=', 'consultation_slots.id')
+            ->orderByRaw('consultation_slots.scheduled_date IS NULL, consultation_slots.scheduled_date DESC')
+            ->orderByRaw('consultation_slots.time_start IS NULL, consultation_slots.time_start ASC')
             ->select('face_to_face_bookings.*');
 
         if ($request->filled('teacher_id') && $request->teacher_id !== 'all') {

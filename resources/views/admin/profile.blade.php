@@ -1,4 +1,4 @@
-<x-app-layout>
+<x-app-layout title="My Profile">
     <div class="p-6 max-w-2xl mx-auto">
 
         <div class="mb-6">

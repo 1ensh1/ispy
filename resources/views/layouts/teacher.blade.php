@@ -4,7 +4,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>@yield('title', 'Teacher Portal') — {{ config('app.name', 'iSpy World') }}</title>
+    <link rel="icon" type="image/png" href="{{ asset('images/ispy-logo.png') }}">
+    <title>@yield('title', 'iSpy World') | iSpy World</title>
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
     <script src="https://cdn.tailwindcss.com"></script>
@@ -30,7 +31,6 @@
                 ['label' => 'Consultation Availability', 'icon' => 'calendar-clock',   'href' => route('teacher.consultation'),'routeMatch' => 'teacher.consultation'],
                 ['label' => 'Messaging',                 'icon' => 'message-square',   'href' => route('teacher.messaging'),   'routeMatch' => 'teacher.messaging'],
                 ['label' => 'Tickets',                   'icon' => 'ticket',           'href' => route('teacher.tickets.index'), 'routeMatch' => 'teacher.tickets.*'],
-                ['label' => 'Mobile Sync',               'icon' => 'smartphone',       'href' => route('teacher.mobile-sync'), 'routeMatch' => 'teacher.mobile-sync'],
                 ['label' => 'Reports',                   'icon' => 'file-bar-chart',   'href' => route('teacher.reports'),     'routeMatch' => 'teacher.reports*'],
             ];
         @endphp

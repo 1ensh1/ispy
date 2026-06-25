@@ -1,4 +1,4 @@
-<x-app-layout>
+<x-app-layout title="Ticket Report">
 @php
     $priorityBadge = fn($p) => match($p) {
         'Low'  => 'bg-gray-100 text-gray-600',

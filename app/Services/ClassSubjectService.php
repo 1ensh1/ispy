@@ -32,6 +32,14 @@ class ClassSubjectService
      */
     public function assign(int $classListId, int $teacherId, array $subjects): array
     {
+        // An archived teacher (archived_at IS NOT NULL) can never receive a new
+        // class+subject assignment, from any path (admin or teacher view).
+        if (Teacher::whereKey($teacherId)->whereNotNull('archived_at')->exists()) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'class_list_id' => 'This teacher is archived and cannot be assigned to a class.',
+            ]);
+        }
+
         $created = [];
         $skipped = [];
         $blocked = [];

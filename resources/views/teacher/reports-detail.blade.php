@@ -157,7 +157,7 @@
                                                 <span style="font-weight:600; color:#111827;">{{ number_format($modeRecord->score, 1) }}</span>
                                             </div>
                                             <div style="display:flex; justify-content:space-between; font-size:0.75rem;">
-                                                <span style="color:#6b7280;">Weight</span>
+                                                <span style="color:#6b7280;">Contribution</span>
                                                 <span style="font-weight:600; color:#111827;">{{ $modeRecord->mastery_weight }}</span>
                                             </div>
                                             @php

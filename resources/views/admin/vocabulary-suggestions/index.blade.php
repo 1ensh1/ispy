@@ -1,4 +1,4 @@
-<x-app-layout>
+<x-app-layout title="Vocabulary Suggestions">
     <div class="p-6 max-w-7xl mx-auto">
 
         {{-- Flash Messages --}}

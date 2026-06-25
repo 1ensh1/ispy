@@ -1,4 +1,4 @@
-<x-app-layout>
+<x-app-layout title="Teacher Profile">
     <div class="p-6 max-w-5xl mx-auto">
 
         {{-- Back button --}}
@@ -450,8 +450,9 @@
 
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
-                                <input type="date" name="start_date" required
+                                <input type="date" name="start_date" id="sub-start-date" required
                                        value="{{ old('start_date') }}"
+                                       min="{{ date('Y-m-d') }}"
                                        class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#2f5597] outline-none">
                             </div>
 
@@ -459,8 +460,9 @@
                                 <label class="block text-sm font-medium text-gray-700 mb-1">
                                     End Date <span class="text-gray-400 font-normal">(optional — leave blank for open-ended)</span>
                                 </label>
-                                <input type="date" name="end_date"
+                                <input type="date" name="end_date" id="sub-end-date"
                                        value="{{ old('end_date') }}"
+                                       min="{{ date('Y-m-d') }}"
                                        class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#2f5597] outline-none">
                             </div>
                         </div>
@@ -473,6 +475,8 @@
                             </button>
                         </div>
                     </form>
+
+
 
                     {{-- Live preview of existing subs for selected class --}}
                     <div id="active-subs-preview" class="mt-5 hidden">

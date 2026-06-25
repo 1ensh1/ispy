@@ -1,4 +1,4 @@
-<x-app-layout>
+<x-app-layout title="Classes">
     @php
         $studentCap = 20;
     @endphp
