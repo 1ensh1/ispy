@@ -1,17 +1,22 @@
 #!/bin/bash
-set -e
 
 # Create storage directories
 mkdir -p storage/framework/{sessions,views,cache} storage/logs bootstrap/cache
-chmod -R 777 storage bootstrap/cache
+chmod -R 777 storage bootstrap/cache 2>/dev/null || true
 
-# Cache config at runtime (when env vars are available)
-php artisan config:cache
-php artisan route:cache
-php artisan view:cache
+echo "=== Starting iSpy ==="
+echo "PORT=$PORT"
+echo "DB_CONNECTION=$DB_CONNECTION"
+echo "DB_HOST=$DB_HOST"
+echo "APP_KEY set: $([ -n "$APP_KEY" ] && echo 'YES' || echo 'NO')"
 
-# Run migrations (non-blocking)
-php artisan migrate --force || echo "Migration skipped or failed"
+# Clear any stale config cache
+php artisan config:clear 2>&1 || true
 
-# Start the server
-php artisan serve --host=0.0.0.0 --port=${PORT:-8080}
+# Try migration
+echo "=== Running migrations ==="
+php artisan migrate --force 2>&1 || echo "Migration failed - continuing anyway"
+
+# Start server
+echo "=== Starting server on port ${PORT:-8080} ==="
+exec php artisan serve --host=0.0.0.0 --port=${PORT:-8080}
