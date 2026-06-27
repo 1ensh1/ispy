@@ -28,7 +28,6 @@
                     <tr>
                         <th class="px-6 py-4 font-medium">Student</th>
                         <th class="px-6 py-4 font-medium">Parent</th>
-                        <th class="px-6 py-4 font-medium">Parent Password</th>
                         <th class="px-6 py-4 font-medium">Status</th>
                     </tr>
                 </thead>
@@ -49,13 +48,6 @@
                             @endif
                         </td>
                         <td class="px-6 py-4">
-                            @if($student->parent_password)
-                                <span class="font-mono text-sm text-gray-800 tracking-widest select-all">{{ $student->parent_password }}</span>
-                            @else
-                                <span class="text-gray-400 text-xs">—</span>
-                            @endif
-                        </td>
-                        <td class="px-6 py-4">
                             @if($student->parentUser)
                                 <span class="px-3 py-1 rounded-full text-[11px] font-medium bg-teal-500 text-white tracking-wide">Complete</span>
                             @else
@@ -65,7 +57,7 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="4" class="px-6 py-12 text-center text-gray-400">
+                        <td colspan="3" class="px-6 py-12 text-center text-gray-400">
                             <i data-lucide="users" class="w-8 h-8 mx-auto mb-2 opacity-40"></i>
                             <p class="text-sm">No students assigned to your class yet.</p>
                         </td>

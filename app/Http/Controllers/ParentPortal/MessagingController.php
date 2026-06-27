@@ -14,18 +14,58 @@ use Illuminate\Support\Facades\DB;
 class MessagingController extends Controller
 {
     use LogsActivity;
-    public function index()
+    public function index(Request $request)
     {
         $parent  = ParentProfile::where('user_id', auth()->id())->firstOrFail();
         $student = $parent->students()->active()->with('classList.teacher')->first();
-        $teacher = $student?->classList?->teacher;
 
+        // Ensure a thread exists for every teacher across the parent's students'
+        // class_subjects (sole source of truth) before listing conversations.
+        EngagementRecord::provisionForParent($parent->id);
+
+        // Teacher IDs with a CURRENT live class link, computed fresh each load.
+        // Stale records (link gone) are hidden — never deleted — and reappear
+        // with full history if the class relationship is later restored.
+        $validTeacherIds = EngagementRecord::validTeacherIdsForParent($parent->id);
+
+        // Conversations for this parent, filtered to currently-valid relationships.
+        $conversations = EngagementRecord::where('parent_id', $parent->id)
+            ->whereIn('teacher_id', $validTeacherIds)
+            ->with('teacher')
+            ->get();
+
+        foreach ($conversations as $conv) {
+            $conv->latestMessage = DB::table('messages')
+                ->where('engagement_id', $conv->id)
+                ->orderByDesc('sent_at')
+                ->first();
+            $conv->unreadCount = DB::table('messages')
+                ->where('engagement_id', $conv->id)
+                ->where('sender_role', 'Teacher')
+                ->where('is_read', false)
+                ->count();
+        }
+
+        // Resolve the active conversation from ?engagement_id, default to the first.
         $engagement = null;
-        $messages   = collect();
+        if ($request->filled('engagement_id')) {
+            $engagement = $conversations->firstWhere('id', (int) $request->engagement_id);
+            abort_if(! $engagement, 403);
+        } else {
+            $engagement = $conversations->first();
+        }
 
-        if ($teacher) {
-            $engagement = EngagementRecord::firstOrCreate(
-                ['parent_id' => $parent->id, 'teacher_id' => $teacher->id]
+        $teacher         = null;
+        $messages        = collect();
+        $activeClassName = null;
+
+        if ($engagement) {
+            $teacher = $engagement->teacher;
+
+            // Class label from the CURRENT live link (not a stale stored value).
+            $activeClassName = EngagementRecord::currentClassNameForPair(
+                $parent->id,
+                $engagement->teacher_id
             );
 
             $messages = DB::table('messages')
@@ -37,9 +77,48 @@ class MessagingController extends Controller
                 ->where('engagement_id', $engagement->id)
                 ->where('sender_role', '!=', 'Parent')
                 ->update(['is_read' => true]);
+
+            $engagement->unreadCount = 0;
         }
 
-        return view('parent.messaging', compact('parent', 'student', 'teacher', 'engagement', 'messages'));
+        return view('parent.messaging', compact('parent', 'student', 'teacher', 'engagement', 'messages', 'conversations', 'activeClassName'));
+    }
+
+    /**
+     * Full thread as JSON for instant in-place conversation switching.
+     * Enforces ownership AND the valid-set gate (stale threads are not viewable).
+     */
+    public function thread(Request $request)
+    {
+        $request->validate(['engagement_id' => 'required|integer']);
+
+        $parent     = ParentProfile::where('user_id', auth()->id())->firstOrFail();
+        $engagement = EngagementRecord::with('teacher')->find($request->integer('engagement_id'));
+
+        abort_if(
+            ! $engagement
+            || $engagement->parent_id !== $parent->id
+            || ! in_array((int) $engagement->teacher_id, EngagementRecord::validTeacherIdsForParent($parent->id), true),
+            403
+        );
+
+        $messages = DB::table('messages')
+            ->where('engagement_id', $engagement->id)
+            ->orderBy('id', 'asc')
+            ->get(['id', 'sender_role', 'message_body', 'sent_at']);
+
+        // Mirror index(): opening the thread marks Teacher-sent messages read.
+        DB::table('messages')
+            ->where('engagement_id', $engagement->id)
+            ->where('sender_role', '!=', 'Parent')
+            ->where('is_read', false)
+            ->update(['is_read' => true]);
+
+        return response()->json([
+            'messages'         => $messages,
+            'counterpart_name' => $engagement->teacher?->name ?? 'Unknown Teacher',
+            'class_name'       => EngagementRecord::currentClassNameForPair($parent->id, $engagement->teacher_id),
+        ]);
     }
 
     public function store(Request $request)
@@ -59,6 +138,12 @@ class MessagingController extends Controller
             : null;
 
         abort_if(!$engagement, 403);
+
+        // Valid-set gate: a stale thread (class link removed) cannot be posted to.
+        abort_if(
+            ! in_array((int) $engagement->teacher_id, EngagementRecord::validTeacherIdsForParent($parent->id), true),
+            403
+        );
 
         DB::table('messages')->insert([
             'engagement_id' => $engagement->id,
@@ -97,7 +182,9 @@ class MessagingController extends Controller
         $parent     = ParentProfile::where('user_id', auth()->id())->firstOrFail();
         $engagement = EngagementRecord::find($request->integer('engagement_id'));
 
-        if (! $engagement || $engagement->parent_id !== $parent->id) {
+        if (! $engagement
+            || $engagement->parent_id !== $parent->id
+            || ! in_array((int) $engagement->teacher_id, EngagementRecord::validTeacherIdsForParent($parent->id), true)) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 
@@ -130,7 +217,9 @@ class MessagingController extends Controller
         $parent     = ParentProfile::where('user_id', auth()->id())->firstOrFail();
         $engagement = EngagementRecord::find($request->integer('engagement_id'));
 
-        if (! $engagement || $engagement->parent_id !== $parent->id) {
+        if (! $engagement
+            || $engagement->parent_id !== $parent->id
+            || ! in_array((int) $engagement->teacher_id, EngagementRecord::validTeacherIdsForParent($parent->id), true)) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 

@@ -39,6 +39,7 @@ class ProgressController extends Controller
 
             $scansByDate = DB::table('captured_objects')
                 ->where('student_id', $student->id)
+                ->whereNull('archived_at')
                 ->where('captured_at', '>=', now()->subDays(13)->startOfDay())
                 ->selectRaw('DATE(captured_at) as date, COUNT(*) as scans')
                 ->groupBy('date')
