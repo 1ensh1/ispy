@@ -59,9 +59,11 @@ class ProficiencyController extends Controller
                 ->avg('student_progress.score') ?? 0;
 
             $totalCaptures = DB::table('captured_objects')
-                ->where('student_id', $student->id)->count();
+                ->where('student_id', $student->id)
+                ->whereNull('archived_at')->count();
             $successCaptures = DB::table('captured_objects')
                 ->where('student_id', $student->id)
+                ->whereNull('archived_at')
                 ->where('is_successful_match', true)->count();
             $objRecogn = $totalCaptures > 0 ? ($successCaptures / $totalCaptures) : 0;
 

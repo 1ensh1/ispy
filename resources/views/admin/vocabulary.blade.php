@@ -2,6 +2,7 @@
     <div x-data="{
             addOpen: false,
             editOpen: false,
+            audioBust: Date.now(),
             word: {
                 id: null,
                 filipino_label: '',
@@ -19,15 +20,45 @@
                 current_category: '',
                 current_status: ''
             },
+            closeAdd() {
+                this.addOpen = false;
+                var modal = document.getElementById('add-word-modal');
+                if (modal) {
+                    var imageFile = modal.querySelector('input[name=image]');
+                    if (imageFile) imageFile.value = '';
+                }
+            },
             openEdit(w) {
                 this.word = w;
+                this.audioBust = Date.now();
                 this.editOpen = true;
                 this.$nextTick(() => {
                     const cat = document.getElementById('edit_category');
                     if (cat) cat.value = w.category;
                 });
             },
-            closeEdit() { this.editOpen = false; }
+            closeEdit() {
+                this.editOpen = false;
+                var penEn  = document.getElementById('pending-en-audio-url');
+                var penFil = document.getElementById('pending-fil-audio-url');
+                if (penEn)  penEn.value  = '';
+                if (penFil) penFil.value = '';
+                var enPlayer  = document.getElementById('edit-en-audio-player');
+                var filPlayer = document.getElementById('edit-fil-audio-player');
+                if (enPlayer)  { enPlayer.src = ''; enPlayer.load(); }
+                if (filPlayer) { filPlayer.src = ''; filPlayer.load(); }
+                var msg = document.getElementById('regen-audio-msg');
+                if (msg) msg.style.display = 'none';
+                var modal = document.getElementById('edit-word-modal');
+                if (modal) {
+                    var enAudioFile  = modal.querySelector('input[name=english_audio]');
+                    var filAudioFile = modal.querySelector('input[name=filipino_audio]');
+                    var imageFile    = modal.querySelector('input[name=image]');
+                    if (enAudioFile)  enAudioFile.value  = '';
+                    if (filAudioFile) filAudioFile.value = '';
+                    if (imageFile)    imageFile.value    = '';
+                }
+            }
          }"
          class="p-6 max-w-7xl mx-auto relative">
 
@@ -264,16 +295,16 @@
         </div>
 
         {{-- ===================== ADD WORD MODAL ===================== --}}
-        <div x-show="addOpen"
+        <div x-show="addOpen" id="add-word-modal"
              style="display: none;"
              class="fixed inset-0 z-50 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center p-4">
 
-            <div @click.away="addOpen = false"
+            <div @click.away="closeAdd()"
                  class="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
 
                 <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50">
                     <h3 class="text-lg font-bold text-gray-900">Add New Word</h3>
-                    <button @click="addOpen = false" class="text-gray-400 hover:text-gray-600 transition-colors">
+                    <button @click="closeAdd()" class="text-gray-400 hover:text-gray-600 transition-colors">
                         <i data-lucide="x" class="w-5 h-5"></i>
                     </button>
                 </div>
@@ -318,7 +349,7 @@
                     </p>
 
                     <div class="pt-2 flex gap-3 justify-end">
-                        <button type="button" @click="addOpen = false"
+                        <button type="button" @click="closeAdd()"
                                 class="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
                             Cancel
                         </button>
@@ -332,7 +363,7 @@
         </div>
 
         {{-- ===================== EDIT WORD MODAL ===================== --}}
-        <div x-show="editOpen"
+        <div x-show="editOpen" id="edit-word-modal"
              style="display: none;"
              class="fixed inset-0 z-50 bg-gray-900/50 backdrop-blur-sm flex items-center justify-center p-4">
 
@@ -358,6 +389,8 @@
                     <input type="hidden" name="current_category" :value="word.current_category">
                     <input type="hidden" name="current_status"   :value="word.current_status">
                     <input type="hidden" id="edit-word-id"       :value="word.id">
+                    <input type="hidden" name="pending_english_audio_url" id="pending-en-audio-url" value="">
+                    <input type="hidden" name="pending_filipino_audio_url" id="pending-fil-audio-url" value="">
 
                     <div class="grid grid-cols-2 gap-4">
                         <div>
@@ -425,7 +458,7 @@
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">English Audio</label>
                                 <div id="edit-en-audio-wrap" x-show="word.english_audio_url" class="mb-2">
-                                    <audio id="edit-en-audio-player" :src="word.english_audio_url" controls
+                                    <audio id="edit-en-audio-player" :src="word.english_audio_url ? (word.english_audio_url + '?t=' + audioBust) : ''" controls
                                            class="w-full rounded"></audio>
                                 </div>
                                 <p id="edit-en-audio-placeholder" x-show="!word.english_audio_url" class="mb-2 text-xs text-gray-400">No audio yet.</p>
@@ -435,7 +468,7 @@
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Filipino Audio</label>
                                 <div id="edit-fil-audio-wrap" x-show="word.filipino_audio_url" class="mb-2">
-                                    <audio id="edit-fil-audio-player" :src="word.filipino_audio_url" controls
+                                    <audio id="edit-fil-audio-player" :src="word.filipino_audio_url ? (word.filipino_audio_url + '?t=' + audioBust) : ''" controls
                                            class="w-full rounded"></audio>
                                 </div>
                                 <p id="edit-fil-audio-placeholder" x-show="!word.filipino_audio_url" class="mb-2 text-xs text-gray-400">No audio yet.</p>
@@ -604,8 +637,12 @@
             if (editBtn && filipinoUrl) editBtn.dataset.filipinoAudioUrl = filipinoUrl;
         }
 
-        async function postGenerateAudio(wordId) {
+        async function postGenerateAudio(wordId, englishLabel, filipinoLabel, defer) {
             var csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+            var payload   = { vocabulary_id: wordId };
+            if (englishLabel)  payload.english_label  = englishLabel;
+            if (filipinoLabel) payload.filipino_label = filipinoLabel;
+            if (defer) payload.defer = true;
             var response  = await fetch(genAudioUrl, {
                 method: 'POST',
                 headers: {
@@ -613,7 +650,7 @@
                     'X-CSRF-TOKEN': csrfToken,
                     'Accept': 'application/json',
                 },
-                body: JSON.stringify({ vocabulary_id: wordId }),
+                body: JSON.stringify(payload),
             });
             return response.json();
         }
@@ -658,6 +695,8 @@
             var btn     = document.getElementById('regen-audio-btn');
             var msg     = document.getElementById('regen-audio-msg');
             var wordId  = document.getElementById('edit-word-id').value;
+            var englishLabel  = document.querySelector('input[name="english_label"][x-model]')?.value ?? null;
+            var filipinoLabel = document.querySelector('input[name="filipino_label"][x-model]')?.value ?? null;
 
             var original      = btn.innerHTML;
             btn.disabled      = true;
@@ -667,7 +706,7 @@
             msg.style.display = 'none';
 
             try {
-                var data = await postGenerateAudio(wordId);
+                var data = await postGenerateAudio(wordId, englishLabel, filipinoLabel, true);
 
                 if (data.success) {
                     var enPlayer  = document.getElementById('edit-en-audio-player');
@@ -678,26 +717,22 @@
                     var filPH     = document.getElementById('edit-fil-audio-placeholder');
 
                     if (enPlayer && data.english_audio_url) {
-                        enPlayer.src         = data.english_audio_url;
+                        enPlayer.src = data.english_audio_url + '?t=' + Date.now();
                         enPlayer.load();
                         enWrap.style.display = 'block';
                         if (enPH) enPH.style.display = 'none';
                     }
                     if (filPlayer && data.filipino_audio_url) {
-                        filPlayer.src         = data.filipino_audio_url;
+                        filPlayer.src = data.filipino_audio_url + '?t=' + Date.now();
                         filPlayer.load();
                         filWrap.style.display = 'block';
                         if (filPH) filPH.style.display = 'none';
                     }
 
-                    // Update the edit button's data attributes on the table row so the
-                    // modal reflects new URLs if closed and re-opened without a page reload.
-                    var tableRow = document.querySelector('tr.vocab-row[data-vocab-id="' + wordId + '"]');
-                    if (tableRow) {
-                        markAudioComplete(tableRow, data.english_audio_url, data.filipino_audio_url);
-                    }
+                    document.getElementById('pending-en-audio-url').value  = data.english_audio_url || '';
+                    document.getElementById('pending-fil-audio-url').value = data.filipino_audio_url || '';
 
-                    msg.textContent   = 'Audio regenerated successfully.';
+                    msg.textContent   = 'Audio regenerated successfully — click Save Changes to keep it.';
                     msg.style.color   = '#15803d';
                     msg.style.display = 'block';
                 } else {
