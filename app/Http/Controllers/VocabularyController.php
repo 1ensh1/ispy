@@ -160,6 +160,13 @@ class VocabularyController extends Controller
             }
         }
 
+        if (! isset($data['filipino_audio_url']) && $request->filled('pending_filipino_audio_url')) {
+            $data['filipino_audio_url'] = $request->input('pending_filipino_audio_url');
+        }
+        if (! isset($data['english_audio_url']) && $request->filled('pending_english_audio_url')) {
+            $data['english_audio_url'] = $request->input('pending_english_audio_url');
+        }
+
         $filipinoUrl = $data['filipino_audio_url'] ?? $vocabulary->filipino_audio_url;
         $englishUrl  = $data['english_audio_url']  ?? $vocabulary->english_audio_url;
 
@@ -246,28 +253,38 @@ class VocabularyController extends Controller
             $tts      = new GoogleTTSService;
             $supabase = new SupabaseStorageService;
 
+            $englishLabel  = $request->input('english_label')  ?? $vocabulary->english_label;
+            $filipinoLabel = $request->input('filipino_label') ?? $vocabulary->filipino_label;
+
             $englishBinary = $tts->synthesize(
-                $vocabulary->english_label,
+                $englishLabel,
                 config('services.google_tts.language_en'),
                 config('services.google_tts.voice_en')
             );
 
             $filipinoBinary = $tts->synthesize(
-                $vocabulary->filipino_label,
+                $filipinoLabel,
                 config('services.google_tts.language_fil'),
                 config('services.google_tts.voice_fil')
             );
 
+            // Deferred (modal preview) regenerate uploads to a unique temp path so it does
+            // not overwrite the live {id}_*.mp3 until the user clicks Save. Cancelled previews
+            // leave orphan {id}_*_{timestamp}.mp3 files that can be cleaned up later.
+            $suffix      = $request->boolean('defer') ? ('_' . time()) : '';
+            $enFilename  = $vocabulary->id . '_en'  . $suffix . '.mp3';
+            $filFilename = $vocabulary->id . '_fil' . $suffix . '.mp3';
+
             $englishUrl = $supabase->uploadImage(
                 $englishBinary,
-                $vocabulary->id . '_en.mp3',
+                $enFilename,
                 'audio',
                 'audio/mpeg'
             );
 
             $filipinoUrl = $supabase->uploadImage(
                 $filipinoBinary,
-                $vocabulary->id . '_fil.mp3',
+                $filFilename,
                 'audio',
                 'audio/mpeg'
             );
@@ -279,11 +296,13 @@ class VocabularyController extends Controller
                 ]);
             }
 
-            $vocabulary->update([
-                'english_audio_url'  => $englishUrl,
-                'filipino_audio_url' => $filipinoUrl,
-                'audio_status'       => 'Complete',
-            ]);
+            if (! $request->boolean('defer')) {
+                $vocabulary->update([
+                    'english_audio_url'  => $englishUrl,
+                    'filipino_audio_url' => $filipinoUrl,
+                    'audio_status'       => 'Complete',
+                ]);
+            }
 
             return response()->json([
                 'success'            => true,

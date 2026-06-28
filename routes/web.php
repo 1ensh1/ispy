@@ -217,6 +217,7 @@ Route::prefix('teacher')->middleware(['auth', 'teacher'])->group(function () {
     // Messaging
     Route::get('/messaging',  [TeacherMessagingController::class,   'index'])->name('teacher.messaging');
     Route::get('/messaging/poll',        [TeacherMessagingController::class, 'poll'])->name('teacher.messaging.poll');
+    Route::get('/messaging/thread',      [TeacherMessagingController::class, 'thread'])->name('teacher.messaging.thread');
     Route::post('/messaging/ajax-store', [TeacherMessagingController::class, 'ajaxStore'])->name('teacher.messaging.ajax.store');
     Route::post('/messaging', [TeacherMessagingController::class,   'store'])->name('teacher.messaging.store');
 
@@ -279,6 +280,7 @@ Route::prefix('parent')->middleware(['auth', 'parent'])->name('parent.')->group(
     Route::get('/proficiency',            [ParentProficiencyController::class,   'index'])->name('proficiency');
     Route::get('/messaging',              [ParentMessagingController::class,     'index'])->name('messaging');
     Route::get('/messaging/poll',         [ParentMessagingController::class,     'poll'])->name('messaging.poll');
+    Route::get('/messaging/thread',       [ParentMessagingController::class,     'thread'])->name('messaging.thread');
     Route::post('/messaging/ajax-store',  [ParentMessagingController::class,     'ajaxStore'])->name('messaging.ajax.store');
     Route::post('/messaging',             [ParentMessagingController::class,     'store'])->name('messaging.store');
     Route::get('/consultations',          [ParentConsultationsController::class, 'index'])->name('consultations');

@@ -46,6 +46,8 @@
                     $isActive   = $activeEngagement?->id === $eng->id;
                 @endphp
                 <a href="{{ route('teacher.messaging') }}?engagement_id={{ $eng->id }}"
+                   data-engagement-id="{{ $eng->id }}"
+                   data-counterpart="{{ $parentName }}"
                    class="conv-item flex items-center gap-3 px-3 py-3.5 hover:bg-gray-50 transition-colors
                           {{ $isActive ? 'bg-indigo-50 border-r-2 border-indigo-600' : '' }}"
                    data-name="{{ strtolower($parentName) }}">
@@ -57,26 +59,23 @@
                     <div class="flex-1 min-w-0">
                         <div class="flex items-center justify-between gap-1">
                             <p class="text-sm font-semibold text-gray-900 truncate">{{ $parentName }}</p>
-                            @if($lastMsg)
-                                <span class="text-[10px] text-gray-400 shrink-0">
-                                    {{ \Carbon\Carbon::parse($lastMsg->sent_at)->format('h:i A') }}
-                                </span>
-                            @endif
+                            <span class="conv-time text-[10px] text-gray-400 shrink-0">
+                                {{ $lastMsg ? \Carbon\Carbon::parse($lastMsg->sent_at)->format('h:i A') : '' }}
+                            </span>
                         </div>
-                        <p class="text-xs text-gray-500 truncate mt-0.5">
+                        <p class="conv-preview text-xs text-gray-500 truncate mt-0.5">
                             {{ $lastMsg
                                 ? \Illuminate\Support\Str::limit($lastMsg->message_body, 38)
                                 : 'No messages yet' }}
                         </p>
                     </div>
 
-                    @if($unread > 0)
-                        <div class="w-5 h-5 rounded-full bg-indigo-600 flex items-center justify-center shrink-0">
-                            <span class="text-[10px] text-white font-bold leading-none">
-                                {{ $unread > 9 ? '9+' : $unread }}
-                            </span>
-                        </div>
-                    @endif
+                    <div class="conv-unread w-5 h-5 rounded-full bg-indigo-600 flex items-center justify-center shrink-0"
+                         style="{{ $unread > 0 ? '' : 'display:none;' }}">
+                        <span class="text-[10px] text-white font-bold leading-none">
+                            {{ $unread > 9 ? '9+' : $unread }}
+                        </span>
+                    </div>
                 </a>
             @empty
                 <div class="px-4 py-10 text-center text-gray-400 text-sm">
@@ -101,11 +100,11 @@
             {{-- Chat header --}}
             <div class="flex items-center gap-3 px-5 py-4 border-b border-gray-100 shrink-0">
                 <div class="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center shrink-0">
-                    <span class="text-indigo-700 font-semibold text-sm">
+                    <span id="chat-header-avatar" class="text-indigo-700 font-semibold text-sm">
                         {{ strtoupper(substr($parentName, 0, 1)) }}
                     </span>
                 </div>
-                <p class="font-semibold text-gray-900">{{ $parentName }}</p>
+                <p id="chat-header-name" class="font-semibold text-gray-900">{{ $parentName }}</p>
             </div>
 
             {{-- Messages --}}
@@ -170,10 +169,13 @@ document.addEventListener('DOMContentLoaded', function () {
     if (chatArea) chatArea.scrollTop = chatArea.scrollHeight;
 
     // --- Realtime messaging (AJAX send + polling) ---
-    const ENGAGEMENT_ID = {{ $activeEngagement?->id ?? 0 }};
-    const POLL_URL  = "{{ route('teacher.messaging.poll') }}";
-    const STORE_URL = "{{ route('teacher.messaging.ajax.store') }}";
+    // ENGAGEMENT_ID is reassigned on instant conversation switch (see below).
+    let   ENGAGEMENT_ID = {{ $activeEngagement?->id ?? 0 }};
+    const POLL_URL   = "{{ route('teacher.messaging.poll') }}";
+    const THREAD_URL = "{{ route('teacher.messaging.thread') }}";
+    const STORE_URL  = "{{ route('teacher.messaging.ajax.store') }}";
     const CSRF = document.querySelector('meta[name="csrf-token"]')?.content ?? '';
+    const ACTIVE_CLASSES = ['bg-indigo-50', 'border-r-2', 'border-indigo-600'];
 
     // Guard: nothing to do without a valid, active engagement.
     if (!chatArea || !Number.isInteger(ENGAGEMENT_ID) || ENGAGEMENT_ID <= 0) return;
@@ -236,6 +238,112 @@ document.addEventListener('DOMContentLoaded', function () {
         chatArea.scrollTop = chatArea.scrollHeight;
     }
 
+    // --- Live sidebar preview + instant switching helpers ---
+    function truncatePreview(str, n) {
+        str = str == null ? '' : String(str);
+        return str.length > n ? str.slice(0, n) + '...' : str;
+    }
+
+    function updateSidebarEntry(engId, body, sentAt) {
+        const entry = document.querySelector('#conv-list [data-engagement-id="' + engId + '"]');
+        if (!entry) return;
+        const prev = entry.querySelector('.conv-preview');
+        const time = entry.querySelector('.conv-time');
+        if (prev) prev.textContent = truncatePreview(body, 38);
+        if (time) time.textContent = formatTime(sentAt);
+    }
+
+    function setActiveEntry(entry) {
+        document.querySelectorAll('#conv-list .conv-item').forEach(function (el) {
+            ACTIVE_CLASSES.forEach(function (c) { el.classList.remove(c); });
+        });
+        ACTIVE_CLASSES.forEach(function (c) { entry.classList.add(c); });
+        const badge = entry.querySelector('.conv-unread');
+        if (badge) badge.style.display = 'none';
+    }
+
+    function updateHeader(data) {
+        const nameEl = document.getElementById('chat-header-name');
+        const avEl   = document.getElementById('chat-header-avatar');
+        const name   = data.counterpart_name || '';
+        if (nameEl) nameEl.textContent = name;
+        if (avEl)   avEl.textContent   = (name || '?').charAt(0).toUpperCase();
+    }
+
+    function renderThread(data) {
+        chatArea.innerHTML = '';
+        renderedIds.clear();
+        lastMessageId = 0;
+        const msgs = (data && data.messages) || [];
+        if (msgs.length === 0) {
+            chatArea.innerHTML =
+                '<div class="text-center text-gray-400 text-sm py-8">' +
+                    '<i data-lucide="message-square" class="w-8 h-8 mx-auto mb-2 opacity-30"></i>' +
+                    'No messages yet. Start the conversation!' +
+                '</div>';
+        } else {
+            msgs.forEach(function (m) {
+                appendMessage(m);
+                const id = parseInt(m.id, 10);
+                if (Number.isInteger(id) && id > lastMessageId) lastMessageId = id;
+            });
+        }
+        scrollToBottom();
+        if (window.lucide) lucide.createIcons();
+    }
+
+    function showNotice(text) {
+        let n = document.getElementById('msg-notice');
+        if (!n) {
+            n = document.createElement('div');
+            n.id = 'msg-notice';
+            n.className = 'fixed left-1/2 bottom-6 -translate-x-1/2 px-4 py-2 rounded-lg text-white text-sm shadow-lg';
+            n.style.background = '#dc2626';
+            n.style.zIndex = '50';
+            document.body.appendChild(n);
+        }
+        n.textContent = text;
+        n.style.display = 'block';
+        clearTimeout(n._t);
+        n._t = setTimeout(function () { n.style.display = 'none'; }, 3000);
+    }
+
+    function switchThread(engId, entry) {
+        fetch(THREAD_URL + '?engagement_id=' + engId, { headers: { 'Accept': 'application/json' } })
+        .then(function (res) {
+            if (res.status === 403) throw new Error('forbidden');
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            return res.json();
+        })
+        .then(function (data) {
+            ENGAGEMENT_ID = engId;
+            const hidden = document.querySelector('#msg-form input[name="engagement_id"]');
+            if (hidden) hidden.value = engId;
+            updateHeader(data);
+            renderThread(data);
+            setActiveEntry(entry);
+            try { history.replaceState(null, '', '?engagement_id=' + engId); } catch (e) {}
+        })
+        .catch(function (err) {
+            showNotice(err && err.message === 'forbidden'
+                ? 'This conversation is no longer available.'
+                : 'Could not open this conversation. Please try again.');
+        });
+    }
+
+    // Instant switch via event delegation on the conversation list.
+    const convList = document.getElementById('conv-list');
+    if (convList) {
+        convList.addEventListener('click', function (e) {
+            const entry = e.target.closest('.conv-item');
+            if (!entry) return;
+            e.preventDefault();
+            const engId = parseInt(entry.getAttribute('data-engagement-id'), 10);
+            if (!Number.isInteger(engId) || engId === ENGAGEMENT_ID) return;
+            switchThread(engId, entry);
+        });
+    }
+
     // --- AJAX send ---
     const form  = document.getElementById('msg-form');
     const input = document.getElementById('msg-input');
@@ -280,6 +388,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 input.value = '';
                 appendMessage(data.message);
                 lastMessageId = Math.max(lastMessageId, data.message.id);
+                updateSidebarEntry(ENGAGEMENT_ID, data.message.message_body, data.message.sent_at);
                 scrollToBottom();
                 if (window.lucide) lucide.createIcons();
             })
@@ -313,6 +422,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 appendMessage(msg);
             });
             lastMessageId = Math.max(lastMessageId, ...messages.map(function (m) { return m.id; }));
+            const lastMsg = messages[messages.length - 1];
+            updateSidebarEntry(ENGAGEMENT_ID, lastMsg.message_body, lastMsg.sent_at);
             scrollToBottom();
             if (window.lucide) lucide.createIcons();
         })
