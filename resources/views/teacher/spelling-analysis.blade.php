@@ -10,6 +10,22 @@
         <p class="text-sm text-gray-500 mt-1">Analyze common spelling errors and phoneme breakdowns</p>
     </div>
 
+    @if($topCount > 0)
+    <div style="display:flex; align-items:center; gap:0.625rem;
+                background:#eff6ff; border:1px solid #bfdbfe;
+                border-radius:0.75rem; padding:0.625rem 1rem;
+                width:fit-content;">
+        <i data-lucide="alert-circle"
+           style="width:1rem;height:1rem;color:#2563eb;flex-shrink:0;"></i>
+        <p style="font-size:0.875rem; color:#1e40af; margin:0;">
+            <span style="font-weight:600;">{{ strtoupper($topPhoneme) }}</span>
+            is the most error-prone phoneme with
+            <span style="font-weight:600;">{{ $topCount }}</span>
+            {{ Str::plural('error', $topCount) }} across your class.
+        </p>
+    </div>
+    @endif
+
     {{-- Two-panel grid --}}
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
 
@@ -38,9 +54,9 @@
                 $phonemeList = ['a','e','i','o','u','k','t','s','n','l','p','r'];
 
                 function phonemeBg(int $count): string {
-                    if ($count >= 70) return '#dc2626';
-                    if ($count >= 50) return '#ea580c';
-                    if ($count >= 30) return '#ca8a04';
+                    if ($count >= 15) return '#dc2626';
+                    if ($count >= 10) return '#ea580c';
+                    if ($count >= 5) return '#ca8a04';
                     return '#16a34a';
                 }
 
@@ -110,6 +126,14 @@
             responsive: true,
             plugins: {
                 legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return context.parsed.y + ' spelling error' +
+                                   (context.parsed.y === 1 ? '' : 's');
+                        }
+                    }
+                },
             },
             scales: {
                 y: {

@@ -19,6 +19,31 @@
         </button>
     </div>
 
+    {{-- Filters --}}
+    <form method="GET" action="{{ route('teacher.annotations') }}"
+          style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
+        <input type="hidden" name="active_class_id" value="{{ request('active_class_id') }}">
+        <select name="student_id"
+                style="padding:0.5rem 0.75rem; border:1px solid #d1d5db; border-radius:0.5rem;
+                       font-size:0.875rem; color:#111827; background:#ffffff; outline:none;">
+            <option value="">All Students</option>
+            @foreach($students as $student)
+                <option value="{{ $student->id }}" @selected(request('student_id') == $student->id)>{{ $student->name }}</option>
+            @endforeach
+        </select>
+        <select name="sort"
+                style="padding:0.5rem 0.75rem; border:1px solid #d1d5db; border-radius:0.5rem;
+                       font-size:0.875rem; color:#111827; background:#ffffff; outline:none;">
+            <option value="desc" @selected(request('sort', 'desc') === 'desc')>Newest First</option>
+            <option value="asc" @selected(request('sort') === 'asc')>Oldest First</option>
+        </select>
+        <button type="submit"
+                style="padding:0.5rem 1rem; border:none; border-radius:0.5rem;
+                       background:#2563eb; color:#ffffff; font-size:0.875rem; font-weight:600; cursor:pointer;">
+            Filter
+        </button>
+    </form>
+
     {{-- Annotation list --}}
     @if($annotations->isEmpty())
         <div style="display:flex; flex-direction:column; align-items:center; justify-content:center;
@@ -128,6 +153,7 @@
                         Date
                     </label>
                     <input type="date" name="annotation_date" id="annotation-date" required
+                           max="{{ date('Y-m-d') }}"
                            style="width:100%; padding:0.5rem 0.75rem; border:1px solid #d1d5db; border-radius:0.5rem;
                                   font-size:0.875rem; color:#111827; background:#ffffff; outline:none; box-sizing:border-box;">
                 </div>

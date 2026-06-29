@@ -81,7 +81,13 @@
                                 <td class="px-4 py-3 font-medium {{ $isArchived ? 'text-gray-500' : 'text-gray-900' }}">
                                     {{ $class->class_name }}
                                 </td>
-                                <td class="px-4 py-3 font-mono text-xs text-gray-500">{{ $class->unified_classroom_pin }}</td>
+                                <td class="px-4 py-3 font-mono text-xs text-gray-500">
+                                    @if($classHasTeacher[$class->id] ?? false)
+                                        {{ $class->unified_classroom_pin }}
+                                    @else
+                                        <span class="text-gray-300">—</span>
+                                    @endif
+                                </td>
                                 <td class="px-4 py-3">
                                     @if($subjects->isNotEmpty())
                                         {{ $subjects->implode(', ') }}

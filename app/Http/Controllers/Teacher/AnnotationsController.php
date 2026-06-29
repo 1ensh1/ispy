@@ -25,10 +25,16 @@ class AnnotationsController extends Controller
             ->whereNull('archived_at')
             ->pluck('id');
 
-        $annotations = TeacherAnnotation::whereIn('student_id', $studentIds)
-            ->with('student')
-            ->orderByDesc('annotation_date')
-            ->orderByDesc('created_at')
+        $query = TeacherAnnotation::whereIn('student_id', $studentIds)
+            ->with('student');
+
+        if ($request->filled('student_id')) {
+            $query->where('student_id', $request->student_id);
+        }
+
+        $sort = $request->input('sort', 'desc');
+        $annotations = $query->orderBy('annotation_date', $sort)
+            ->orderBy('created_at', $sort)
             ->get();
 
         return view('teacher.annotations', compact('annotations', 'students'));

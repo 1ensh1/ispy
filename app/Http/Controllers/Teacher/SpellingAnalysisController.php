@@ -42,21 +42,35 @@ class SpellingAnalysisController extends Controller
                 $barChartData['data'][]   = $count;
             }
 
-            $phonemes  = array_keys($phonemeCounts);
-            $allErrors = StudentProgress::whereIn('student_id', $studentIds)
-                ->whereNotNull('errors')
-                ->pluck('errors');
+            foreach ($errorRows as $row) {
+                $attempt = strtoupper(trim((string) ($row->errors[0] ?? '')));
+                $correct = strtoupper(trim((string) ($row->vocabulary?->english_label ?? '')));
+                if ($attempt === '' || $correct === '') continue;
 
-            foreach ($allErrors as $errArray) {
-                foreach ((array) $errArray as $err) {
-                    $lower = strtolower((string) $err);
-                    foreach ($phonemes as $letter) {
-                        $phonemeCounts[$letter] += substr_count($lower, $letter);
+                $maxLen = max(strlen($attempt), strlen($correct));
+                $attempt = str_pad($attempt, $maxLen, '*');
+                $correct = str_pad($correct, $maxLen, '*');
+
+                for ($i = 0; $i < $maxLen; $i++) {
+                    if ($attempt[$i] !== $correct[$i]) {
+                        $phoneme = strtolower($correct[$i]);
+                        if (array_key_exists($phoneme, $phonemeCounts)) {
+                            $phonemeCounts[$phoneme]++;
+                        }
                     }
                 }
             }
         }
 
-        return view('teacher.spelling-analysis', compact('barChartData', 'phonemeCounts'));
+        $topPhoneme = '';
+        $topCount   = 0;
+        foreach ($phonemeCounts as $letter => $count) {
+            if ($count > $topCount) {
+                $topPhoneme = $letter;
+                $topCount   = $count;
+            }
+        }
+
+        return view('teacher.spelling-analysis', compact('barChartData', 'phonemeCounts', 'topPhoneme', 'topCount'));
     }
 }

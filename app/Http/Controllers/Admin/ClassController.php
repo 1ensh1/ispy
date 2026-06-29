@@ -48,7 +48,11 @@ class ClassController extends Controller
             $classes = $active;
         }
 
-        return view('admin.classes.index', compact('classes', 'showArchived', 'totalActive'));
+        $classHasTeacher = $classes->mapWithKeys(fn ($c) => [
+            $c->id => $c->classSubjects->isNotEmpty(),
+        ])->all();
+
+        return view('admin.classes.index', compact('classes', 'showArchived', 'totalActive', 'classHasTeacher'));
     }
 
     /**

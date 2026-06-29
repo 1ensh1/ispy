@@ -295,13 +295,39 @@
                                 </p>
                             @endif
                             <h3 class="font-bold mt-2" style="font-size: 1.2rem; color: #1e3a5f;">{{ $a->title }}</h3>
-                            <p class="mt-3 text-gray-600"
-                               style="font-size: 0.95rem; line-height: 1.65; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;">
-                                {{ $a->body }}
+                            <p class="mt-3 text-gray-600" style="font-size: 0.95rem; line-height: 1.65;">
+                                {{ \Illuminate\Support\Str::limit($a->body, 120) }}
+                                @if(mb_strlen($a->body) > 120)
+                                    <a href="javascript:void(0)" class="font-semibold announcement-readmore"
+                                       style="color: #f5a623;"
+                                       data-title="{{ $a->title }}"
+                                       data-body="{{ $a->body }}"
+                                       data-date="{{ $a->published_at ? $a->published_at->format('F d, Y') : '' }}"
+                                       data-image="{{ $a->image_url }}">Read more</a>
+                                @endif
                             </p>
                         </div>
                     </article>
                 @endforeach
+            </div>
+
+            {{-- Shared announcement modal (one instance reused by all cards) --}}
+            <div id="announcement-modal" style="display: none; position: fixed; inset: 0; z-index: 100;">
+                <div id="announcement-modal-backdrop" style="position: absolute; inset: 0; background-color: rgba(15,23,42,0.6);"></div>
+                <div class="flex items-center justify-center" style="position: absolute; inset: 0; padding: 20px;">
+                    <div class="bg-white relative overflow-hidden" style="width: 100%; max-width: 560px; border-radius: 16px; box-shadow: 0 20px 50px rgba(15,23,42,0.3); max-height: 90vh; overflow-y: auto;">
+                        <button type="button" id="announcement-modal-close"
+                                class="absolute flex items-center justify-center text-gray-500 bg-white"
+                                style="top: 12px; right: 12px; width: 36px; height: 36px; border-radius: 9999px; font-size: 1.6rem; line-height: 1; box-shadow: 0 2px 8px rgba(0,0,0,0.15); z-index: 1;">&times;</button>
+                        <img id="announcement-modal-image" src="" alt=""
+                             style="display: none; width: 100%; max-height: 240px; object-fit: cover;">
+                        <div style="padding: 24px 26px;">
+                            <p id="announcement-modal-date" class="text-xs font-semibold uppercase tracking-wider" style="color: #f5a623;"></p>
+                            <h3 id="announcement-modal-title" class="font-bold mt-2" style="font-size: 1.5rem; color: #1e3a5f;"></h3>
+                            <p id="announcement-modal-body" class="mt-4 text-gray-600" style="font-size: 0.97rem; line-height: 1.7; white-space: pre-line;"></p>
+                        </div>
+                    </div>
+                </div>
             </div>
         @endif
     </div>
@@ -347,6 +373,52 @@
         </div>
     </div>
 </footer>
+
+<script>
+    (function () {
+        var modal   = document.getElementById('announcement-modal');
+        if (!modal) return;
+
+        var backdrop  = document.getElementById('announcement-modal-backdrop');
+        var closeBtn  = document.getElementById('announcement-modal-close');
+        var modalImg  = document.getElementById('announcement-modal-image');
+        var modalDate = document.getElementById('announcement-modal-date');
+        var modalTtl  = document.getElementById('announcement-modal-title');
+        var modalBody = document.getElementById('announcement-modal-body');
+
+        function openModal(link) {
+            var img = link.getAttribute('data-image');
+            if (img) {
+                modalImg.src = img;
+                modalImg.alt = link.getAttribute('data-title') || '';
+                modalImg.style.display = 'block';
+            } else {
+                modalImg.src = '';
+                modalImg.style.display = 'none';
+            }
+            modalDate.textContent = link.getAttribute('data-date') || '';
+            modalTtl.textContent  = link.getAttribute('data-title') || '';
+            modalBody.textContent = link.getAttribute('data-body') || '';
+            modal.style.display = 'block';
+        }
+
+        function closeModal() {
+            modal.style.display = 'none';
+            modalImg.src = '';
+            modalImg.style.display = 'none';
+            modalDate.textContent = '';
+            modalTtl.textContent  = '';
+            modalBody.textContent = '';
+        }
+
+        document.querySelectorAll('.announcement-readmore').forEach(function (link) {
+            link.addEventListener('click', function () { openModal(link); });
+        });
+
+        closeBtn.addEventListener('click', closeModal);
+        backdrop.addEventListener('click', closeModal);
+    })();
+</script>
 
 <script src="https://unpkg.com/lucide@latest"></script>
 <script>lucide.createIcons();</script>
