@@ -4,6 +4,7 @@ cmds = [
     'npm ci',
     'npm run build',
     'mkdir -p storage/framework/{sessions,views,cache,testing} storage/logs bootstrap/cache',
+    'printf "%s" "$GOOGLE_TTS_JSON" > storage/google-tts.json',
     'chmod -R 777 storage bootstrap/cache',
     'chmod +x start.sh'
 ]

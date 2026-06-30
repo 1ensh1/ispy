@@ -222,7 +222,7 @@
         {{-- ── Tab: Appointments ── --}}
         <div id="panel-appointments" class="mt-4 hidden">
             <div class="flex justify-end mb-3">
-                <select onchange="(function(v){const u=new URL(window.location.href);u.searchParams.set('per_page',v);u.searchParams.delete('page');u.searchParams.set('tab','appointments');window.location.assign(u.toString());})(this.value)"
+                <select onchange="(function(v){const u=new window.URL(window.location.href);u.searchParams.set('per_page',v);u.searchParams.delete('page');u.searchParams.set('tab','appointments');window.location.assign(u.toString());})(this.value)"
                         class="px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white text-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-400/30">
                     <option value="10" {{ $perPage === 10 ? 'selected' : '' }}>10 / page</option>
                     <option value="20" {{ $perPage === 20 ? 'selected' : '' }}>20 / page</option>
