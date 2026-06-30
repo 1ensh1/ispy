@@ -9,14 +9,8 @@
     <div class="flex flex-col border-r border-gray-200 shrink-0" style="width:280px;">
 
         <div class="px-3 py-3 border-b border-gray-100 shrink-0">
-            <div class="flex items-center justify-between mb-2 px-1">
+            <div class="mb-2 px-1">
                 <h2 class="text-sm font-semibold text-gray-800">Messages</h2>
-                <select onchange="(function(v){const u=new URL(window.location.href);u.searchParams.set('per_page',v);u.searchParams.delete('page');window.location.assign(u.toString());})(this.value)"
-                        class="text-xs border border-gray-200 rounded bg-white text-gray-500 focus:outline-none py-0.5 px-1">
-                    <option value="10" {{ $perPage === 10 ? 'selected' : '' }}>10</option>
-                    <option value="20" {{ $perPage === 20 ? 'selected' : '' }}>20</option>
-                    <option value="50" {{ $perPage === 50 ? 'selected' : '' }}>50</option>
-                </select>
             </div>
             <form method="GET" action="{{ route('teacher.messaging') }}" class="relative">
                 <input type="hidden" name="per_page" value="{{ $perPage }}">
@@ -84,9 +78,20 @@
                 </div>
             @endforelse
         </div>
-        @if($engagements->hasPages())
-            <div class="px-2 py-2 border-t border-gray-100 shrink-0 overflow-x-auto">
-                {{ $engagements->links() }}
+        @if($engagements->total() > 0)
+            <div class="flex flex-col gap-1 px-3 py-2 border-t border-gray-100 shrink-0">
+                <select onchange="(function(v){const u=new window.URL(window.location.href);u.searchParams.set('per_page',v);u.searchParams.delete('page');window.location.assign(u.toString());})(this.value)"
+                        class="self-start text-xs border border-gray-200 rounded bg-white text-gray-500 focus:outline-none py-0.5 px-1">
+                    <option value="10" {{ $perPage === 10 ? 'selected' : '' }}>10 / page</option>
+                    <option value="20" {{ $perPage === 20 ? 'selected' : '' }}>20 / page</option>
+                    <option value="50" {{ $perPage === 50 ? 'selected' : '' }}>50 / page</option>
+                </select>
+                <p class="text-xs text-gray-500">
+                    Showing {{ $engagements->firstItem() }}–{{ $engagements->lastItem() }} of {{ $engagements->total() }} results
+                </p>
+                @if($engagements->hasPages())
+                    {{ $engagements->links('vendor.pagination.messaging-links') }}
+                @endif
             </div>
         @endif
     </div>

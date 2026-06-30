@@ -42,7 +42,7 @@
                         class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none bg-white"
                         {{ $teachers->count() === 1 ? 'disabled' : '' }}>
                     @foreach($teachers as $t)
-                        <option value="{{ $t->id }}">{{ $t->name }}</option>
+                        <option value="{{ $t->id }}">{{ $t->name }}@if($t->context) — {{ $t->context }}@endif</option>
                     @endforeach
                 </select>
             </div>
@@ -163,7 +163,8 @@
 
 @push('scripts')
 <script>
-const availableDates = new Set(@json($availableDates));
+const availableDatesByTeacher = @json($availableDatesByTeacher);
+let availableDates  = new Set(@json($availableDates));
 const slotsUrl      = "{{ route('parent.consultations.slots') }}";
 const bookUrl       = "{{ route('parent.consultations.store') }}";
 const csrfToken     = document.querySelector('meta[name="csrf-token"]').content;
@@ -318,8 +319,27 @@ function switchTab(tab) {
     });
 }
 
+function resetSlotsPanel() {
+    document.getElementById('slots-panel').innerHTML =
+        `<div class="bg-white rounded-xl border border-gray-200 shadow-sm p-8 text-center text-gray-400 text-sm">
+            <i data-lucide="calendar" class="w-7 h-7 mx-auto mb-2 opacity-30"></i>
+            Select a date to see available slots.
+         </div>`;
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
 document.addEventListener('DOMContentLoaded', function () {
     renderCalendar();
+
+    // When the parent switches teacher, swap the calendar's available-date dots
+    // to that teacher's slots and clear the previously selected date/slots.
+    document.getElementById('teacher-select')?.addEventListener('change', function () {
+        availableDates = new Set(availableDatesByTeacher[this.value] || []);
+        selectedDate = null;
+        renderCalendar();
+        resetSlotsPanel();
+    });
+
     if (typeof lucide !== 'undefined') lucide.createIcons();
 });
 </script>
