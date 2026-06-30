@@ -45,7 +45,7 @@ return [
     ],
 
     'google_tts' => [
-        'credentials'  => env('GOOGLE_APPLICATION_CREDENTIALS'),
+        'credentials'  => env('GOOGLE_APPLICATION_CREDENTIALS', storage_path('google-tts.json')),
         'language_en'  => env('GOOGLE_TTS_LANGUAGE_EN', 'en-US'),
         'voice_en'     => env('GOOGLE_TTS_VOICE_EN', 'en-US-Standard-C'),
         'language_fil' => env('GOOGLE_TTS_LANGUAGE_FIL', 'fil-PH'),

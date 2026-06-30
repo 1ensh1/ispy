@@ -4,6 +4,12 @@
 mkdir -p storage/framework/{sessions,views,cache} storage/logs bootstrap/cache
 chmod -R 777 storage bootstrap/cache 2>/dev/null || true
 
+# Write Google TTS credentials from base64 env var
+if [ -n "$GOOGLE_TTS_JSON_B64" ]; then
+    echo "$GOOGLE_TTS_JSON_B64" | base64 -d > storage/google-tts.json
+    echo "Google TTS credentials written: $([ -s storage/google-tts.json ] && echo OK || echo FAILED)"
+fi
+
 echo "=== Starting iSpy ==="
 echo "PORT=$PORT"
 echo "DB_CONNECTION=$DB_CONNECTION"
