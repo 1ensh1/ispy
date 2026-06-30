@@ -99,6 +99,20 @@
 
         <div class="form-card">
 
+            <a href="{{ route('landing') }}"
+               style="display:inline-flex; align-items:center; gap:0.4rem;
+                      color:#6b7280; font-size:0.85rem; text-decoration:none;
+                      margin-bottom:1.25rem;"
+               onmouseover="this.style.color='#1e3a5f'"
+               onmouseout="this.style.color='#6b7280'">
+                <svg width="16" height="16" fill="none" stroke="currentColor"
+                     stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                          d="M15 19l-7-7 7-7"/>
+                </svg>
+                Back to Home
+            </a>
+
             <h2 class="text-center font-bold text-gray-900" style="font-size:1.75rem; margin-bottom:0.35rem;">
                 Welcome back
             </h2>
