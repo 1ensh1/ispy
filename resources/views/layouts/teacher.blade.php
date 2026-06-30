@@ -38,9 +38,7 @@
         <aside class="w-64 flex flex-col bg-gray-900 text-gray-300 border-r border-gray-800 shrink-0 min-h-screen">
 
             <div class="flex items-center gap-3 px-4 h-16 border-b border-gray-800">
-                <div class="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold text-sm shrink-0">
-                    iS
-                </div>
+                <img src="{{ asset('images/ispy-logo.png') }}" alt="iSpy World" class="w-8 h-8 rounded-lg object-contain shrink-0">
                 <div class="overflow-hidden whitespace-nowrap">
                     <h1 class="font-bold text-sm text-white leading-tight">iSpy World</h1>
                     <p class="text-[10px] text-gray-400">Teacher Portal</p>
