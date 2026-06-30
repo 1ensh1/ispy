@@ -38,17 +38,43 @@
         <div class="flex items-center shrink-0">
             <img src="{{ asset('images/fma-logo.png') }}" alt="Future Minds Academy" style="height: 48px; width: auto;">
         </div>
-        <div class="flex items-center gap-8">
+        <div class="hidden md:flex items-center gap-8">
             <a href="#about"         class="font-medium hover:opacity-80 transition-opacity" style="color: #e5e7eb; font-size: 0.95rem;">About</a>
             <a href="#download"      class="font-medium hover:opacity-80 transition-opacity" style="color: #e5e7eb; font-size: 0.95rem;">Download</a>
             <a href="#announcements" class="font-medium hover:opacity-80 transition-opacity" style="color: #e5e7eb; font-size: 0.95rem;">Announcements</a>
         </div>
-        <div class="shrink-0">
+        <div class="flex items-center gap-3 shrink-0">
             <a href="{{ route('login') }}"
                class="cms-cta inline-block font-semibold text-white rounded-lg"
                style="background-color: #f5a623; padding: 10px 22px;">
                 Login
             </a>
+            <button id="mobileNavToggle"
+                    class="md:hidden flex items-center justify-center"
+                    style="width: 40px; height: 40px; color: #e5e7eb;"
+                    aria-label="Toggle navigation menu"
+                    aria-expanded="false">
+                <svg id="mobileNavIconOpen" width="24" height="24" fill="none"
+                     stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                          d="M4 6h16M4 12h16M4 18h16"/>
+                </svg>
+                <svg id="mobileNavIconClose" width="24" height="24" fill="none"
+                     stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"
+                     style="display:none;">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                          d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+    </div>
+    <div id="mobileNavPanel" class="md:hidden"
+         style="display:none; background-color: #1e3a5f;
+                border-top: 1px solid rgba(255,255,255,0.08);">
+        <div class="flex flex-col px-6 py-4" style="gap: 16px;">
+            <a href="#about"         class="font-medium" style="color:#e5e7eb; font-size:0.95rem;">About</a>
+            <a href="#download"      class="font-medium" style="color:#e5e7eb; font-size:0.95rem;">Download</a>
+            <a href="#announcements" class="font-medium" style="color:#e5e7eb; font-size:0.95rem;">Announcements</a>
         </div>
     </div>
 </nav>
@@ -373,6 +399,33 @@
         </div>
     </div>
 </footer>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        var toggle    = document.getElementById('mobileNavToggle');
+        var panel     = document.getElementById('mobileNavPanel');
+        var iconOpen  = document.getElementById('mobileNavIconOpen');
+        var iconClose = document.getElementById('mobileNavIconClose');
+        if (!toggle || !panel) return;
+
+        toggle.addEventListener('click', function () {
+            var isOpen = panel.style.display === 'block';
+            panel.style.display = isOpen ? 'none' : 'block';
+            iconOpen.style.display  = isOpen ? 'block' : 'none';
+            iconClose.style.display = isOpen ? 'none'  : 'block';
+            toggle.setAttribute('aria-expanded', isOpen ? 'false' : 'true');
+        });
+
+        panel.querySelectorAll('a').forEach(function (link) {
+            link.addEventListener('click', function () {
+                panel.style.display = 'none';
+                iconOpen.style.display  = 'block';
+                iconClose.style.display = 'none';
+                toggle.setAttribute('aria-expanded', 'false');
+            });
+        });
+    });
+</script>
 
 <script>
     (function () {

@@ -109,6 +109,15 @@
                                         @endif
                                         <input type="file" name="file" accept=".apk,application/vnd.android.package-archive"
                                                class="w-full text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:font-medium file:bg-[#2f5597]/10 file:text-[#2f5597] hover:file:bg-[#2f5597]/20 transition-colors">
+
+                                        <div class="mt-3">
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">Or paste external APK URL (e.g. GitHub Releases link)</label>
+                                            <input type="text" name="file_url" value="{{ $section->file_url ?? '' }}"
+                                                   placeholder="https://github.com/.../releases/download/v1.0.0/app.apk"
+                                                   class="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-[#2f5597] outline-none">
+                                            <p class="mt-1 text-xs text-gray-500">Use this if your APK is larger than 50MB and hosted externally (GitHub Releases, etc). This will override the uploaded file.</p>
+                                            <p class="mt-1 text-xs text-gray-500">Note: if you both upload a file and paste a URL in the same save, the pasted URL takes priority.</p>
+                                        </div>
                                     </div>
                                 @endif
 
@@ -478,6 +487,17 @@
 
         // ---------- Section save (PATCH via POST + _method) ----------
         async function cmsSaveSection(form, key) {
+            // Validate the external APK URL (apk_download only): if provided it must
+            // be an absolute http(s) URL since it is used as a raw download link.
+            if (key === 'apk_download') {
+                const urlField = form.querySelector('[name="file_url"]');
+                const urlVal = urlField ? urlField.value.trim() : '';
+                if (urlVal !== '' && !/^https?:\/\//i.test(urlVal)) {
+                    cmsShowMsg(form, false, 'Please enter a valid URL starting with http:// or https://');
+                    return;
+                }
+            }
+
             const fd = new FormData(form);
             fd.append('_method', 'PATCH');
             fd.set('is_published', form.querySelector('[name="is_published"]').checked ? '1' : '0');
